@@ -171,11 +171,13 @@ jobs:
             echo "pom.xml already at $next — no commit needed."
             exit 0
           fi
-          # Replace only the first (top-level project) <version> element.
-          awk -v v="$next" 'BEGIN{done=0} !done && match($0,/<version>[^<]*<\/version>/){sub(/<version>[^<]*<\/version>/,"<version>" v "</version>"); done=1} {print}' pom.xml > pom.xml.tmp
-          mv pom.xml.tmp pom.xml
+          # Bump the top-level <version> in every module POM (parent + reactor).
+          for pom in pom.xml acruet-core/pom.xml acruet-user-war/pom.xml acruet-admin-war/pom.xml; do
+            awk -v v="$next" 'BEGIN{done=0} !done && match($0,/<version>[^<]*<\/version>/){sub(/<version>[^<]*<\/version>/,"<version>" v "</version>"); done=1} {print}' "$pom" > "$pom.tmp"
+            mv "$pom.tmp" "$pom"
+          done
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pom.xml
+          git add pom.xml acruet-core/pom.xml acruet-user-war/pom.xml acruet-admin-war/pom.xml
           git commit -m "chore(release): set version to ${next}"
           git push origin "HEAD:${HEAD_REF}"
