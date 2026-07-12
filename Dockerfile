@@ -8,7 +8,9 @@ COPY pom.xml .
 COPY acruet-core/pom.xml acruet-core/
 COPY acruet-user-war/pom.xml acruet-user-war/
 COPY acruet-admin-war/pom.xml acruet-admin-war/
-RUN mvn -q -B dependency:go-offline
+# Install parent POM locally, then resolve the reactor (-am pulls in acruet-core).
+RUN mvn -q -B install -N \
+    && mvn -q -B dependency:go-offline -pl acruet-user-war,acruet-admin-war -am
 
 # ---- Build (both WARs) -------------------------------------------------------
 FROM deps AS build
