@@ -8,7 +8,7 @@ import java.util.Optional;
  *
  * <p>Designed to align with CNPG-generated Secret keys injected into the
  * deployment later ({@code host}, {@code port}, {@code dbname}, {@code username},
- * {@code password}).</p>
+ * {@code password})</p>
  */
 public final class DatabaseSettings {
 
