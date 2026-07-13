@@ -79,7 +79,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 1 — Repository scaffold | ✅ Complete (2026-07-12) |
 | 2 — `acruet-cnpg` database | ✅ Complete — cluster healthy, DB connection verified |
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
-| 4 — OIDC sign-in (user + admin) | Pending — code + manifests ready; deploy 0.1.3 + Keycloak bootstrap |
+| 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
 | 5 — Signup + SMTP + verification | Pending |
 | 6 — Admin approval + Keycloak provisioning | Pending |
 | 7 — Client encryption + key lifecycle | Pending |
@@ -257,11 +257,11 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 ---
 
-## Phase 4 — OIDC sign-in (user + admin)
+## Phase 4 — OIDC sign-in (user + admin) ✅ complete (2026-07-12)
 
 **Goal:** Authenticated sessions via Keycloak on both hostnames.
 
-**Status:** Implementation complete in `a-cruet` (0.1.3) and `wise-k8s` (Keycloak clients + deployment env). Pending image release, secret sync, realm-role bootstrap, and functional verify.
+**Status:** Deployed and verified on both hostnames (`acruet` **1.0.0**). Keycloak bootstrap (realm role, client scopes, post-logout URIs) done via console — see `wise-k8s` README todo for GitOps follow-up. **Deferred:** non-admin 403 on admin host (no test user yet).
 
 **Pairs with:** [`KEYCLOAK.md` Phase 5](../wise-k8s/KEYCLOAK.md#phase-5--oidc-client--a-cruet-integration).
 
@@ -274,7 +274,8 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 | Client secrets (SOPS) | `keycloak/base/secrets/acruet-oidc-client.yaml`, `acruet-admin-oidc-client.yaml` |
 | App OIDC env | `acruet/base/deployment-{user,admin}.yaml` |
 | Keycloak Flux decryption | `fluxcd/kustomizations/keycloak.yaml` → `decryption.provider: sops` |
-| Image tag | `acruet/overlays` → `0.1.3` |
+| Image tag | `acruet/overlays` → `1.0.0` |
+| Ingress session affinity | `acruet/base/ingress-{user,admin}.yaml` — cookie affinity for Tomcat sessions |
 
 ### a-cruet
 
@@ -311,13 +312,15 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 ### Verify
 
-| Check | Expected |
-|-------|----------|
-| Unauthenticated `/` on user host | Redirect to Keycloak login |
-| Successful login | Session cookie; landing page |
-| Admin host without role | 403 after OIDC |
-| Admin with role | Admin dashboard shell loads |
-| Logout | Session cleared |
+| Check | Expected | Result |
+|-------|----------|--------|
+| Unauthenticated `/` on user host | Redirect to Keycloak login | ✅ |
+| Successful login | Session cookie; landing page | ✅ |
+| Admin with role | Admin dashboard shell loads | ✅ |
+| Logout | Session cleared; Keycloak SSO logout | ✅ |
+| Admin host without role | 403 after OIDC | ⏳ Deferred — no non-admin test user |
+
+**Verified 2026-07-12:** User + admin OIDC sign-in, admin role gate (with `a-cruet-admin` in client dedicated scope), logout on user host. Manual Keycloak client settings documented in `wise-k8s` README todo.
 
 ---
 
