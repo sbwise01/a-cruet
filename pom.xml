@@ -6,7 +6,7 @@
 
     <groupId>com.bradandmarsha</groupId>
     <artifactId>acruet</artifactId>
-    <version>0.1.2</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <name>a-cruet</name>
@@ -28,6 +28,7 @@
         <junit.version>5.10.1</junit.version>
         <flyway.version>10.4.1</flyway.version>
         <postgresql.version>42.7.2</postgresql.version>
+        <nimbus.jose.jwt.version>9.40</nimbus.jose.jwt.version>
     </properties>
 
     <dependencyManagement>
@@ -75,6 +76,12 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>${nimbus.jose.jwt.version}</version>
             </dependency>
 
             <dependency>

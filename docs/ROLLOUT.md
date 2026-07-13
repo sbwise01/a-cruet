@@ -21,7 +21,7 @@ ingress-nginx (public)  ──►  acruet.home.bradandmarsha.com  ──►  acr
 LAN / homelab network
     │
     ▼
-ingress-nginx-internal  ──►  admin.acruet.home.bradandmarsha.com  ──►  acruet-admin (Tomcat, 1 replica)
+ingress-nginx-internal  ──►  acruet-admin.home.bradandmarsha.com  ──►  acruet-admin (Tomcat, 1 replica)
                                                                           │
                                                                           ├── OIDC (same client acruet) + role a-cruet-admin
                                                                           └── Admin API ──► Keycloak (client acruet-admin)
@@ -54,7 +54,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | Item | Value |
 |------|-------|
 | User hostname | `acruet.home.bradandmarsha.com` |
-| Admin hostname | `admin.acruet.home.bradandmarsha.com` |
+| Admin hostname | `acruet-admin.home.bradandmarsha.com` |
 | User ingress class | `nginx` (public) |
 | Admin ingress class | `nginx-internal` |
 | TLS | cert-manager + `letsencrypt-prod` |
@@ -77,9 +77,9 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 |-------|--------|
 | 0 — Decisions | ✅ Complete (2026-07-12) — `PRODUCT.md` |
 | 1 — Repository scaffold | ✅ Complete (2026-07-12) |
-| 2 — `acruet-cnpg` database | Pending |
-| 3 — Platform deploy (shells + ingress + secrets) | Pending |
-| 4 — OIDC sign-in (user + admin) | Pending — pairs with `KEYCLOAK.md` Phase 5 |
+| 2 — `acruet-cnpg` database | ✅ Complete — cluster healthy, DB connection verified |
+| 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
+| 4 — OIDC sign-in (user + admin) | Pending — code + manifests ready; deploy 0.1.3 + Keycloak bootstrap |
 | 5 — Signup + SMTP + verification | Pending |
 | 6 — Admin approval + Keycloak provisioning | Pending |
 | 7 — Client encryption + key lifecycle | Pending |
@@ -164,6 +164,8 @@ curl -fsS http://localhost:8080/health
 
 **Goal:** HA Postgres ready before app data migrations.
 
+**Status:** ✅ Complete — cluster healthy, DB connection verified (2026-07-12).
+
 **Pattern:** Copy `wise-k8s/iac/kustomize/keycloak-cnpg/` → `acruet-cnpg/`.
 
 ### Manifests
@@ -198,31 +200,60 @@ kubectl -n acruet-cnpg get secret acruet-db-app -o jsonpath='{.data.uri}' | base
 
 **Goal:** Both Tomcat deployments on wise-k8s with TLS, ingress classes, and SOPS secrets — app shells only.
 
+**Status:** ✅ Complete (2026-07-12) — Flux reconciled; SOPS secrets decrypt via `flux-sops` IRSA.
+
 ### Manifests (`wise-k8s/iac/kustomize/acruet/`)
 
 | Resource | Notes |
 |----------|--------|
-| Namespace | `acruet` (or `default` per homelab convention) |
+| Namespace | `acruet` |
 | Deployments | `acruet-user` (2 replicas), `acruet-admin` (1 replica) |
 | Services | ClusterIP :8080 |
 | Certificates | user + admin hostnames |
 | Ingress (user) | `ingressClassName: nginx`, public |
 | Ingress (admin) | `ingressClassName: nginx-internal` |
-| Secrets (SOPS) | DB creds, OIDC placeholders, SMTP placeholder |
-| DB credential sync | Optional CronJob if secret cross-namespace (mirror keycloak pattern) |
+| Secrets (SOPS) | OIDC + SMTP placeholders (`base/secrets/`); DB via cross-namespace sync |
+| DB credential sync | CronJob + bootstrap Job (mirror keycloak pattern) |
+| Flux | `iac/kustomize/fluxcd/kustomizations/acruet.yaml`, depends on `acruet-cnpg` + ingress + cert-manager |
+| Images (v1) | `sbwise/acruet-user:0.1.2`, `sbwise/acruet-admin:0.1.2` |
 
 ### wise-home-index annotations
 
 - User tile: public scope
 - Admin tile: private scope (`index.home.bradandmarsha.com/*` annotations)
 
+### SOPS secrets
+
+Secrets are SOPS-encrypted with AWS KMS (`alias/sops`). Flux `acruet` Kustomization uses `decryption.provider: sops`; `kustomize-controller` IRSA role `flux-sops` must be active (restart controller pods after annotating the ServiceAccount).
+
+```bash
+cd wise-k8s/iac/kustomize/acruet/base
+sops secrets/acruet-oidc.yaml   # edit in place
+sops secrets/acruet-smtp.yaml
+```
+
 ### Verify
 
 ```bash
 flux get kustomizations acruet
 curl -sI https://acruet.home.bradandmarsha.com/health
-curl -sI https://admin.acruet.home.bradandmarsha.com/health   # from LAN
+curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 ```
+
+**Verified 2026-07-12:**
+
+| Check | Result |
+|-------|--------|
+| `flux get kustomizations acruet` | Ready |
+| Pods | `acruet-user` 2/2, `acruet-admin` 1/1 Running |
+| Certificates | `acruet-user-certificate`, `acruet-admin-certificate` Ready |
+| Ingress classes | user `nginx`, admin `nginx-internal` |
+| SOPS secrets | `acruet-oidc`, `acruet-smtp` decrypted and applied |
+| DB sync | Bootstrap Job + CronJob; `acruet-db-app` present |
+| `https://acruet.home.bradandmarsha.com/health` | HTTP 200 `{"status":"UP"}` |
+| `https://acruet-admin.home.bradandmarsha.com/health` | HTTP 200 `{"status":"UP"}` |
+| Landing pages `/` | HTTP 200 (user + admin) |
+| wise-home-index annotations | Both tiles enabled with `acruet.png` image |
 
 ---
 
@@ -230,7 +261,45 @@ curl -sI https://admin.acruet.home.bradandmarsha.com/health   # from LAN
 
 **Goal:** Authenticated sessions via Keycloak on both hostnames.
 
+**Status:** Implementation complete in `a-cruet` (0.1.3) and `wise-k8s` (Keycloak clients + deployment env). Pending image release, secret sync, realm-role bootstrap, and functional verify.
+
 **Pairs with:** [`KEYCLOAK.md` Phase 5](../wise-k8s/KEYCLOAK.md#phase-5--oidc-client--a-cruet-integration).
+
+### wise-k8s
+
+| Resource | Path |
+|----------|------|
+| `KeycloakOIDCClient` `acruet` | `iac/kustomize/keycloak/base/oidc-client-acruet.yaml` |
+| `KeycloakOIDCClient` `acruet-admin` | `iac/kustomize/keycloak/base/oidc-client-acruet-admin.yaml` |
+| Client secrets (SOPS) | `keycloak/base/secrets/acruet-oidc-client.yaml`, `acruet-admin-oidc-client.yaml` |
+| App OIDC env | `acruet/base/deployment-{user,admin}.yaml` |
+| Keycloak Flux decryption | `fluxcd/kustomizations/keycloak.yaml` → `decryption.provider: sops` |
+| Image tag | `acruet/overlays` → `0.1.3` |
+
+### a-cruet
+
+| Component | Notes |
+|-----------|--------|
+| `OidcSettings`, `OidcService`, `OidcAuthFilter` | `acruet-core` — authorization code flow, Tomcat session |
+| `AuthResource` | `/auth/callback`, `/auth/logout`, `/auth/me` |
+| User WAR | OIDC filter; landing shows signed-in user |
+| Admin WAR | OIDC filter + `a-cruet-admin` role gate (403) |
+
+### Bootstrap (manual)
+
+1. **Generate client secret** (once): `openssl rand -base64 32`
+2. **SOPS — Keycloak client** (must match operator `auth.secretRef`):
+   ```bash
+   cd wise-k8s/iac/kustomize/keycloak/base
+   sops secrets/acruet-oidc-client.yaml   # client-secret: <value>
+   ```
+3. **SOPS — app secret** (same `client-secret` value):
+   ```bash
+   cd wise-k8s/iac/kustomize/acruet/base
+   sops secrets/acruet-oidc.yaml   # client-id: acruet, client-secret: <same>
+   ```
+4. **Realm role** — Keycloak console → realm `wise-k8s` → create role `a-cruet-admin`; assign to first admin user
+5. **Release** — tag `a-cruet` **0.1.3**, push images; reconcile `keycloak` + `acruet` Flux Kustomizations
 
 ### Tasks
 
@@ -502,7 +571,7 @@ flux get image repository,policy,update automation | grep acruet
 | **Key loss** | Mandatory recovery file; clear UX warnings |
 | **Admin cannot decrypt** | By design — support is metadata-only |
 | **OIDC redirect mismatch** | Lock URIs in GitOps; test both hostnames |
-| **Internal admin DNS** | `admin.acruet` only on LAN; Keycloak redirect still works from browser on trusted network |
+| **Internal admin DNS** | `acruet-admin` only on LAN; Keycloak redirect still works from browser on trusted network |
 | **Proton SMTP egress** | Confirm pods reach `smtp.protonmail.ch:587` |
 | **SOPS decryption** | Verify Flux kustomize-controller has SOPS keys before deploying secrets |
 | **Offboard purge** | Irreversible — test export path before enabling auto-purge in prod |

@@ -45,11 +45,11 @@ Product and technical decisions captured during requirements clarification. Each
 | Item | Decision |
 |------|----------|
 | User hostname | **`acruet.home.bradandmarsha.com`** |
-| Admin hostname | **`admin.acruet.home.bradandmarsha.com`** (nested subdomain) |
+| Admin hostname | **`acruet-admin.home.bradandmarsha.com`** (sibling under `home.bradandmarsha.com`) |
 | OIDC client type | **Confidential** — client secret in k8s Secret; Tomcat server-side sessions |
 | OIDC client ID | **`acruet`** |
 | Redirect path | **`/auth/callback`** on both hostnames |
-| Redirect URIs | `https://acruet.home.bradandmarsha.com/auth/callback`, `https://admin.acruet.home.bradandmarsha.com/auth/callback` |
+| Redirect URIs | `https://acruet.home.bradandmarsha.com/auth/callback`, `https://acruet-admin.home.bradandmarsha.com/auth/callback` |
 | Admin API client | **Separate service account** — client ID **`acruet-admin`**, client credentials grant for user provisioning on approval |
 | Deployment | **Two Tomcat deployments** — separate user and admin instances |
 | User ingress | **Public** — `ingressClassName: nginx` (same LB as Plex, Keycloak, etc.) |
