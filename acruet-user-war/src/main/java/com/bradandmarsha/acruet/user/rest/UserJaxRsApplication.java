@@ -12,6 +12,7 @@ public class UserJaxRsApplication extends ResourceConfig {
     public UserJaxRsApplication() {
         packages(
                 "com.bradandmarsha.acruet.rest",
+                "com.bradandmarsha.acruet.auth",
                 "com.bradandmarsha.acruet.user.rest"
         );
     }

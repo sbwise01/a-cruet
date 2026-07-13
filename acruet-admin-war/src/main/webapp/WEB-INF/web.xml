@@ -7,6 +7,19 @@
     <display-name>acruet-admin</display-name>
 
     <filter>
+        <filter-name>oidc</filter-name>
+        <filter-class>com.bradandmarsha.acruet.auth.OidcAuthFilter</filter-class>
+        <init-param>
+            <param-name>requireAdminRole</param-name>
+            <param-value>true</param-value>
+        </init-param>
+    </filter>
+    <filter-mapping>
+        <filter-name>oidc</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <filter>
         <filter-name>jersey</filter-name>
         <filter-class>org.glassfish.jersey.servlet.ServletContainer</filter-class>
         <init-param>
