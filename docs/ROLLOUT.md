@@ -80,7 +80,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 2 — `acruet-cnpg` database | ✅ Complete — cluster healthy, DB connection verified |
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
 | 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
-| 5 — Signup + SMTP + verification | Pending |
+| 5 — Signup + SMTP + verification | 🚧 Ready to deploy — images `1.1.0`; cluster verification pending |
 | 6 — Admin approval + Keycloak provisioning | Pending |
 | 7 — Client encryption + key lifecycle | Pending |
 | 8 — Ledger core | Pending |
@@ -328,21 +328,33 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 **Goal:** Public applicant flow without Keycloak account.
 
+**Status:** Implemented in `a-cruet` **1.1.0** (2026-07-14). Deploy user image + confirm `acruet-smtp` secret before end-to-end verification.
+
 ### Tasks
 
-1. Public signup form: name, email, reason, phone, mailing address
-2. Jakarta Mail + Proton SMTP from SOPS secret (`smtp.protonmail.ch:587`, STARTTLS)
-3. Email verification token + link
-4. Pending application queue in Postgres (plaintext metadata)
-5. Rate limits: per-IP and per-email signup throttling (homelab defaults)
+1. Public signup form: name, email, reason, phone, mailing address — `/signup`
+2. Jakarta Mail + Proton SMTP from SOPS secret (`smtp.protonmail.ch:587`, STARTTLS) — `ACRUET_SMTP_*` env from `acruet-smtp`
+3. Email verification token + link — `/signup/verify?token=...`
+4. Pending application queue in Postgres (plaintext metadata) — Flyway `V2__signup_applications.sql`
+5. Rate limits: **5 attempts/hour per IP**, **3 attempts/day per email**
 6. Re-apply rules: 7-day cooldown; block after two rejections
+
+### Deploy
+
+| Item | Location |
+|------|----------|
+| Image tag | `acruet/overlays` → `1.1.0` |
+| SMTP env | `deployment-user.yaml` → `acruet-smtp` secret |
+| Public routes | `OidcAuthFilter` allows `/signup` without OIDC |
+| Migrations | `DatabaseLifecycleListener` on user + admin WAR startup |
 
 ### Verify
 
-- Submit application → verification email received
-- Click verify link → status `pending_approval`
-- No Keycloak user created yet
-- Duplicate signup throttling behaves as configured
+- [ ] Submit application → verification email received (`noreply@bradandmarsha.com`)
+- [ ] Click verify link → status `pending_approval` in `signup_application`
+- [ ] No Keycloak user created yet
+- [ ] Duplicate signup throttling (IP + email) behaves as configured
+- [ ] Re-apply after rejection respects 7-day cooldown / two-strike block
 
 ---
 

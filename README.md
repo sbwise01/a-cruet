@@ -53,3 +53,7 @@ Technical requirements, architecture decisions, and rollout phases live in:
 
 - [`PRODUCT.md`](docs/PRODUCT.md) — locked product and engineering decisions
 - [`ROLLOUT.md`](docs/ROLLOUT.md) — phased implementation plan for wise-k8s
+
+## To Do list
+
+1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup (`DatabaseLifecycleListener`), which is fine for small DDL. Decide how to handle **backfill** and other **long-running migrations** (dedicated Kubernetes Job, extended startup budgets, online vs offline cutover, idempotent batch steps, and when to keep startup-time Flyway vs separate migration paths).

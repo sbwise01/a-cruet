@@ -6,6 +6,10 @@
 
     <display-name>acruet-admin</display-name>
 
+    <listener>
+        <listener-class>com.bradandmarsha.acruet.db.DatabaseLifecycleListener</listener-class>
+    </listener>
+
     <filter>
         <filter-name>oidc</filter-name>
         <filter-class>com.bradandmarsha.acruet.auth.OidcAuthFilter</filter-class>
