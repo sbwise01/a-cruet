@@ -37,8 +37,8 @@ public class LandingResource {
                 <body>
                   <h1>a-cruet</h1>
                   <p>Signed in as <strong>%s</strong>.</p>
-                  <p>Envelope budgeting for intentional savings. Signup and ledger features arrive in later rollout phases.</p>
-                  <p><a href="/auth/logout">Sign out</a></p>
+                  <p>Envelope budgeting for intentional savings. Ledger features arrive in later rollout phases.</p>
+                  <p><a href="/signup">Apply for access</a> · <a href="/auth/logout">Sign out</a></p>
                 </body>
                 </html>
                 """.formatted(escape(displayName));

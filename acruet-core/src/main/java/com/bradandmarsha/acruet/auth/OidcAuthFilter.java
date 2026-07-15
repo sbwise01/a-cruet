@@ -85,7 +85,9 @@ public class OidcAuthFilter implements Filter {
             return false;
         }
         return path.equals("/health")
-                || path.startsWith("/auth/");
+                || path.startsWith("/auth/")
+                || path.equals("/signup")
+                || path.startsWith("/signup/");
     }
 
     private static String forbiddenPage(OidcUser user) {

@@ -1,0 +1,142 @@
+package com.bradandmarsha.acruet.signup;
+
+import com.bradandmarsha.acruet.db.Database;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * JDBC persistence for signup applications and rate-limit attempts.
+ */
+public final class SignupRepository {
+
+    public Optional<SignupApplication> findLatestByEmail(String email) throws SQLException {
+        String sql = """
+                SELECT id, email, full_name, reason, phone, mailing_address, status,
+                       rejection_count, last_rejected_at, created_at
+                FROM signup_application
+                WHERE LOWER(email) = LOWER(?)
+                ORDER BY created_at DESC
+                LIMIT 1
+                """;
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, email);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapApplication(resultSet));
+            }
+        }
+    }
+
+    public void insertApplication(
+            UUID id,
+            String email,
+            String fullName,
+            String reason,
+            String phone,
+            String mailingAddress,
+            String tokenHash,
+            Instant tokenExpiresAt,
+            String applicantIp) throws SQLException {
+        String sql = """
+                INSERT INTO signup_application (
+                    id, email, full_name, reason, phone, mailing_address, status,
+                    verification_token_hash, verification_token_expires_at, applicant_ip
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, id);
+            statement.setString(2, email.trim());
+            statement.setString(3, fullName.trim());
+            statement.setString(4, reason.trim());
+            statement.setString(5, phone.trim());
+            statement.setString(6, mailingAddress.trim());
+            statement.setString(7, ApplicationStatus.PENDING_VERIFICATION.dbValue());
+            statement.setString(8, tokenHash);
+            statement.setTimestamp(9, Timestamp.from(tokenExpiresAt));
+            statement.setString(10, applicantIp);
+            statement.executeUpdate();
+        }
+    }
+
+    public boolean verifyByTokenHash(String tokenHash, Instant now) throws SQLException {
+        String sql = """
+                UPDATE signup_application
+                SET status = ?, verified_at = ?, verification_token_hash = NULL,
+                    verification_token_expires_at = NULL, updated_at = NOW()
+                WHERE verification_token_hash = ?
+                  AND verification_token_expires_at > ?
+                  AND status = ?
+                """;
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, ApplicationStatus.PENDING_APPROVAL.dbValue());
+            statement.setTimestamp(2, Timestamp.from(now));
+            statement.setString(3, tokenHash);
+            statement.setTimestamp(4, Timestamp.from(now));
+            statement.setString(5, ApplicationStatus.PENDING_VERIFICATION.dbValue());
+            return statement.executeUpdate() == 1;
+        }
+    }
+
+    public int countIpAttempts(String ipAddress, Instant since) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM signup_attempt WHERE ip_address = ? AND attempted_at >= ?";
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, ipAddress);
+            statement.setTimestamp(2, Timestamp.from(since));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getInt(1);
+            }
+        }
+    }
+
+    public int countEmailAttempts(String email, Instant since) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM signup_attempt WHERE LOWER(email) = LOWER(?) AND attempted_at >= ?";
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, email);
+            statement.setTimestamp(2, Timestamp.from(since));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getInt(1);
+            }
+        }
+    }
+
+    public void recordAttempt(String email, String ipAddress) throws SQLException {
+        String sql = "INSERT INTO signup_attempt (email, ip_address) VALUES (?, ?)";
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, email == null ? null : email.trim());
+            statement.setString(2, ipAddress);
+            statement.executeUpdate();
+        }
+    }
+
+    private SignupApplication mapApplication(ResultSet resultSet) throws SQLException {
+        Timestamp lastRejected = resultSet.getTimestamp("last_rejected_at");
+        return new SignupApplication(
+                resultSet.getObject("id", UUID.class),
+                resultSet.getString("email"),
+                resultSet.getString("full_name"),
+                resultSet.getString("reason"),
+                resultSet.getString("phone"),
+                resultSet.getString("mailing_address"),
+                ApplicationStatus.fromDb(resultSet.getString("status")),
+                resultSet.getInt("rejection_count"),
+                Optional.ofNullable(lastRejected).map(Timestamp::toInstant),
+                resultSet.getTimestamp("created_at").toInstant());
+    }
+}
