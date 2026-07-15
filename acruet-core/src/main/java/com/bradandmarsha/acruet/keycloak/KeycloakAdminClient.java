@@ -76,8 +76,7 @@ public final class KeycloakAdminClient {
             if (response.statusCode() == 409) {
                 throw new KeycloakAdminException("A Keycloak user already exists for this email.");
             }
-            throw new KeycloakAdminException(
-                    "Keycloak user creation returned HTTP " + response.statusCode());
+            throw new KeycloakAdminException(adminApiFailure("Keycloak user creation", response.statusCode()));
         } catch (KeycloakAdminException exception) {
             throw exception;
         } catch (InterruptedException interrupted) {
@@ -105,7 +104,7 @@ public final class KeycloakAdminClient {
             HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(
-                        "Keycloak password reset returned HTTP " + response.statusCode());
+                        adminApiFailure("Keycloak password reset", response.statusCode()));
             }
         } catch (KeycloakAdminException exception) {
             throw exception;
@@ -129,7 +128,7 @@ public final class KeycloakAdminClient {
             HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(
-                        "Keycloak user lookup returned HTTP " + response.statusCode());
+                        adminApiFailure("Keycloak user lookup", response.statusCode()));
             }
             JsonNode users = JSON.readTree(response.body());
             if (!users.isArray() || users.isEmpty()) {
@@ -171,7 +170,7 @@ public final class KeycloakAdminClient {
             HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(
-                        "Keycloak token endpoint returned HTTP " + response.statusCode());
+                        adminApiFailure("Keycloak token endpoint", response.statusCode()));
             }
             JsonNode tokenResponse = JSON.readTree(response.body());
             JsonNode accessToken = tokenResponse.get("access_token");
@@ -230,6 +229,17 @@ public final class KeycloakAdminClient {
 
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static String adminApiFailure(String action, int statusCode) {
+        if (statusCode == 403) {
+            return action
+                    + " returned HTTP 403. Service-account roles are assigned, but Keycloak"
+                    + " is still denying Admin API access. On client acruet-admin: Client scopes"
+                    + " → acruet-admin-dedicated → Scope tab → Full scope allowed ON, or assign"
+                    + " realm-management roles there; fallback: realm-admin on service account.";
+        }
+        return action + " returned HTTP " + statusCode;
     }
 
     record NameParts(String firstName, String lastName) {
