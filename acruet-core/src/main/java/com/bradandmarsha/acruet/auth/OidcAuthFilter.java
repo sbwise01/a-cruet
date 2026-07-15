@@ -12,7 +12,8 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 
 /**
- * Redirects unauthenticated browser traffic to Keycloak and enforces admin role on the admin WAR.
+ * Protects authenticated routes via Keycloak OIDC. The user WAR exposes a public {@code /}
+ * landing; the admin WAR requires sign-in for all paths including {@code /}.
  */
 public class OidcAuthFilter implements Filter {
 
@@ -84,10 +85,14 @@ public class OidcAuthFilter implements Filter {
         if (path == null || path.isBlank()) {
             return false;
         }
-        return path.equals("/health")
+        if (path.equals("/health")
                 || path.startsWith("/auth/")
                 || path.equals("/signup")
-                || path.startsWith("/signup/");
+                || path.startsWith("/signup/")) {
+            return true;
+        }
+        // User WAR: public marketing landing; admin WAR still requires OIDC for /.
+        return path.equals("/") && !settings.requireAdminRole();
     }
 
     private static String forbiddenPage(OidcUser user) {

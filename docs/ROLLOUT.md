@@ -80,13 +80,13 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 2 — `acruet-cnpg` database | ✅ Complete — cluster healthy, DB connection verified |
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
 | 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
-| 5 — Signup + SMTP + verification | 🚧 Ready to deploy — images `1.1.0`; cluster verification pending |
+| 5 — Signup + SMTP + verification + image automation | 🚧 Ready to deploy — cluster verification pending |
 | 6 — Admin approval + Keycloak provisioning | Pending |
 | 7 — Client encryption + key lifecycle | Pending |
 | 8 — Ledger core | Pending |
 | 9 — Client-side reports | Pending |
 | 10 — Admin ops (suspend, offboard, cron) | Pending |
-| 11 — CI/CD + Flux image automation | Pending |
+| 11 — CI/CD + Flux image automation | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
 | 12 — Index tiles + E2E verification | Pending |
 | 13 — Non-technical README summary | ✅ Complete (2026-07-12) — `README.md` |
 
@@ -324,11 +324,11 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 ---
 
-## Phase 5 — Signup + SMTP + verification
+## Phase 5 — Signup + SMTP + verification + image automation
 
-**Goal:** Public applicant flow without Keycloak account.
+**Goal:** Public applicant flow without Keycloak account, plus GitOps-driven deploys when `a-cruet` releases new images.
 
-**Status:** Implemented in `a-cruet` **1.1.0** (2026-07-14). Deploy user image + confirm `acruet-smtp` secret before end-to-end verification.
+**Status:** App merged to `a-cruet` main; CI builds and tags images on release. Commit `wise-k8s` overlay (SMTP env + image automation) and verify on cluster.
 
 ### Tasks
 
@@ -338,23 +338,37 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 4. Pending application queue in Postgres (plaintext metadata) — Flyway `V2__signup_applications.sql`
 5. Rate limits: **5 attempts/hour per IP**, **3 attempts/day per email**
 6. Re-apply rules: 7-day cooldown; block after two rejections
+7. **CI (done):** `a-cruet` GitHub Actions build both WARs, push `sbwise/acruet-user` and `sbwise/acruet-admin`, tag with semver on merge to `main`
+8. **CD:** Flux `ImageRepository` + `ImagePolicy` + `ImageUpdateAutomation` bump overlay tags via kustomize setters
 
 ### Deploy
 
 | Item | Location |
 |------|----------|
-| Image tag | `acruet/overlays` → `1.1.0` |
+| Image tags (initial) | `acruet/overlays/kustomization.yaml` — set to first released tag; Flux updates thereafter |
+| Image automation | `acruet/overlays/image-automation.yaml` |
 | SMTP env | `deployment-user.yaml` → `acruet-smtp` secret |
-| Public routes | `OidcAuthFilter` allows `/signup` without OIDC |
+| Public routes | `OidcAuthFilter` allows `/`, `/signup`, `/auth/*` without OIDC on user WAR; `/auth/login` starts sign-in |
 | Migrations | `DatabaseLifecycleListener` on user + admin WAR startup |
 
+**Pattern:** `iac/kustomize/wise-home-index/overlays/image-automation.yaml`
+
 ### Verify
+
+**Signup**
 
 - [ ] Submit application → verification email received (`noreply@bradandmarsha.com`)
 - [ ] Click verify link → status `pending_approval` in `signup_application`
 - [ ] No Keycloak user created yet
 - [ ] Duplicate signup throttling (IP + email) behaves as configured
 - [ ] Re-apply after rejection respects 7-day cooldown / two-strike block
+
+**Image automation**
+
+```bash
+flux get image repository,policy,update -n flux-system | grep acruet
+# After a new release tag is pushed → fluxcdbot commits tag bump to wise-k8s main
+```
 
 ---
 
@@ -464,30 +478,7 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 ## Phase 11 — CI/CD + Flux image automation
 
-**Goal:** Automated image build and GitOps tag bumps.
-
-### a-cruet repo (GitHub Actions)
-
-- Build both WARs
-- Build and push `sbwise/acruet-user`, `sbwise/acruet-admin`
-- Tag with semver on release
-
-### wise-k8s
-
-| Resource | Path |
-|----------|------|
-| `ImageRepository` | `acruet/overlays/image-automation.yaml` (×2 images) |
-| `ImagePolicy` | Semver range per image |
-| `ImageUpdateAutomation` | Bump overlay image tags via setters |
-
-**Pattern:** `iac/kustomize/wise-home-index/overlays/image-automation.yaml`
-
-### Verify
-
-```bash
-flux get image repository,policy,update automation | grep acruet
-# Push new tag → fluxcdbot commits tag bump to wise-k8s
-```
+**Merged into Phase 5** (2026-07-14). Continuous integration lives in `a-cruet/.github/workflows/`; Flux image automation manifests live in `wise-k8s/iac/kustomize/acruet/overlays/image-automation.yaml`. See Phase 5 deploy and verify steps.
 
 ---
 
@@ -551,15 +542,14 @@ flux get image repository,policy,update automation | grep acruet
 3. Phase 2 `acruet-cnpg` (parallel with Phase 1)
 4. Phase 3 platform deploy
 5. Phase 4 OIDC + **KEYCLOAK.md Phase 5**
-6. Phase 5 signup + SMTP
+6. Phase 5 signup + SMTP + **Flux image automation**
 7. Phase 6 admin approval
 8. Phase 7 encryption
 9. Phase 8 ledger
 10. Phase 9 reports
 11. Phase 10 admin ops
-12. Phase 11 CI/CD (can start after Phase 3; fully validate by Phase 12)
-13. Phase 12 E2E
-14. Phase 13 README summary (can be drafted anytime; finalize after product stabilizes)
+12. Phase 12 E2E
+13. Phase 13 README summary (can be drafted anytime; finalize after product stabilizes)
 
 **Parallel work:** Keycloak Phase 6–7 (HA + observability) does not block a-cruet Phases 1–3.
 
@@ -575,6 +565,7 @@ flux get image repository,policy,update automation | grep acruet
 | `wise-k8s` | `iac/kustomize/acruet-cnpg/` | CNPG cluster |
 | `wise-k8s` | `iac/kustomize/acruet/` | Deployments, ingresses, certs, SOPS |
 | `wise-k8s` | `iac/kustomize/keycloak/base/oidc-client-acruet*.yaml` | Keycloak clients |
+| `wise-k8s` | `iac/kustomize/acruet/overlays/image-automation.yaml` | Flux image automation (Phase 5) |
 | `wise-k8s` | `iac/kustomize/fluxcd/kustomizations/acruet*.yaml` | Flux wiring |
 
 ---

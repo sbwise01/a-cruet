@@ -56,4 +56,4 @@ Technical requirements, architecture decisions, and rollout phases live in:
 
 ## To Do list
 
-1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup (`DatabaseLifecycleListener`), which is fine for small DDL. Decide how to handle **backfill** and other **long-running migrations** (dedicated Kubernetes Job, extended startup budgets, online vs offline cutover, idempotent batch steps, and when to keep startup-time Flyway vs separate migration paths).
+1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
