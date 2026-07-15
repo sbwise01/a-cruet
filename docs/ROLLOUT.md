@@ -81,7 +81,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
 | 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
 | 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
-| 6 — Admin approval + Keycloak provisioning | Pending |
+| 6 — Admin approval + Keycloak provisioning | In progress — code complete; cluster verify pending |
 | 7 — Client encryption + key lifecycle | Pending |
 | 8 — Ledger core | Pending |
 | 9 — Client-side reports | Pending |
@@ -425,22 +425,45 @@ flux get image repository,policy,update -n flux-system | grep acruet
 
 **Goal:** Admin queue → approve creates Keycloak user + initial a-cruet records.
 
+**Status:** Code complete; cluster verification pending. Requires `acruet-admin` service-account `realm-management` roles (manual Keycloak step per `KEYCLOAK.md`).
+
 ### Tasks
 
-1. Admin UI: pending applications list
+1. Admin UI: pending applications list — `/approvals`
 2. Approve: `acruet-admin` client credentials → Keycloak Admin API
    - Create user in realm `wise-k8s`
    - Set temporary password
-   - Create a-cruet user row + empty ledger scaffold
+   - Create a-cruet user row + empty ledger scaffold (`acruet_user`, counts at zero)
    - Email sign-in link (Proton SMTP)
-3. Reject: mark rejected + rejection email
-4. Audit log: admin approve/reject actions in Postgres
+3. Reject: mark rejected + rejection email (7-day cooldown / two-strike block)
+4. Audit log: admin approve/reject actions in `admin_action_audit`
+
+### a-cruet
+
+| Component | Notes |
+|-----------|--------|
+| Flyway `V3__users_and_admin_audit.sql` | `acruet_user`, `admin_action_audit` |
+| `KeycloakAdminSettings`, `KeycloakAdminClient` | Client credentials + Admin REST API |
+| `ApprovalService` | Approve/reject orchestration + SMTP |
+| `AdminApprovalResource` | HTML queue at `/approvals` |
+| Env | `ACRUET_KEYCLOAK_ADMIN_CLIENT_*`, `ACRUET_USER_BASE_URL`, SMTP on admin deployment |
+
+### wise-k8s
+
+| Resource | Notes |
+|----------|--------|
+| `secrets/acruet-admin-api.yaml` | SOPS — same `client-secret` as Keycloak `acruet-admin` |
+| `deployment-admin.yaml` | KC admin API secret, SMTP, `ACRUET_USER_BASE_URL` |
 
 ### Verify
 
-- Approve application → Keycloak user exists
-- Applicant email with sign-in instructions
-- First OIDC login succeeds; prompted for key setup (Phase 7 gate)
+- [ ] Admin dashboard links to pending queue
+- [ ] Approve application → Keycloak user exists in `wise-k8s`
+- [ ] Applicant email with sign-in instructions + temporary password
+- [ ] First OIDC login succeeds (password change prompt from Keycloak)
+- [ ] Reject → rejection email; re-apply rules enforced
+- [ ] `admin_action_audit` rows for approve/reject
+- [ ] `acruet_user` row created with `key_setup_complete = false` (Phase 7 gate)
 
 ---
 

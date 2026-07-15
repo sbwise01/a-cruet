@@ -28,7 +28,8 @@ public final class SignupPolicy {
         }
         SignupApplication application = latest.get();
         if (application.status() == ApplicationStatus.PENDING_VERIFICATION
-                || application.status() == ApplicationStatus.PENDING_APPROVAL) {
+                || application.status() == ApplicationStatus.PENDING_APPROVAL
+                || application.status() == ApplicationStatus.APPROVED) {
             return Decision.IN_PROGRESS;
         }
         if (application.status() == ApplicationStatus.BLOCKED

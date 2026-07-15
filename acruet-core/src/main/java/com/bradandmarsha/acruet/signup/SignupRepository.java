@@ -8,6 +8,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,6 +17,114 @@ import java.util.UUID;
  * JDBC persistence for signup applications and rate-limit attempts.
  */
 public final class SignupRepository {
+
+    public Optional<SignupApplication> findById(UUID id) throws SQLException {
+        String sql = """
+                SELECT id, email, full_name, reason, phone, mailing_address, status,
+                       rejection_count, last_rejected_at, created_at
+                FROM signup_application
+                WHERE id = ?
+                """;
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, id);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapApplication(resultSet));
+            }
+        }
+    }
+
+    public List<PendingApplication> listPendingApproval() throws SQLException {
+        String sql = """
+                SELECT id, email, full_name, reason, phone, mailing_address, verified_at, created_at
+                FROM signup_application
+                WHERE status = ?
+                ORDER BY verified_at ASC NULLS LAST, created_at ASC
+                """;
+        List<PendingApplication> pending = new ArrayList<>();
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, ApplicationStatus.PENDING_APPROVAL.dbValue());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    Timestamp verifiedAt = resultSet.getTimestamp("verified_at");
+                    pending.add(new PendingApplication(
+                            resultSet.getObject("id", UUID.class),
+                            resultSet.getString("email"),
+                            resultSet.getString("full_name"),
+                            resultSet.getString("reason"),
+                            resultSet.getString("phone"),
+                            resultSet.getString("mailing_address"),
+                            Optional.ofNullable(verifiedAt).map(Timestamp::toInstant),
+                            resultSet.getTimestamp("created_at").toInstant()));
+                }
+            }
+        }
+        return pending;
+    }
+
+    public boolean markApproved(Connection connection, UUID id) throws SQLException {
+        String sql = """
+                UPDATE signup_application
+                SET status = ?, updated_at = NOW()
+                WHERE id = ? AND status = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, ApplicationStatus.APPROVED.dbValue());
+            statement.setObject(2, id);
+            statement.setString(3, ApplicationStatus.PENDING_APPROVAL.dbValue());
+            return statement.executeUpdate() == 1;
+        }
+    }
+
+    public RejectionResult markRejected(Connection connection, UUID id, Instant rejectedAt)
+            throws SQLException {
+        String sql = """
+                UPDATE signup_application
+                SET rejection_count = rejection_count + 1,
+                    last_rejected_at = ?,
+                    status = CASE
+                        WHEN rejection_count + 1 >= ? THEN ?
+                        ELSE ?
+                    END,
+                    updated_at = NOW()
+                WHERE id = ? AND status = ?
+                RETURNING rejection_count, status
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setTimestamp(1, Timestamp.from(rejectedAt));
+            statement.setInt(2, SignupPolicy.MAX_REJECTIONS);
+            statement.setString(3, ApplicationStatus.BLOCKED.dbValue());
+            statement.setString(4, ApplicationStatus.REJECTED.dbValue());
+            statement.setObject(5, id);
+            statement.setString(6, ApplicationStatus.PENDING_APPROVAL.dbValue());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                return new RejectionResult(
+                        resultSet.getInt("rejection_count"),
+                        ApplicationStatus.fromDb(resultSet.getString("status")));
+            }
+        }
+    }
+
+    public record PendingApplication(
+            UUID id,
+            String email,
+            String fullName,
+            String reason,
+            String phone,
+            String mailingAddress,
+            Optional<Instant> verifiedAt,
+            Instant createdAt) {
+    }
+
+    public record RejectionResult(int rejectionCount, ApplicationStatus status) {
+    }
 
     public Optional<SignupApplication> findLatestByEmail(String email) throws SQLException {
         String sql = """

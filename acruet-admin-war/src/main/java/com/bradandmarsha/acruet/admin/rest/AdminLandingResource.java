@@ -1,5 +1,6 @@
 package com.bradandmarsha.acruet.admin.rest;
 
+import com.bradandmarsha.acruet.approval.ApprovalService;
 import com.bradandmarsha.acruet.auth.OidcUser;
 import com.bradandmarsha.acruet.ui.AdminPageLayout;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,19 +17,31 @@ import jakarta.ws.rs.core.MediaType;
 @Path("/")
 public class AdminLandingResource {
 
+    private final ApprovalService approvalService = ApprovalService.fromEnvironment();
+
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String index(@Context HttpServletRequest request) {
         String displayName = currentUser(request)
                 .map(OidcUser::displayName)
                 .orElse("administrator");
+        int pendingCount = approvalService.listPending().size();
+        String queueLink = pendingCount == 0
+                ? "<p class=\"hint\">No applications are waiting for approval.</p>"
+                : "<p><a href=\"/approvals\">Review "
+                        + pendingCount
+                        + " pending application"
+                        + (pendingCount == 1 ? "" : "s")
+                        + "</a></p>";
         return AdminPageLayout.render(
                 AdminPageLayout.APP_NAME,
                 """
                 <p>Signed in as <strong>%s</strong> with administrator access.</p>
-                <p class="hint">Approval queue, user management, and abuse monitoring arrive in later rollout phases.</p>
+                %s
+                <p class="hint">User management, suspension, and abuse monitoring arrive in later rollout phases.</p>
                 <p><a href="/auth/logout">Sign out</a></p>
-                """.formatted(escape(displayName)));
+                """
+                        .formatted(escape(displayName), queueLink));
     }
 
     private static java.util.Optional<OidcUser> currentUser(HttpServletRequest request) {
