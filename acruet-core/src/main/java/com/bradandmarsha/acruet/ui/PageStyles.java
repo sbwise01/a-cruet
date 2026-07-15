@@ -76,4 +76,43 @@ public final class PageStyles {
                 button:hover { filter: brightness(1.05); }
                 """;
     }
+
+    /** Admin tables for approval queue and user lists. */
+    public static String tableCss() {
+        return """
+                table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  margin-top: 1rem;
+                  font-size: 0.95rem;
+                }
+                th, td {
+                  text-align: left;
+                  padding: 0.65rem 0.5rem;
+                  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+                  vertical-align: top;
+                }
+                th { color: var(--muted); font-weight: 600; }
+                .meta { color: var(--muted); font-size: 0.85rem; }
+                .row-actions { white-space: nowrap; }
+                .row-actions form { display: inline; margin-right: 0.35rem; }
+                .row-actions button {
+                  margin-top: 0;
+                  padding: 0.35rem 0.75rem;
+                  font-size: 0.85rem;
+                }
+                .row-actions button.reject {
+                  background: #475569;
+                  color: var(--text);
+                }
+                .notice {
+                  margin-top: 1rem;
+                  padding: 0.75rem 1rem;
+                  border-radius: 8px;
+                  background: var(--bg-card);
+                }
+                .notice.success { border-left: 3px solid #34d399; }
+                .notice.error { border-left: 3px solid #f87171; }
+                """;
+    }
 }

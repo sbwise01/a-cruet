@@ -1,5 +1,7 @@
 package com.bradandmarsha.acruet.auth;
 
+import com.bradandmarsha.acruet.config.AuthSettings;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -10,13 +12,11 @@ public final class OidcSettings {
 
     public static final String ENV_CLIENT_ID = "ACRUET_OIDC_CLIENT_ID";
     public static final String ENV_CLIENT_SECRET = "ACRUET_OIDC_CLIENT_SECRET";
-    public static final String ENV_ISSUER = "ACRUET_OIDC_ISSUER";
     public static final String ENV_BASE_URL = "ACRUET_BASE_URL";
     public static final String ENV_ADMIN_ROLE = "ACRUET_ADMIN_ROLE";
     public static final String ENV_REQUIRE_ADMIN_ROLE = "ACRUET_REQUIRE_ADMIN_ROLE";
 
     public static final String DEFAULT_CLIENT_ID = "acruet";
-    public static final String DEFAULT_ISSUER = "https://auth.home.bradandmarsha.com/realms/wise-k8s";
     public static final String DEFAULT_ADMIN_ROLE = "a-cruet-admin";
     public static final String CALLBACK_PATH = "/auth/callback";
     public static final String LOGOUT_PATH = "/auth/logout";
@@ -47,7 +47,7 @@ public final class OidcSettings {
         return new OidcSettings(
                 envOrDefault(ENV_CLIENT_ID, DEFAULT_CLIENT_ID),
                 envOrDefault(ENV_CLIENT_SECRET, ""),
-                trimTrailingSlash(envOrDefault(ENV_ISSUER, DEFAULT_ISSUER)),
+                AuthSettings.fromEnvironment().issuer(),
                 trimTrailingSlash(envOrDefault(ENV_BASE_URL, "")),
                 envOrDefault(ENV_ADMIN_ROLE, DEFAULT_ADMIN_ROLE),
                 Boolean.parseBoolean(envOrDefault(ENV_REQUIRE_ADMIN_ROLE, "false")));
