@@ -1,6 +1,8 @@
 package com.bradandmarsha.acruet.user.rest;
 
 import com.bradandmarsha.acruet.signup.SignupService;
+import com.bradandmarsha.acruet.ui.PageStyles;
+import com.bradandmarsha.acruet.ui.UserPageLayout;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.FormParam;
@@ -74,107 +76,72 @@ public class SignupResource {
                 : """
                   <p class="error">%s</p>
                   """.formatted(escape(errorMessage));
-        return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="utf-8">
-                  <title>Apply for a-cruet</title>
-                  <style>
-                    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; max-width: 40rem; }
-                    label { display: block; margin-top: 1rem; font-weight: 600; }
-                    input, textarea { width: 100%%; margin-top: 0.25rem; padding: 0.5rem; font: inherit; }
-                    button { margin-top: 1.25rem; padding: 0.6rem 1.2rem; font: inherit; }
-                    .error { color: #b91c1c; }
-                    .hint { color: #444; font-size: 0.95rem; }
-                  </style>
-                </head>
-                <body>
-                  <h1>Apply for a-cruet</h1>
-                  <p class="hint">Submit an application for admin review. You will verify your email before the queue step.</p>
-                  %s
-                  <form method="post" action="/signup">
-                    <label for="fullName">Full name</label>
-                    <input id="fullName" name="fullName" required>
+        return UserPageLayout.render(
+                "Apply for a-cruet",
+                PageStyles.formCss(),
+                """
+                <h2>Apply for access</h2>
+                <p class="hint">Submit an application for admin review. You will verify your email before the queue step.</p>
+                %s
+                <form method="post" action="/signup">
+                  <label for="fullName">Full name</label>
+                  <input id="fullName" name="fullName" required>
 
-                    <label for="email">Email</label>
-                    <input id="email" name="email" type="email" required>
+                  <label for="email">Email</label>
+                  <input id="email" name="email" type="email" required>
 
-                    <label for="phone">Phone number</label>
-                    <input id="phone" name="phone" required>
+                  <label for="phone">Phone number</label>
+                  <input id="phone" name="phone" required>
 
-                    <label for="mailingAddress">Mailing address</label>
-                    <textarea id="mailingAddress" name="mailingAddress" rows="3" required></textarea>
+                  <label for="mailingAddress">Mailing address</label>
+                  <textarea id="mailingAddress" name="mailingAddress" rows="3" required></textarea>
 
-                    <label for="reason">Why do you want access?</label>
-                    <textarea id="reason" name="reason" rows="4" required></textarea>
+                  <label for="reason">Why do you want access?</label>
+                  <textarea id="reason" name="reason" rows="4" required></textarea>
 
-                    <button type="submit">Submit application</button>
-                  </form>
-                  <p class="hint"><a href="/">Return to sign-in</a></p>
-                </body>
-                </html>
-                """.formatted(alert);
+                  <button type="submit">Submit application</button>
+                </form>
+                <p class="hint"><a href="/">Return to home</a></p>
+                """.formatted(alert));
     }
 
     private static String successPage(String message) {
-        return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="utf-8">
-                  <title>Verify your email</title>
-                  <style>
-                    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; max-width: 40rem; }
-                  </style>
-                </head>
-                <body>
-                  <h1>Check your email</h1>
-                  <p>%s</p>
-                  <p><a href="/signup">Submit another application</a></p>
-                </body>
-                </html>
-                """.formatted(escape(message));
+        return simplePage(
+                "Verify your email",
+                "Check your email",
+                """
+                <p>%s</p>
+                <p><a href="/signup">Submit another application</a></p>
+                """.formatted(escape(message)));
     }
 
     private static String verifiedPage() {
-        return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="utf-8">
-                  <title>Email verified</title>
-                  <style>
-                    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; max-width: 40rem; }
-                  </style>
-                </head>
-                <body>
-                  <h1>Email verified</h1>
-                  <p>Your application is now <strong>pending admin approval</strong>. You will receive email when an administrator acts on your request.</p>
-                  <p>No Keycloak account exists yet — sign-in is enabled only after approval.</p>
-                </body>
-                </html>
-                """;
+        return simplePage(
+                "Email verified",
+                "Email verified",
+                """
+                <p>Your application is now <strong>pending admin approval</strong>. You will receive email when an administrator acts on your request.</p>
+                <p class="hint">No Keycloak account exists yet — sign-in is enabled only after approval.</p>
+                """);
     }
 
     private static String invalidTokenPage() {
-        return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="utf-8">
-                  <title>Invalid verification link</title>
-                  <style>
-                    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; max-width: 40rem; }
-                  </style>
-                </head>
-                <body>
-                  <h1>Invalid verification link</h1>
-                  <p>This verification link is invalid or has expired.</p>
-                  <p><a href="/signup">Submit a new application</a></p>
-                </body>
-                </html>
-                """;
+        return simplePage(
+                "Invalid verification link",
+                "Invalid verification link",
+                """
+                <p>This verification link is invalid or has expired.</p>
+                <p><a href="/signup">Submit a new application</a></p>
+                """);
+    }
+
+    private static String simplePage(String title, String heading, String bodyHtml) {
+        return UserPageLayout.render(
+                title,
+                """
+                <h2>%s</h2>
+                %s
+                """.formatted(escape(heading), bodyHtml));
     }
 
     private static String escape(String value) {
