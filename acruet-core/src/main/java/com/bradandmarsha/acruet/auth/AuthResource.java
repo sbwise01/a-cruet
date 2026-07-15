@@ -18,6 +18,23 @@ import jakarta.ws.rs.core.UriBuilder;
 public class AuthResource {
 
     @GET
+    @Path("login")
+    public Response login(@Context HttpServletRequest request) {
+        OidcSettings settings = OidcSettings.fromEnvironment();
+        if (!settings.isConfigured()) {
+            return Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                    .entity("OIDC is not configured")
+                    .build();
+        }
+        HttpSession session = request.getSession(true);
+        String state = OidcService.newState();
+        session.setAttribute(OidcAuthFilter.STATE_SESSION_ATTRIBUTE, state);
+        OidcService service = new OidcService(settings);
+        return Response.seeOther(UriBuilder.fromUri(service.beginAuthorizationUri(state)).build())
+                .build();
+    }
+
+    @GET
     @Path("callback")
     public Response callback(
             @QueryParam("code") String code,
