@@ -81,7 +81,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
 | 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
 | 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
-| 6 — Admin approval + Keycloak provisioning | In progress — code complete; cluster verify pending |
+| 6 — Admin approval + Keycloak provisioning | ✅ Verified (2026-07-15) — approve + KC user + approval email; reject/first-login verify deferred |
 | 7 — Client encryption + key lifecycle | Pending |
 | 8 — Ledger core | Pending |
 | 9 — Client-side reports | Pending |
@@ -425,7 +425,7 @@ flux get image repository,policy,update -n flux-system | grep acruet
 
 **Goal:** Admin queue → approve creates Keycloak user + initial a-cruet records.
 
-**Status:** Code complete; cluster verification pending. Requires `acruet-admin` service-account `realm-management` roles (manual Keycloak step per `KEYCLOAK.md`).
+**Status:** ✅ Verified on cluster (2026-07-15). Approve → Keycloak user + approval email E2E (`sbwise@gmail.com`). Keycloak **manual console** bootstrap (non-GitOps): `realm-management` service-account roles **and** matching roles on `acruet-admin-dedicated` scope (Keycloak 26; **Full scope allowed OFF** verified).
 
 ### Tasks
 
@@ -455,15 +455,47 @@ flux get image repository,policy,update -n flux-system | grep acruet
 | `secrets/acruet-admin-api.yaml` | SOPS — same `client-secret` as Keycloak `acruet-admin` |
 | `deployment-admin.yaml` | KC admin API secret, SMTP, `ACRUET_USER_BASE_URL` |
 
+### Keycloak bootstrap (manual console — required before approve)
+
+The `acruet-admin` client authenticates via client credentials, but **cannot call the Admin API until both** (a) its **service account** has `realm-management` roles and (b) the **dedicated client scope** allows those roles into the token. The `KeycloakOIDCClient` CR cannot assign `realm-management` client roles or dedicated-scope mappings yet (see `oidc-client-acruet-admin.yaml` comment; tracked in `wise-k8s` README todo).
+
+**Symptom if incomplete:** token endpoint returns **200**, but `GET /admin/realms/wise-k8s/users` returns **403**.
+
+**Console (one-time, realm `wise-k8s`):**
+
+1. Keycloak admin → **Clients** → **`acruet-admin`**
+2. **Service account roles** tab → **Assign role** → **Filter by clients** → **`realm-management`**
+3. Assign **`manage-users`**, **`view-users`**, **`query-users`**
+4. **Clients** → **`acruet-admin`** → **Client scopes** tab → open the dedicated scope (link in the row, **`acruet-admin-dedicated`**) → **Scope** tab
+5. **Recommended (verified):** leave **Full scope allowed** **OFF** → **Assign role** → **Filter by clients** → **`realm-management`** → assign **manage-users**, **view-users**, **query-users** (same three as step 3)
+6. **Homelab shortcut (also works):** turn **Full scope allowed** **ON** on that dedicated scope instead of step 5
+7. Confirm `acruet` namespace secret `acruet-admin-api` `client-secret` matches Keycloak `acruet-admin` client secret
+
+If approve still returns 403 after steps 3–5, assign **`realm-admin`** from `realm-management` to the service account (broader fallback).
+
+**Pre-flight (optional curl):** after roles are assigned, client credentials should list users (HTTP 200, empty array if none):
+
+```bash
+# From a host that can reach auth; substitute client secret from SOPS/decrypted secret
+TOKEN=$(curl -s -X POST "https://auth.home.bradandmarsha.com/realms/wise-k8s/protocol/openid-connect/token" \
+  -d grant_type=client_credentials -d client_id=acruet-admin -d client_secret='…' \
+  | jq -r .access_token)
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://auth.home.bradandmarsha.com/admin/realms/wise-k8s/users?email=test@example.com&exact=true"
+# expect 200 (not 403)
+```
+
 ### Verify
 
-- [ ] Admin dashboard links to pending queue
-- [ ] Approve application → Keycloak user exists in `wise-k8s`
-- [ ] Applicant email with sign-in instructions + temporary password
+- [x] `acruet-admin` Keycloak bootstrap: service-account roles + dedicated scope role mappings (**Full scope allowed OFF**; pre-flight curl returns 200)
+- [x] Admin dashboard links to pending queue
+- [x] Approve application → Keycloak user exists in `wise-k8s`
+- [x] Applicant email with sign-in instructions + temporary password
 - [ ] First OIDC login succeeds (password change prompt from Keycloak)
 - [ ] Reject → rejection email; re-apply rules enforced
-- [ ] `admin_action_audit` rows for approve/reject
-- [ ] `acruet_user` row created with `key_setup_complete = false` (Phase 7 gate)
+- [x] `admin_action_audit` row for approve (implicit in successful approve flow)
+- [x] `acruet_user` row created with `key_setup_complete = false` (Phase 7 gate)
 
 ---
 
