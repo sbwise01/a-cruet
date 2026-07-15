@@ -80,7 +80,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 2 — `acruet-cnpg` database | ✅ Complete — cluster healthy, DB connection verified |
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
 | 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
-| 5 — Signup + SMTP + verification + image automation | 🚧 Ready to deploy — cluster verification pending |
+| 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
 | 6 — Admin approval + Keycloak provisioning | Pending |
 | 7 — Client encryption + key lifecycle | Pending |
 | 8 — Ledger core | Pending |
@@ -328,7 +328,7 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 **Goal:** Public applicant flow without Keycloak account, plus GitOps-driven deploys when `a-cruet` releases new images.
 
-**Status:** App merged to `a-cruet` main; CI builds and tags images on release. Commit `wise-k8s` overlay (SMTP env + image automation) and verify on cluster.
+**Status:** ✅ Verified on cluster (2026-07-15). Signup form → Proton verification email (`acruet@bradandmarsha.com`) → verify link → `pending_approval` page. Image automation manifests deployed; explicit `flux` smoke test deferred.
 
 ### Tasks
 
@@ -357,10 +357,56 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 **Signup**
 
-- [ ] Submit application → verification email received (`noreply@bradandmarsha.com`)
-- [ ] Click verify link → status `pending_approval` in `signup_application`
-- [ ] No Keycloak user created yet
-- [ ] Duplicate signup throttling (IP + email) behaves as configured
+- [x] Submit application → verification email received (`acruet@bradandmarsha.com`)
+- [x] Click verify link → `pending_approval` page ("pending admin approval")
+- [x] No Keycloak user created yet (by design at this phase)
+- [x] Duplicate signup throttling (IP + email) behaves as configured — verified 2026-07-15 via curl (see below)
+
+**Throttling check (curl — bypasses HTML5 `required`)**
+
+Limits: **5 attempts/hour per IP**, **3 attempts/day per email**. Rate limit is evaluated **only after server-side validation passes**; invalid submits still **record** attempts. **IP limit is checked before email limit.**
+
+Run each test in a **separate window** (or delete test rows from `signup_attempt`) so counters do not interfere.
+
+Per-email (3 invalid + 1 valid → 4th blocked):
+
+```bash
+EMAIL="throttle-email-only@example.com"
+for i in 1 2 3; do
+  curl -s https://acruet.home.bradandmarsha.com/signup -X POST \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    --data-urlencode "email=$EMAIL" --data-urlencode "fullName=" \
+    --data-urlencode "phone=x" --data-urlencode "mailingAddress=x" --data-urlencode "reason=x" \
+    | grep -oE 'Name is required|Too many signup attempts for this email[^<]*'
+done
+curl -s https://acruet.home.bradandmarsha.com/signup -X POST \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode "email=$EMAIL" --data-urlencode "fullName=Test User" \
+  --data-urlencode "phone=555-0100" --data-urlencode "mailingAddress=123 St" \
+  --data-urlencode "reason=throttle test" \
+  | grep -oE 'Too many signup attempts for this email[^<]*|Check your email'
+```
+
+Per-IP (5 invalid + 1 valid → 6th blocked). Use a **fresh IP** not used in the email test; `X-Forwarded-For` from outside may not apply (ingress records the real client IP).
+
+```bash
+for i in 1 2 3 4 5; do
+  curl -s https://acruet.home.bradandmarsha.com/signup -X POST \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    --data-urlencode "email=ip-build-$i@example.com" --data-urlencode "fullName=" \
+    --data-urlencode "phone=x" --data-urlencode "mailingAddress=x" --data-urlencode "reason=x" \
+    | grep -oE 'Name is required|Too many signup attempts from your network[^<]*'
+done
+curl -s https://acruet.home.bradandmarsha.com/signup -X POST \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode "email=ip-final@example.com" --data-urlencode "fullName=Test User" \
+  --data-urlencode "phone=555-0101" --data-urlencode "mailingAddress=456 Ave" \
+  --data-urlencode "reason=throttle test" \
+  | grep -oE 'Too many signup attempts from your network[^<]*|Check your email'
+```
+
+Cleanup (optional): `DELETE FROM signup_attempt WHERE email LIKE '%example.com';` — for email-only test, also clear same **client IP** rows if IP limit was hit earlier (`WHERE ip_address = '…'`).
+
 - [ ] Re-apply after rejection respects 7-day cooldown / two-strike block
 
 **Image automation**
@@ -369,6 +415,9 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 flux get image repository,policy,update -n flux-system | grep acruet
 # After a new release tag is pushed → fluxcdbot commits tag bump to wise-k8s main
 ```
+
+- [ ] `flux get image …` shows `acruet-user` / `acruet-admin` resources healthy
+- [ ] New release tag triggers `fluxcdbot` overlay bump (validate on next `a-cruet` merge)
 
 ---
 

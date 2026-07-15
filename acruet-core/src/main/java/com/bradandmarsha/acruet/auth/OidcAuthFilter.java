@@ -1,5 +1,7 @@
 package com.bradandmarsha.acruet.auth;
 
+import com.bradandmarsha.acruet.ui.AdminPageLayout;
+
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -96,23 +98,13 @@ public class OidcAuthFilter implements Filter {
     }
 
     private static String forbiddenPage(OidcUser user) {
-        return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="utf-8">
-                  <title>Forbidden</title>
-                  <style>
-                    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; }
-                  </style>
-                </head>
-                <body>
-                  <h1>403 Forbidden</h1>
-                  <p>Signed in as <strong>%s</strong>, but this surface requires the administrator role.</p>
-                  <p><a href="/auth/logout">Sign out</a></p>
-                </body>
-                </html>
-                """.formatted(escape(user.displayName()));
+        return AdminPageLayout.render(
+                "Forbidden",
+                """
+                <h2>403 Forbidden</h2>
+                <p>Signed in as <strong>%s</strong>, but this surface requires the administrator role.</p>
+                <p><a href="/auth/logout">Sign out</a></p>
+                """.formatted(escape(user.displayName())));
     }
 
     private static String escape(String value) {

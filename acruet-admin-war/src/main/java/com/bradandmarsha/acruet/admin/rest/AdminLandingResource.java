@@ -1,6 +1,7 @@
 package com.bradandmarsha.acruet.admin.rest;
 
 import com.bradandmarsha.acruet.auth.OidcUser;
+import com.bradandmarsha.acruet.ui.AdminPageLayout;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.ws.rs.GET;
@@ -21,27 +22,13 @@ public class AdminLandingResource {
         String displayName = currentUser(request)
                 .map(OidcUser::displayName)
                 .orElse("administrator");
-        return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="utf-8">
-                  <title>a-cruet Administration</title>
-                  <style>
-                    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; }
-                    h1 { margin-bottom: 0.25rem; }
-                    p { color: #444; max-width: 40rem; }
-                    a { color: #1d4ed8; }
-                  </style>
-                </head>
-                <body>
-                  <h1>a-cruet Administration</h1>
-                  <p>Signed in as <strong>%s</strong> with administrator access.</p>
-                  <p>Approval queue, user management, and abuse monitoring arrive in later rollout phases.</p>
-                  <p><a href="/auth/logout">Sign out</a></p>
-                </body>
-                </html>
-                """.formatted(escape(displayName));
+        return AdminPageLayout.render(
+                AdminPageLayout.APP_NAME,
+                """
+                <p>Signed in as <strong>%s</strong> with administrator access.</p>
+                <p class="hint">Approval queue, user management, and abuse monitoring arrive in later rollout phases.</p>
+                <p><a href="/auth/logout">Sign out</a></p>
+                """.formatted(escape(displayName)));
     }
 
     private static java.util.Optional<OidcUser> currentUser(HttpServletRequest request) {
