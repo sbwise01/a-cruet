@@ -69,6 +69,15 @@ public final class SignupRepository {
         }
     }
 
+    public void deleteApplication(UUID id) throws SQLException {
+        String sql = "DELETE FROM signup_application WHERE id = ?";
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, id);
+            statement.executeUpdate();
+        }
+    }
+
     public boolean verifyByTokenHash(String tokenHash, Instant now) throws SQLException {
         String sql = """
                 UPDATE signup_application

@@ -4,16 +4,22 @@ import com.bradandmarsha.acruet.auth.OidcSettings;
 import com.bradandmarsha.acruet.config.SmtpSettings;
 import com.bradandmarsha.acruet.mail.MailSender;
 
+import jakarta.mail.MessagingException;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /**
  * Public applicant signup and email verification (Phase 5).
  */
 public final class SignupService {
+
+    private static final Logger LOGGER = Logger.getLogger(SignupService.class.getName());
 
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
@@ -80,21 +86,30 @@ public final class SignupService {
             rateLimiter.recordAttempt(request.email(), applicantIp);
 
             String verifyUrl = baseUrl + "/signup/verify?token=" + token;
-            mailSender.send(
-                    request.email(),
-                    "Verify your a-cruet application",
-                    """
-                            Hello %s,
+            try {
+                mailSender.send(
+                        request.email(),
+                        "Verify your a-cruet application",
+                        """
+                                Hello %s,
 
-                            Thanks for applying to a-cruet. Verify your email to queue your application for admin review:
+                                Thanks for applying to a-cruet. Verify your email to queue your application for admin review:
 
-                            %s
+                                %s
 
-                            This link expires in 24 hours. If you did not request this, you can ignore this message.
-                            """.formatted(request.fullName(), verifyUrl));
+                                This link expires in 24 hours. If you did not request this, you can ignore this message.
+                                """.formatted(request.fullName(), verifyUrl));
+            } catch (MessagingException mailException) {
+                repository.deleteApplication(id);
+                LOGGER.log(Level.WARNING, "Signup verification email failed for {0}", request.email());
+                LOGGER.log(Level.FINE, "Signup mail failure detail", mailException);
+                return SubmitResult.error(
+                        "Unable to send the verification email right now. Please try again later.");
+            }
 
             return SubmitResult.verificationSent(request.email());
         } catch (Exception exception) {
+            LOGGER.log(Level.WARNING, "Signup submit failed", exception);
             return SubmitResult.error("Signup is temporarily unavailable. Please try again later.");
         }
     }

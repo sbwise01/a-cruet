@@ -9,11 +9,15 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Sends transactional mail via Proton SMTP submission (STARTTLS).
  */
 public final class MailSender {
+
+    private static final Logger LOGGER = Logger.getLogger(MailSender.class.getName());
 
     private final SmtpSettings settings;
 
@@ -31,7 +35,21 @@ public final class MailSender {
         message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to, false));
         message.setSubject(subject, "UTF-8");
         message.setText(body, "UTF-8");
-        Transport.send(message);
+        Transport transport = session.getTransport("smtp");
+        try {
+            transport.connect(settings.host(), settings.port(), settings.username(), settings.password());
+            transport.sendMessage(message, message.getAllRecipients());
+        } catch (MessagingException exception) {
+            LOGGER.log(Level.WARNING, "SMTP send failed for recipient {0}", to);
+            LOGGER.log(Level.FINE, "SMTP failure detail", exception);
+            throw exception;
+        } finally {
+            try {
+                transport.close();
+            } catch (MessagingException exception) {
+                LOGGER.log(Level.FINE, "SMTP transport close failed", exception);
+            }
+        }
     }
 
     private Properties smtpProperties() {
@@ -41,8 +59,8 @@ public final class MailSender {
         properties.put("mail.smtp.auth", "true");
         properties.put("mail.smtp.starttls.enable", "true");
         properties.put("mail.smtp.starttls.required", "true");
-        properties.put("mail.smtp.user", settings.username());
-        properties.put("mail.smtp.password", settings.password());
+        properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
+        properties.put("mail.smtp.ssl.trust", settings.host());
         return properties;
     }
 }
