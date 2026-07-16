@@ -11,10 +11,68 @@ const AcruetCrypto = (() => {
   const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
   const RECOVERY_FORMAT = 'acruet-recovery';
   const RECOVERY_VERSION = 1;
+  const STORAGE_DEK_KEY = 'acruet.session.dek';
+  const STORAGE_EXPIRY_KEY = 'acruet.session.expiry';
+  const STORAGE_SUBJECT_KEY = 'acruet.session.subject';
 
   let dek = null;
   let expiryMs = null;
   let activityBound = false;
+  let restorePromise = null;
+
+  function clearStorage() {
+    sessionStorage.removeItem(STORAGE_DEK_KEY);
+    sessionStorage.removeItem(STORAGE_EXPIRY_KEY);
+    sessionStorage.removeItem(STORAGE_SUBJECT_KEY);
+  }
+
+  async function persistSession(dekKey, subject) {
+    const raw = await crypto.subtle.exportKey('raw', dekKey);
+    sessionStorage.setItem(STORAGE_DEK_KEY, toBase64(new Uint8Array(raw)));
+    expiryMs = Date.now() + IDLE_TIMEOUT_MS;
+    sessionStorage.setItem(STORAGE_EXPIRY_KEY, String(expiryMs));
+    if (subject) {
+      sessionStorage.setItem(STORAGE_SUBJECT_KEY, subject);
+    }
+    dek = dekKey;
+  }
+
+  async function restoreFromStorage() {
+    const storedExpiry = Number.parseInt(sessionStorage.getItem(STORAGE_EXPIRY_KEY), 10);
+    const rawB64 = sessionStorage.getItem(STORAGE_DEK_KEY);
+    if (!storedExpiry || !rawB64 || Date.now() > storedExpiry) {
+      session.lock();
+      return false;
+    }
+    try {
+      const meResponse = await fetch('/auth/me');
+      if (!meResponse.ok) {
+        session.lock();
+        return false;
+      }
+      const me = await meResponse.json();
+      const storedSubject = sessionStorage.getItem(STORAGE_SUBJECT_KEY);
+      if (storedSubject && me.subject !== storedSubject) {
+        session.lock();
+        return false;
+      }
+      const raw = fromBase64(rawB64);
+      dek = await crypto.subtle.importKey(
+        'raw',
+        raw,
+        { name: 'AES-GCM', length: 256 },
+        true,
+        ['encrypt', 'decrypt'],
+      );
+      expiryMs = storedExpiry;
+      bindActivity();
+      return true;
+    } catch (error) {
+      session.lock();
+      console.error(error);
+      return false;
+    }
+  }
 
   function encoder() {
     return new TextEncoder();
@@ -124,23 +182,40 @@ const AcruetCrypto = (() => {
     lock() {
       dek = null;
       expiryMs = null;
+      clearStorage();
     },
 
     async unlock(passphrase, wrappedPayload) {
       const saltBytes = fromBase64(wrappedPayload.kdfSalt);
       const kek = await deriveKek(passphrase, saltBytes, wrappedPayload.kdfIterations);
       const wrappedDekBytes = fromBase64(wrappedPayload.wrappedDek);
-      dek = await unwrapDek(kek, wrappedDekBytes);
-      expiryMs = Date.now() + IDLE_TIMEOUT_MS;
+      const dekKey = await unwrapDek(kek, wrappedDekBytes);
+      const meResponse = await fetch('/auth/me');
+      const subject = meResponse.ok ? (await meResponse.json()).subject : null;
+      await persistSession(dekKey, subject);
       bindActivity();
-      return dek;
+      return dekKey;
+    },
+
+    async ensureReady() {
+      if (dek && expiryMs && Date.now() <= expiryMs) {
+        return true;
+      }
+      if (!restorePromise) {
+        restorePromise = restoreFromStorage().finally(() => {
+          restorePromise = null;
+        });
+      }
+      return restorePromise;
     },
 
     isUnlocked() {
-      if (!dek || !expiryMs) {
+      const activeExpiry = expiryMs
+        || Number.parseInt(sessionStorage.getItem(STORAGE_EXPIRY_KEY), 10);
+      if (!dek || !activeExpiry) {
         return false;
       }
-      if (Date.now() > expiryMs) {
+      if (Date.now() > activeExpiry) {
         session.lock();
         return false;
       }
@@ -150,6 +225,7 @@ const AcruetCrypto = (() => {
     touch() {
       if (dek) {
         expiryMs = Date.now() + IDLE_TIMEOUT_MS;
+        sessionStorage.setItem(STORAGE_EXPIRY_KEY, String(expiryMs));
       }
     },
 

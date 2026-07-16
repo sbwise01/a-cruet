@@ -54,8 +54,9 @@ public class LandingResource {
                 </p>
                 <script src="/static/js/acruet-crypto.js"></script>
                 <script>
-                  document.addEventListener('DOMContentLoaded', () => {
+                  document.addEventListener('DOMContentLoaded', async () => {
                     const hint = document.getElementById('ledgerLockHint');
+                    await AcruetCrypto.session.ensureReady();
                     if (AcruetCrypto.session.isUnlocked()) {
                       hint.textContent = 'Encryption key is unlocked for this session.';
                     } else {
@@ -111,11 +112,12 @@ public class LandingResource {
                   <a href="/keys/rotate">Rotate key</a>
                   <a href="/ledger">Ledger</a>
                 </p>
-                <p><a href="/auth/logout">Sign out</a></p>
+                <p><a href="/auth/logout" onclick="AcruetCrypto.session.lock()">Sign out</a></p>
                 <script src="/static/js/acruet-crypto.js"></script>
                 <script>
-                  document.addEventListener('DOMContentLoaded', () => {
+                  document.addEventListener('DOMContentLoaded', async () => {
                     const status = document.getElementById('unlockStatus');
+                    await AcruetCrypto.session.ensureReady();
                     if (AcruetCrypto.session.isUnlocked()) {
                       status.textContent = 'Encryption key unlocked for this session.';
                     } else {
