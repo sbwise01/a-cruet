@@ -195,6 +195,7 @@ public class KeyResource {
                 <p class="hint">Your passphrase never leaves this browser. a-cruet stores only a wrapped copy of your data key.</p>
                 <div id="step-passphrase" class="wizard-step">
                   <p><strong>Step 1:</strong> Choose a strong passphrase (12+ characters).</p>
+                  <p class="hint">Spaces and punctuation are allowed. Your passphrase never leaves this browser.</p>
                   <label for="passphrase">Passphrase</label>
                   <input id="passphrase" type="password" autocomplete="new-password" minlength="12" required>
                   <label for="passphraseConfirm">Confirm passphrase</label>

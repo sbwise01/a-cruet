@@ -38,13 +38,29 @@ document.addEventListener('DOMContentLoaded', () => {
       showError(passphraseError, 'Passphrases do not match.');
       return;
     }
+    if (typeof AcruetCrypto === 'undefined') {
+      showError(setupError, 'Encryption scripts failed to load. Check /static/js/acruet-crypto.js in the browser network tab.');
+      return;
+    }
+    btnPassphraseNext.disabled = true;
+    btnPassphraseNext.textContent = 'Generating key…';
+    showError(setupError, 'Deriving encryption key — this can take 10–20 seconds. Please wait.');
+    setupError.classList.remove('error');
+    setupError.style.color = 'var(--muted)';
     try {
       setupState = await AcruetCrypto.createWrappedDek(passphrase);
+      setupError.hidden = true;
       stepPassphrase.hidden = true;
       stepRecovery.hidden = false;
     } catch (error) {
-      showError(setupError, 'Could not generate encryption key. Try again.');
+      setupError.style.color = '';
+      setupError.classList.add('error');
+      const detail = error && error.message ? ` ${error.message}` : '';
+      showError(setupError, `Could not generate encryption key.${detail}`);
       console.error(error);
+    } finally {
+      btnPassphraseNext.disabled = false;
+      btnPassphraseNext.textContent = 'Continue';
     }
   });
 

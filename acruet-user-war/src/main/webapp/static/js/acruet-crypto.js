@@ -159,7 +159,16 @@ const AcruetCrypto = (() => {
     },
   };
 
+  function assertWebCrypto() {
+    if (!window.crypto || !window.crypto.subtle) {
+      throw new Error(
+        'Web Crypto is unavailable in this browser context. Use HTTPS and a current browser.',
+      );
+    }
+  }
+
   async function createWrappedDek(passphrase) {
+    assertWebCrypto();
     const saltBytes = randomSalt();
     const kek = await deriveKek(passphrase, saltBytes, DEFAULT_ITERATIONS);
     const dekKey = await generateDek();
