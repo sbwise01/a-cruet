@@ -8,11 +8,15 @@ document.addEventListener('DOMContentLoaded', () => {
     unlockError.hidden = false;
   }
 
-  btnUnlock.addEventListener('click', async () => {
+    btnUnlock.addEventListener('click', async () => {
     unlockError.hidden = true;
+    btnUnlock.disabled = true;
+    btnUnlock.textContent = 'Unlocking…';
     const passphrase = passphraseInput.value;
     if (!passphrase) {
       showError('Enter your passphrase.');
+      btnUnlock.disabled = false;
+      btnUnlock.textContent = 'Unlock';
       return;
     }
     try {
@@ -26,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       showError('Incorrect passphrase or unlock failed.');
       console.error(error);
+    } finally {
+      btnUnlock.disabled = false;
+      btnUnlock.textContent = 'Unlock';
     }
   });
 });
