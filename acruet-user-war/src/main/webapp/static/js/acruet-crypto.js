@@ -66,8 +66,7 @@ const AcruetCrypto = (() => {
   }
 
   async function wrapDek(kek, dekKey) {
-    const rawDek = await crypto.subtle.exportKey('raw', dekKey);
-    return crypto.subtle.wrapKey('raw', rawDek, kek, WRAP_ALGORITHM);
+    return crypto.subtle.wrapKey('raw', dekKey, kek, WRAP_ALGORITHM);
   }
 
   async function unwrapDek(kek, wrappedDekBytes) {
