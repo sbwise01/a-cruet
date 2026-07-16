@@ -81,8 +81,8 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
 | 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
 | 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
-| 6 — Admin approval + Keycloak provisioning | ✅ Verified (2026-07-15) — approve + KC user + approval email; reject/first-login verify deferred |
-| 7 — Client encryption + key lifecycle | Pending |
+| 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred → Phase 12 |
+| 7 — Client encryption + key lifecycle | Implemented — cluster verify pending |
 | 8 — Ledger core | Pending |
 | 9 — Client-side reports | Pending |
 | 10 — Admin ops (suspend, offboard, cron) | Pending |
@@ -407,7 +407,7 @@ curl -s https://acruet.home.bradandmarsha.com/signup -X POST \
 
 Cleanup (optional): `DELETE FROM signup_attempt WHERE email LIKE '%example.com';` — for email-only test, also clear same **client IP** rows if IP limit was hit earlier (`WHERE ip_address = '…'`).
 
-- [ ] Re-apply after rejection respects 7-day cooldown / two-strike block
+- [ ] Re-apply after rejection respects 7-day cooldown / two-strike block — **deferred → Phase 12 E2E**
 
 **Image automation**
 
@@ -421,11 +421,11 @@ flux get image repository,policy,update -n flux-system | grep acruet
 
 ---
 
-## Phase 6 — Admin approval + Keycloak provisioning
+## Phase 6 — Admin approval + Keycloak provisioning ✅ complete (2026-07-14)
 
 **Goal:** Admin queue → approve creates Keycloak user + initial a-cruet records.
 
-**Status:** ✅ Verified on cluster (2026-07-15). Approve → Keycloak user + approval email E2E (`sbwise@gmail.com`). Keycloak **manual console** bootstrap (non-GitOps): `realm-management` service-account roles **and** matching roles on `acruet-admin-dedicated` scope (Keycloak 26; **Full scope allowed OFF** verified).
+**Status:** ✅ Complete on cluster (2026-07-14). Approve → Keycloak user → approval email → first OIDC login (temp password, change password, logout, re-login) verified (`sbwise@gmail.com`). Reject flow verification deferred to **Phase 12 E2E**. Keycloak **manual console** bootstrap (non-GitOps): `realm-management` service-account roles **and** matching roles on `acruet-admin-dedicated` scope (Keycloak 26; **Full scope allowed OFF** verified).
 
 ### Tasks
 
@@ -492,8 +492,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 - [x] Admin dashboard links to pending queue
 - [x] Approve application → Keycloak user exists in `wise-k8s`
 - [x] Applicant email with sign-in instructions + temporary password
-- [ ] First OIDC login succeeds (password change prompt from Keycloak)
-- [ ] Reject → rejection email; re-apply rules enforced
+- [x] First OIDC login succeeds (password change prompt from Keycloak; logout + re-login)
 - [x] `admin_action_audit` row for approve (implicit in successful approve flow)
 - [x] `acruet_user` row created with `key_setup_complete = false` (Phase 7 gate)
 
@@ -503,19 +502,58 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** Mandatory passphrase-derived KEK, DEK wrap, recovery file before ledger use.
 
+**Status:** Implemented in `a-cruet` (2026-07-15). Browser Web Crypto + wrapped DEK API + key-setup gate. Cluster verify pending.
+
 ### Tasks
 
-1. Browser: Web Crypto — AES-256-GCM, KEK from passphrase (never sent to server)
-2. One DEK per user; store wrapped DEK server-side
-3. Recovery file export + confirmation gate
-4. Session unlock with idle timeout (default ~30 min)
-5. Key rotation: re-wrap DEK with new KEK
+1. Browser: Web Crypto — AES-256-GCM DEK, PBKDF2 → AES-KW KEK (passphrase never sent to server)
+2. One DEK per user; store wrapped DEK server-side (`user_encryption_key`)
+3. Recovery file export (`acruet-recovery.json`) + confirmation gate (`key_setup_complete`)
+4. Session unlock with 30-minute idle timeout (client memory only)
+5. Key rotation: re-wrap same DEK with new passphrase (no ledger ciphertext changes)
+
+### a-cruet
+
+| Component | Notes |
+|-----------|--------|
+| Flyway `V4__user_encryption_key.sql` | `user_encryption_key` table (wrapped DEK + KDF metadata) |
+| `WrappedDekPayload`, `KeyService` | Validate + persist wrapped DEK; confirm recovery; rotate |
+| `UserRepository` / `UserEncryptionRepository` | Lookup by Keycloak subject; wrapped DEK CRUD |
+| `KeySetupFilter` | User WAR — redirect authenticated users without `key_setup_complete` → `/keys/setup` |
+| `KeyResource` | `/keys/setup`, `/keys/unlock`, `/keys/rotate` HTML + JSON API |
+| `static/js/acruet-crypto.js` | Web Crypto primitives + in-memory session unlock |
+| `LandingResource` | Key-aware home; `/ledger` stub gated until setup + unlock |
+
+### API (authenticated)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/keys/status` | `{ keySetupComplete, hasWrappedDek }` |
+| GET | `/keys/wrapped-dek` | KDF params + wrapped DEK (base64) for unlock/rotate |
+| PUT | `/keys/wrapped-dek` | Initial setup — store wrapped DEK |
+| POST | `/keys/confirm-recovery` | Set `key_setup_complete = true` after backup confirmed |
+| POST | `/keys/rotate` | Replace wrapped DEK (same DEK, new KDF params) |
 
 ### Verify
 
-- New user blocked from ledger until key + recovery confirmed
-- Server DB contains wrapped DEK + ciphertext only — no passphrase
-- Key rotation succeeds without re-encrypting all records
+**Key setup (new approved user)**
+
+- [ ] Sign in → redirect to `/keys/setup`
+- [ ] Create passphrase → download recovery file → confirm backup → finish
+- [ ] `user_encryption_key` row exists; `acruet_user.key_setup_complete = true`
+- [ ] Server DB has wrapped DEK + KDF metadata only — no passphrase column
+
+**Unlock + rotation**
+
+- [ ] Home shows unlock status; `/keys/unlock` unwraps DEK for session
+- [ ] Idle timeout locks session (refresh page → unlock required again)
+- [ ] `/keys/rotate` with current passphrase → new wrapped DEK on server; recovery file downloads
+- [ ] Rotation does not change ledger ciphertext (no ledger rows yet — verify wrapped DEK blob changes only)
+
+**Ledger gate (Phase 8 prep)**
+
+- [ ] `/ledger` blocked until key setup complete
+- [ ] `/ledger` shows unlock hint when key not unlocked in browser session
 
 ---
 
@@ -608,6 +646,9 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 | 6 | Admin offboard + export + purge | Data removed |
 | 7 | Flux + CNPG healthy | All Kustomizations Ready |
 | 8 | Keycloak Phase 5 clients | `keycloakoidcclient` Ready |
+| 9 | Admin reject application | Rejection email sent; 7-day re-apply cooldown / two-strike block enforced |
+
+**Deferred from earlier phases:** reject flow (#9); signup re-apply throttling after rejection (Phase 5); Phase 5 throttling/image-automation smoke tests. Flow #1 (signup → verify → approve → sign in) verified during Phases 5–6.
 
 ---
 
@@ -647,7 +688,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 4. Phase 3 platform deploy
 5. Phase 4 OIDC + **KEYCLOAK.md Phase 5**
 6. Phase 5 signup + SMTP + **Flux image automation**
-7. Phase 6 admin approval
+7. Phase 6 admin approval ✅
 8. Phase 7 encryption
 9. Phase 8 ledger
 10. Phase 9 reports
