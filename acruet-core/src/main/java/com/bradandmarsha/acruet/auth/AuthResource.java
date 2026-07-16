@@ -71,6 +71,13 @@ public class AuthResource {
                     .build();
         }
 
+        if (!settings.requireAdminRole()) {
+            UserSession.onLogin(request, user);
+            if (!UserSession.isKeySetupComplete(request)) {
+                return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+            }
+        }
+
         return Response.seeOther(UriBuilder.fromPath("/").build()).build();
     }
 

@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Provisioned a-cruet user (plaintext operational metadata).
+ * Provisioned a-cruet user row (Phase 6+) including key-setup gate (Phase 7).
  */
 public record AcruetUser(
         UUID id,
@@ -12,5 +12,10 @@ public record AcruetUser(
         String email,
         String displayName,
         UUID signupApplicationId,
-        Instant createdAt) {
+        int ledgerAccountCount,
+        int transactionCount,
+        boolean keySetupComplete,
+        Instant createdAt,
+        Instant updatedAt,
+        Instant lastLoginAt) {
 }
