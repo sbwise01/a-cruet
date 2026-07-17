@@ -251,6 +251,12 @@ public class LedgerResource {
                 }
                 .account-row .name { font-weight: 600; }
                 .account-row .balance { font-variant-numeric: tabular-nums; }
+                .account-row.total-row {
+                  margin-top: 0.35rem;
+                  padding-top: 0.85rem;
+                  border-top: 2px solid rgba(148, 163, 184, 0.35);
+                  border-bottom: none;
+                }
                 .form-grid label { margin-top: 0.75rem; }
                 .line-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; align-items: center; }
                 .line-row select, .line-row input { flex: 1; margin-top: 0; }

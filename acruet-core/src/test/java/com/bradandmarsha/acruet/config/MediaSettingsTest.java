@@ -10,8 +10,8 @@ class MediaSettingsTest {
     void tileImageUrlBuildsHttpsPath() {
         MediaSettings settings = new MediaSettings("media.example.com");
         assertEquals(
-                "https://media.example.com/media/acruet.png",
-                settings.tileImageUrl("/media/acruet.png"));
+                "https://media.example.com/media/acruet-bw.jpg",
+                settings.tileImageUrl("/media/acruet-bw.jpg"));
         assertEquals(
                 "https://media.example.com/media/acruet-bw.jpg",
                 settings.tileImageUrl("acruet-bw.jpg"));
