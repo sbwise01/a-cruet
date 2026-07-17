@@ -180,6 +180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('txTotal').addEventListener('input', autoFillDepositFromTotal);
     } else if (type === 'WITHDRAW') {
       addWithdrawLine();
+      document.getElementById('txTotal').addEventListener('input', autoFillWithdrawFromTotal);
     } else {
       addTransferLines();
     }
@@ -216,9 +217,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       <label>Withdraw from</label>
       <div class="line-row">
         ${accountSelect('withdrawAccount')}
-        <input id="withdrawAmount" type="number" min="0.01" step="0.01" placeholder="Amount">
+        <input id="withdrawAmount" type="number" min="0" step="0.01" value="0.00">
       </div>
     `;
+    document.getElementById('withdrawAmount').addEventListener('input', updateWithdrawHint);
+    updateWithdrawHint();
   }
 
   function addTransferLines() {
@@ -266,6 +269,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       amountInputs[0].value = totalValue === '' ? '0.00' : formatUsdInput(parseUsd(totalValue));
     }
     updateAllocationHint();
+  }
+
+  function autoFillWithdrawFromTotal() {
+    const totalInput = document.getElementById('txTotal');
+    const withdrawInput = document.getElementById('withdrawAmount');
+    if (!totalInput || !withdrawInput) {
+      return;
+    }
+    const totalValue = totalInput.value.trim();
+    withdrawInput.value = totalValue === '' ? '0.00' : formatUsdInput(parseUsd(totalValue));
+    updateWithdrawHint();
+  }
+
+  function updateWithdrawHint() {
+    const hint = document.getElementById('allocationHint');
+    const totalInput = document.getElementById('txTotal');
+    const withdrawInput = document.getElementById('withdrawAmount');
+    if (!hint || !totalInput || !withdrawInput) {
+      return;
+    }
+    const total = parseUsd(totalInput.value);
+    const withdrawn = parseUsd(withdrawInput.value);
+    hint.textContent = `Withdrawal: ${formatCents(withdrawn)} of ${formatCents(total)}`;
   }
 
   function updateAllocationHint() {
@@ -356,9 +382,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         );
       }
     } else if (type === 'WITHDRAW') {
-      const accountId = document.querySelector('.withdrawAccount').value;
+      totalCents = parseUsd(document.getElementById('txTotal').value);
       const amount = parseUsd(document.getElementById('withdrawAmount').value);
-      totalCents = amount;
+      if (totalCents <= 0) {
+        throw new Error('Enter a withdraw total greater than zero.');
+      }
+      if (amount !== totalCents) {
+        throw new Error(
+          `Withdrawal amount (${formatCents(amount)}) must equal the total (${formatCents(totalCents)}).`,
+        );
+      }
+      const accountId = document.querySelector('.withdrawAccount').value;
       lines = [{ accountId, amountCents: -amount }];
     } else {
       const fromId = document.querySelector('.transferFrom').value;
