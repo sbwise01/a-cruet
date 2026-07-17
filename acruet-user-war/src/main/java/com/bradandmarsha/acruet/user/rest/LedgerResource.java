@@ -74,6 +74,7 @@ public class LedgerResource {
                 </section>
                 <section id="formPanel" hidden>
                   <h2 id="formTitle"></h2>
+                  <div id="formError" class="form-error" hidden></div>
                   <div id="formBody"></div>
                   <p>
                     <button type="button" id="btnSubmitForm">Save</button>
@@ -261,6 +262,14 @@ public class LedgerResource {
                 .line-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; align-items: center; }
                 .line-row select, .line-row input { flex: 1; margin-top: 0; }
                 #formPanel { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(148, 163, 184, 0.2); }
+                .form-error {
+                  margin: 0 0 1rem;
+                  padding: 0.75rem 1rem;
+                  border-radius: 8px;
+                  background: rgba(248, 113, 113, 0.12);
+                  border-left: 3px solid #f87171;
+                  color: #f87171;
+                }
                 """;
     }
 

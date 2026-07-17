@@ -9,15 +9,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     formMode: null,
   };
 
+  const ALLOCATION_MISMATCH_MESSAGE =
+    'Your total amount must match the sum of all of the allocated amounts.';
+
   const els = {
     error: document.getElementById('ledgerError'),
     warning: document.getElementById('ledgerWarning'),
+    formError: document.getElementById('formError'),
     accountsList: document.getElementById('accountsList'),
     accountLimitHint: document.getElementById('accountLimitHint'),
     formPanel: document.getElementById('formPanel'),
     formTitle: document.getElementById('formTitle'),
     formBody: document.getElementById('formBody'),
   };
+
+  let formErrorTimeout = null;
 
   await AcruetCrypto.session.ensureReady();
   if (!AcruetCrypto.session.isUnlocked()) {
@@ -147,6 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       <label for="accountName">Envelope name</label>
       <input id="accountName" type="text" required maxlength="120">
     `;
+    hideFormError();
     els.formPanel.hidden = false;
   }
 
@@ -162,9 +169,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       TRANSFER: 'Transfer funds',
     };
     els.formTitle.textContent = titles[type];
-    const accountOptions = state.accounts
-      .map((account) => `<option value="${account.id}">${escapeHtml(account.name)}</option>`)
-      .join('');
     els.formBody.innerHTML = `
       <label for="txDate">Date</label>
       <input id="txDate" type="date" value="${todayIso()}" required>
@@ -179,11 +183,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       addDepositLines();
       document.getElementById('txTotal').addEventListener('input', autoFillDepositFromTotal);
     } else if (type === 'WITHDRAW') {
-      addWithdrawLine();
+      addWithdrawLines();
       document.getElementById('txTotal').addEventListener('input', autoFillWithdrawFromTotal);
     } else {
       addTransferLines();
     }
+    hideFormError();
     els.formPanel.hidden = false;
   }
 
@@ -211,16 +216,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     lines.appendChild(row);
   }
 
-  function addWithdrawLine() {
+  function addWithdrawLines() {
     const container = document.getElementById('lineContainer');
     container.innerHTML = `
-      <label>Withdraw from</label>
-      <div class="line-row">
-        ${accountSelect('withdrawAccount')}
-        <input id="withdrawAmount" type="number" min="0" step="0.01" value="0.00">
-      </div>
+      <label>Withdraw from envelopes (amounts must equal total)</label>
+      <div id="withdrawLines"></div>
+      <button type="button" id="btnAddWithdrawLine">Add envelope row</button>
     `;
-    document.getElementById('withdrawAmount').addEventListener('input', updateWithdrawHint);
+    document.getElementById('btnAddWithdrawLine').addEventListener('click', () => appendWithdrawLine());
+    appendWithdrawLine();
+    updateWithdrawHint();
+  }
+
+  function appendWithdrawLine() {
+    const lines = document.getElementById('withdrawLines');
+    const row = document.createElement('div');
+    row.className = 'line-row';
+    row.innerHTML = `
+      ${accountSelect('withdrawAccount')}
+      <input type="number" class="withdrawAmount" min="0" step="0.01" value="0.00">
+    `;
+    row.querySelector('.withdrawAmount').addEventListener('input', syncWithdrawLines);
+    lines.appendChild(row);
+  }
+
+  function syncWithdrawLines() {
     updateWithdrawHint();
   }
 
@@ -273,25 +293,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function autoFillWithdrawFromTotal() {
     const totalInput = document.getElementById('txTotal');
-    const withdrawInput = document.getElementById('withdrawAmount');
-    if (!totalInput || !withdrawInput) {
+    if (!totalInput) {
       return;
     }
-    const totalValue = totalInput.value.trim();
-    withdrawInput.value = totalValue === '' ? '0.00' : formatUsdInput(parseUsd(totalValue));
+    const amountInputs = Array.from(document.querySelectorAll('.withdrawAmount'));
+    if (amountInputs.length === 1) {
+      const totalValue = totalInput.value.trim();
+      amountInputs[0].value = totalValue === '' ? '0.00' : formatUsdInput(parseUsd(totalValue));
+    }
     updateWithdrawHint();
   }
 
   function updateWithdrawHint() {
     const hint = document.getElementById('allocationHint');
     const totalInput = document.getElementById('txTotal');
-    const withdrawInput = document.getElementById('withdrawAmount');
-    if (!hint || !totalInput || !withdrawInput) {
+    if (!hint || !totalInput) {
       return;
     }
     const total = parseUsd(totalInput.value);
-    const withdrawn = parseUsd(withdrawInput.value);
-    hint.textContent = `Withdrawal: ${formatCents(withdrawn)} of ${formatCents(total)}`;
+    const withdrawn = sumWithdrawLines();
+    hint.textContent = `Withdrawn: ${formatCents(withdrawn)} of ${formatCents(total)}`;
+  }
+
+  function sumWithdrawLines() {
+    return Array.from(document.querySelectorAll('.withdrawAmount'))
+      .reduce((sum, input) => sum + parseUsd(input.value), 0);
   }
 
   function updateAllocationHint() {
@@ -324,6 +350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function submitForm() {
     hideError();
     hideWarning();
+    hideFormError();
     try {
       if (state.formMode === 'CREATE') {
         await submitCreate();
@@ -377,23 +404,42 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       const allocated = lines.reduce((sum, line) => sum + line.amountCents, 0);
       if (allocated !== totalCents) {
+        if (document.querySelectorAll('#depositLines .line-row').length > 1) {
+          showFormError(ALLOCATION_MISMATCH_MESSAGE);
+          return;
+        }
         throw new Error(
           `Allocations (${formatCents(allocated)}) must equal the deposit total (${formatCents(totalCents)}).`,
         );
       }
     } else if (type === 'WITHDRAW') {
       totalCents = parseUsd(document.getElementById('txTotal').value);
-      const amount = parseUsd(document.getElementById('withdrawAmount').value);
       if (totalCents <= 0) {
         throw new Error('Enter a withdraw total greater than zero.');
       }
-      if (amount !== totalCents) {
+      const positiveLines = Array.from(document.querySelectorAll('#withdrawLines .line-row'))
+        .map((row) => ({
+          accountId: row.querySelector('select').value,
+          amountCents: parseUsd(row.querySelector('.withdrawAmount').value),
+        }))
+        .filter((line) => line.amountCents > 0);
+      if (positiveLines.length === 0) {
+        throw new Error('Enter at least one withdrawal amount greater than zero.');
+      }
+      const withdrawn = positiveLines.reduce((sum, line) => sum + line.amountCents, 0);
+      if (withdrawn !== totalCents) {
+        if (document.querySelectorAll('#withdrawLines .line-row').length > 1) {
+          showFormError(ALLOCATION_MISMATCH_MESSAGE);
+          return;
+        }
         throw new Error(
-          `Withdrawal amount (${formatCents(amount)}) must equal the total (${formatCents(totalCents)}).`,
+          `Withdrawals (${formatCents(withdrawn)}) must equal the total (${formatCents(totalCents)}).`,
         );
       }
-      const accountId = document.querySelector('.withdrawAccount').value;
-      lines = [{ accountId, amountCents: -amount }];
+      lines = positiveLines.map((line) => ({
+        accountId: line.accountId,
+        amountCents: -line.amountCents,
+      }));
     } else {
       const fromId = document.querySelector('.transferFrom').value;
       const toLines = Array.from(document.querySelectorAll('#transferTos .line-row'));
@@ -452,9 +498,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function hideForm() {
+    hideFormError();
     els.formPanel.hidden = true;
     state.formMode = null;
     els.formBody.innerHTML = '';
+  }
+
+  function showFormError(message, durationMs = 5000) {
+    if (!els.formError) {
+      return;
+    }
+    if (formErrorTimeout) {
+      clearTimeout(formErrorTimeout);
+    }
+    els.formError.textContent = message;
+    els.formError.hidden = false;
+    formErrorTimeout = setTimeout(() => {
+      hideFormError();
+    }, durationMs);
+  }
+
+  function hideFormError() {
+    if (formErrorTimeout) {
+      clearTimeout(formErrorTimeout);
+      formErrorTimeout = null;
+    }
+    if (els.formError) {
+      els.formError.hidden = true;
+      els.formError.textContent = '';
+    }
   }
 
   function showError(message) {
