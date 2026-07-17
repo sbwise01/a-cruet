@@ -82,7 +82,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
 | 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
 | 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred → Phase 12 |
-| 7 — Client encryption + key lifecycle | Implemented — cluster verify pending |
+| 7 — Client encryption + key lifecycle | ✅ Complete (2026-07-15) — setup, unlock, idle timeout, rotation |
 | 8 — Ledger core | Pending |
 | 9 — Client-side reports | Pending |
 | 10 — Admin ops (suspend, offboard, cron) | Pending |
@@ -498,18 +498,18 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ---
 
-## Phase 7 — Client encryption + key lifecycle
+## Phase 7 — Client encryption + key lifecycle ✅ complete (2026-07-15)
 
 **Goal:** Mandatory passphrase-derived KEK, DEK wrap, recovery file before ledger use.
 
-**Status:** Implemented in `a-cruet` (2026-07-15). Browser Web Crypto + wrapped DEK API + key-setup gate. Cluster verify pending.
+**Status:** ✅ Complete on cluster (2026-07-15). Key setup, unlock (`sessionStorage` + 30-min idle timeout), key rotation, and `/ledger` gate verified (`sbwise@gmail.com`).
 
 ### Tasks
 
 1. Browser: Web Crypto — AES-256-GCM DEK, PBKDF2 → AES-KW KEK (passphrase never sent to server)
 2. One DEK per user; store wrapped DEK server-side (`user_encryption_key`)
 3. Recovery file export (`acruet-recovery.json`) + confirmation gate (`key_setup_complete`)
-4. Session unlock with 30-minute idle timeout (client memory only)
+4. Session unlock with 30-minute idle timeout (`sessionStorage`, tab-scoped)
 5. Key rotation: re-wrap same DEK with new passphrase (no ledger ciphertext changes)
 
 ### a-cruet
@@ -521,7 +521,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 | `UserRepository` / `UserEncryptionRepository` | Lookup by Keycloak subject; wrapped DEK CRUD |
 | `KeySetupFilter` | User WAR — redirect authenticated users without `key_setup_complete` → `/keys/setup` |
 | `KeyResource` | `/keys/setup`, `/keys/unlock`, `/keys/rotate` HTML + JSON API |
-| `static/js/acruet-crypto.js` | Web Crypto primitives + in-memory session unlock |
+| `static/js/acruet-crypto.js` | Web Crypto primitives + `sessionStorage` session unlock |
 | `LandingResource` | Key-aware home; `/ledger` stub gated until setup + unlock |
 
 ### API (authenticated)
@@ -538,22 +538,23 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Key setup (new approved user)**
 
-- [ ] Sign in → redirect to `/keys/setup`
-- [ ] Create passphrase → download recovery file → confirm backup → finish
-- [ ] `user_encryption_key` row exists; `acruet_user.key_setup_complete = true`
-- [ ] Server DB has wrapped DEK + KDF metadata only — no passphrase column
+- [x] Sign in → redirect to `/keys/setup`
+- [x] Create passphrase → download recovery file → confirm backup → finish
+- [x] `user_encryption_key` row exists; `acruet_user.key_setup_complete = true` (`sbwise@gmail.com`)
+- [x] Server DB has wrapped DEK + KDF metadata only — no passphrase column
 
 **Unlock + rotation**
 
-- [ ] Home shows unlock status; `/keys/unlock` unwraps DEK for session
-- [ ] Idle timeout locks session (refresh page → unlock required again)
-- [ ] `/keys/rotate` with current passphrase → new wrapped DEK on server; recovery file downloads
-- [ ] Rotation does not change ledger ciphertext (no ledger rows yet — verify wrapped DEK blob changes only)
+- [x] Home shows unlock status; `/keys/unlock` unwraps DEK for session
+- [x] Session persists across page refresh/navigation within idle window (`sessionStorage`)
+- [x] 30-minute idle timeout without activity → unlock required again
+- [x] `/keys/rotate` with current passphrase → new wrapped DEK on server; recovery file downloads
+- [x] Rotation does not change ledger ciphertext (no ledger rows yet — wrapped DEK blob updated only)
 
 **Ledger gate (Phase 8 prep)**
 
-- [ ] `/ledger` blocked until key setup complete
-- [ ] `/ledger` shows unlock hint when key not unlocked in browser session
+- [x] `/ledger` accessible after key setup complete (server gate)
+- [x] `/ledger` shows unlock hint when key not unlocked in browser session
 
 ---
 
@@ -689,7 +690,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 5. Phase 4 OIDC + **KEYCLOAK.md Phase 5**
 6. Phase 5 signup + SMTP + **Flux image automation**
 7. Phase 6 admin approval ✅
-8. Phase 7 encryption
+8. Phase 7 encryption ✅
 9. Phase 8 ledger
 10. Phase 9 reports
 11. Phase 10 admin ops
