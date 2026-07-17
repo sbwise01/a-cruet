@@ -40,13 +40,32 @@ public final class UserRepository {
             throws SQLException {
         String sql = """
                 SELECT id, keycloak_user_id, email, display_name, signup_application_id,
-                       ledger_account_count, transaction_count, key_setup_complete,
-                       created_at, updated_at, last_login_at
+                       ledger_account_count, transaction_count, ledger_account_limit,
+                       key_setup_complete, created_at, updated_at, last_login_at, last_transaction_at
                 FROM acruet_user
                 WHERE keycloak_user_id = ?
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, keycloakUserId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapRow(resultSet));
+            }
+        }
+    }
+
+    public Optional<AcruetUser> findById(Connection connection, UUID userId) throws SQLException {
+        String sql = """
+                SELECT id, keycloak_user_id, email, display_name, signup_application_id,
+                       ledger_account_count, transaction_count, ledger_account_limit,
+                       key_setup_complete, created_at, updated_at, last_login_at, last_transaction_at
+                FROM acruet_user
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
                     return Optional.empty();
@@ -82,8 +101,49 @@ public final class UserRepository {
         }
     }
 
+    public void incrementLedgerAccountCount(Connection connection, UUID userId) throws SQLException {
+        String sql = """
+                UPDATE acruet_user
+                SET ledger_account_count = ledger_account_count + 1, updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            statement.executeUpdate();
+        }
+    }
+
+    public void decrementLedgerAccountCount(Connection connection, UUID userId) throws SQLException {
+        String sql = """
+                UPDATE acruet_user
+                SET ledger_account_count = GREATEST(ledger_account_count - 1, 0), updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            statement.executeUpdate();
+        }
+    }
+
+    public void incrementTransactionCount(Connection connection, UUID userId, Instant transactionAt)
+            throws SQLException {
+        String sql = """
+                UPDATE acruet_user
+                SET transaction_count = transaction_count + 1,
+                    last_transaction_at = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setTimestamp(1, Timestamp.from(transactionAt));
+            statement.setObject(2, userId);
+            statement.executeUpdate();
+        }
+    }
+
     private static AcruetUser mapRow(ResultSet resultSet) throws SQLException {
         Timestamp lastLoginAt = resultSet.getTimestamp("last_login_at");
+        Timestamp lastTransactionAt = resultSet.getTimestamp("last_transaction_at");
         return new AcruetUser(
                 resultSet.getObject("id", UUID.class),
                 resultSet.getString("keycloak_user_id"),
@@ -92,9 +152,11 @@ public final class UserRepository {
                 resultSet.getObject("signup_application_id", UUID.class),
                 resultSet.getInt("ledger_account_count"),
                 resultSet.getInt("transaction_count"),
+                resultSet.getInt("ledger_account_limit"),
                 resultSet.getBoolean("key_setup_complete"),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant(),
-                lastLoginAt == null ? null : lastLoginAt.toInstant());
+                lastLoginAt == null ? null : lastLoginAt.toInstant(),
+                lastTransactionAt == null ? null : lastTransactionAt.toInstant());
     }
 }

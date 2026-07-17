@@ -14,8 +14,10 @@ public record AcruetUser(
         UUID signupApplicationId,
         int ledgerAccountCount,
         int transactionCount,
+        int ledgerAccountLimit,
         boolean keySetupComplete,
         Instant createdAt,
         Instant updatedAt,
-        Instant lastLoginAt) {
+        Instant lastLoginAt,
+        Instant lastTransactionAt) {
 }

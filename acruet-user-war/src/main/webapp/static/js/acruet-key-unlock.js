@@ -26,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const payload = await response.json();
       await AcruetCrypto.session.unlock(passphrase, payload);
-      window.location.assign('/');
+      const params = new URLSearchParams(window.location.search);
+      window.location.assign(params.get('next') || '/');
     } catch (error) {
       showError('Incorrect passphrase or unlock failed.');
       console.error(error);

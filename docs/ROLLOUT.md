@@ -83,7 +83,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
 | 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred → Phase 12 |
 | 7 — Client encryption + key lifecycle | ✅ Complete (2026-07-15) — setup, unlock, idle timeout, rotation |
-| 8 — Ledger core | Pending |
+| 8 — Ledger core | Implemented — cluster verify pending |
 | 9 — Client-side reports | Pending |
 | 10 — Admin ops (suspend, offboard, cron) | Pending |
 | 11 — CI/CD + Flux image automation | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
@@ -562,6 +562,8 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** Envelope budgeting MVP.
 
+**Status:** Implemented in `a-cruet` (2026-07-16). V5 schema, JSON API, browser ledger UI with client-side encrypt/decrypt. Cluster verify pending.
+
 ### Tasks
 
 1. CRUD ledger accounts (encrypted names); 100 default limit
@@ -571,11 +573,41 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 5. Append-only transactions; user date + system `created-at`
 6. Per-user API write rate limits
 
+### a-cruet
+
+| Component | Notes |
+|-----------|--------|
+| Flyway `V5__ledger_core.sql` | `ledger_account`, `ledger_transaction`, `ledger_transaction_account`, `ledger_write_attempt`; `acruet_user.ledger_account_limit` |
+| `EncryptedBlob` | Validates AES-GCM ciphertext blobs (IV + payload) |
+| `LedgerService` | Account CRUD, archive, append transactions, count bumps, write rate limits |
+| `LedgerResource` | `GET /ledger` dashboard + `/ledger/accounts`, `/ledger/transactions` JSON API |
+| `acruet-crypto.js` | `encryptJson` / `decryptJson` for ledger payloads |
+| `acruet-ledger.js` | Envelope list, balances, deposit/withdraw/transfer, archive, overspend warnings |
+
+### API (authenticated, ciphertext in/out)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/ledger/accounts` | List accounts (`encryptedName` base64); `accountCount` / `accountLimit` |
+| POST | `/ledger/accounts` | Create account `{ encryptedName }` |
+| PUT | `/ledger/accounts/{id}` | Update encrypted name |
+| POST | `/ledger/accounts/{id}/archive` | Archive active account |
+| GET | `/ledger/transactions` | List by `?from=&to=&accountId=` |
+| POST | `/ledger/transactions` | Append `{ transactionType, transactionDate, encryptedPayload, accountIds[] }` |
+
+**Encrypted transaction payload (client JSON before AES-GCM):** `{ memo, totalCents, lines[{ accountId, amountCents }] }` — deposit lines positive; withdraw/transfer use signed cents.
+
+**Write rate limits:** 30/minute, 200/hour per user (`ledger_write_attempt`).
+
 ### Verify
 
-- Full deposit → withdraw → transfer cycle in browser
-- Negative balance shows warning
-- Server stores ciphertext; plaintext counts update for admin metadata
+- [ ] Unlock key → open `/ledger`
+- [ ] Create 2+ envelopes
+- [ ] Deposit with 100% allocation across envelopes
+- [ ] Withdraw past balance → warning shown; negative balance displayed
+- [ ] Transfer between envelopes
+- [ ] Archive zero-balance envelope
+- [ ] DB: `ledger_account.encrypted_name` and `ledger_transaction.encrypted_payload` are ciphertext; `acruet_user.ledger_account_count` / `transaction_count` updated
 
 ---
 
