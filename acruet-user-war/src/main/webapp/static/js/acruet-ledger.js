@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       <p class="hint" id="allocationHint"></p>
     `;
     if (type === 'DEPOSIT') {
-      addDepositLine();
+      addDepositLines();
       document.getElementById('txTotal').addEventListener('input', syncDepositLines);
     } else if (type === 'WITHDRAW') {
       addWithdrawLine();
@@ -175,16 +175,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.formPanel.hidden = false;
   }
 
-  function addDepositLine() {
+  function addDepositLines() {
     const container = document.getElementById('lineContainer');
     container.innerHTML = `
-      <label>Allocate to envelopes (must total 100%)</label>
+      <label>Allocate to envelopes (amounts must equal total)</label>
       <div id="depositLines"></div>
-      <button type="button" id="btnAddDepositLine">Add envelope</button>
+      <button type="button" id="btnAddDepositLine">Add envelope row</button>
     `;
     document.getElementById('btnAddDepositLine').addEventListener('click', () => appendDepositLine());
     appendDepositLine();
-    appendDepositLine();
+    syncDepositLines();
   }
 
   function appendDepositLine() {
@@ -193,8 +193,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     row.className = 'line-row';
     row.innerHTML = `
       ${accountSelect('depositAccount')}
-      <input type="number" class="depositAmount" min="0" step="0.01" placeholder="Amount">
+      <input type="number" class="depositAmount" min="0" step="0.01" value="0.00">
     `;
+    row.querySelector('.depositAmount').addEventListener('input', syncDepositLines);
     lines.appendChild(row);
   }
 
@@ -252,6 +253,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       .reduce((sum, input) => sum + parseUsd(input.value), 0);
   }
 
+  function parseUsd(value) {
+    if (value === null || value === undefined || String(value).trim() === '') {
+      return 0;
+    }
+    const dollars = Number.parseFloat(value);
+    if (Number.isNaN(dollars)) {
+      return 0;
+    }
+    return Math.round(dollars * 100);
+  }
+
   async function submitForm() {
     hideError();
     hideWarning();
@@ -294,16 +306,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (type === 'DEPOSIT') {
       totalCents = parseUsd(document.getElementById('txTotal').value);
-      lines = Array.from(document.querySelectorAll('#depositLines .line-row')).map((row) => ({
-        accountId: row.querySelector('select').value,
-        amountCents: parseUsd(row.querySelector('.depositAmount').value),
-      }));
+      if (totalCents <= 0) {
+        throw new Error('Enter a deposit total greater than zero.');
+      }
+      lines = Array.from(document.querySelectorAll('#depositLines .line-row'))
+        .map((row) => ({
+          accountId: row.querySelector('select').value,
+          amountCents: parseUsd(row.querySelector('.depositAmount').value),
+        }))
+        .filter((line) => line.amountCents > 0);
+      if (lines.length === 0) {
+        throw new Error('Enter at least one allocation amount greater than zero.');
+      }
       const allocated = lines.reduce((sum, line) => sum + line.amountCents, 0);
       if (allocated !== totalCents) {
-        throw new Error('Deposit must allocate 100% of the total across envelopes.');
-      }
-      if (lines.some((line) => line.amountCents <= 0)) {
-        throw new Error('Each allocation must be greater than zero.');
+        throw new Error(
+          `Allocations (${formatCents(allocated)}) must equal the deposit total (${formatCents(totalCents)}).`,
+        );
       }
     } else if (type === 'WITHDRAW') {
       const accountId = document.querySelector('.withdrawAccount').value;
@@ -391,12 +410,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   function hideWarning() {
     els.warning.hidden = true;
     els.warning.textContent = '';
-  }
-
-  function parseUsd(value) {
-    const dollars = Number.parseFloat(value);
-    if (Number.isNaN(dollars)) return 0;
-    return Math.round(dollars * 100);
   }
 
   function formatCents(cents) {
