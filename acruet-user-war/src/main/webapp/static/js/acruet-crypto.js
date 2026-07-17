@@ -299,6 +299,26 @@ const AcruetCrypto = (() => {
     };
   }
 
+  async function encryptJson(dekKey, value) {
+    assertWebCrypto();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoded = encoder().encode(JSON.stringify(value));
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, dekKey, encoded);
+    const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(ciphertext), iv.length);
+    return toBase64(combined);
+  }
+
+  async function decryptJson(dekKey, base64) {
+    assertWebCrypto();
+    const combined = fromBase64(base64);
+    const iv = combined.slice(0, 12);
+    const data = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, dekKey, data);
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  }
+
   return {
     KDF_ALGORITHM,
     KDF_HASH,
@@ -317,6 +337,8 @@ const AcruetCrypto = (() => {
     fromBase64,
     createWrappedDek,
     rotateWrappedDek,
+    encryptJson,
+    decryptJson,
     session,
   };
 })();

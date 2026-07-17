@@ -11,8 +11,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriBuilder;
 
 import java.util.Optional;
 
@@ -29,42 +27,6 @@ public class LandingResource {
     public String index(@Context HttpServletRequest request) {
         Optional<OidcUser> user = UserSession.oidcUser(request);
         return user.map(this::authenticatedPage).orElseGet(this::publicPage);
-    }
-
-    @GET
-    @Path("ledger")
-    @Produces(MediaType.TEXT_HTML)
-    public Response ledger(@Context HttpServletRequest request) {
-        Optional<AcruetUser> user = UserSession.acruetUser(request);
-        if (user.isEmpty()) {
-            return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
-        }
-        if (!user.get().keySetupComplete()) {
-            return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
-        }
-        return Response.ok(UserPageLayout.render(
-                "Ledger",
-                """
-                <h2>Ledger</h2>
-                <p>Ledger features arrive in Phase 8. Unlock your encryption key in the browser to access them when available.</p>
-                <p class="hint" id="ledgerLockHint">Checking key unlock status…</p>
-                <p class="actions">
-                  <a href="/keys/unlock">Unlock key</a>
-                  <a href="/">Home</a>
-                </p>
-                <script src="/static/js/acruet-crypto.js"></script>
-                <script>
-                  document.addEventListener('DOMContentLoaded', async () => {
-                    const hint = document.getElementById('ledgerLockHint');
-                    await AcruetCrypto.session.ensureReady();
-                    if (AcruetCrypto.session.isUnlocked()) {
-                      hint.textContent = 'Encryption key is unlocked for this session.';
-                    } else {
-                      hint.textContent = 'Unlock your encryption key to use ledger features.';
-                    }
-                  });
-                </script>
-                """)).build();
     }
 
     private String publicPage() {
