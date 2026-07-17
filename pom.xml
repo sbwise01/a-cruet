@@ -6,7 +6,7 @@
 
     <groupId>com.bradandmarsha</groupId>
     <artifactId>acruet</artifactId>
-    <version>1.6.2</version>
+    <version>1.6.3</version>
     <packaging>pom</packaging>
 
     <name>a-cruet</name>

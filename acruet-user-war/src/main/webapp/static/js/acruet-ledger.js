@@ -355,7 +355,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (state.formMode === 'CREATE') {
         await submitCreate();
       } else {
-        await submitTransaction();
+        const saved = await submitTransaction();
+        if (!saved) {
+          return;
+        }
       }
       hideForm();
       await refresh();
@@ -406,7 +409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (allocated !== totalCents) {
         if (document.querySelectorAll('#depositLines .line-row').length > 1) {
           showFormError(ALLOCATION_MISMATCH_MESSAGE);
-          return;
+          return false;
         }
         throw new Error(
           `Allocations (${formatCents(allocated)}) must equal the deposit total (${formatCents(totalCents)}).`,
@@ -430,7 +433,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (withdrawn !== totalCents) {
         if (document.querySelectorAll('#withdrawLines .line-row').length > 1) {
           showFormError(ALLOCATION_MISMATCH_MESSAGE);
-          return;
+          return false;
         }
         throw new Error(
           `Withdrawals (${formatCents(withdrawn)}) must equal the total (${formatCents(totalCents)}).`,
@@ -480,6 +483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const body = await response.json();
       throw new Error(body.error || 'Failed to save transaction.');
     }
+    return true;
   }
 
   function overspendWarnings(lines) {
