@@ -11,7 +11,7 @@ import com.bradandmarsha.acruet.config.MediaSettings;
 public final class UserPageLayout {
 
     public static final String APP_NAME = "a-cruet";
-    public static final String TILE_IMAGE_PATH = "/media/acruet.png";
+    public static final String TILE_IMAGE_PATH = "/media/acruet-bw.jpg";
     public static final String TILE_DESCRIPTION = "Envelope-budgeting web application";
 
     private UserPageLayout() {

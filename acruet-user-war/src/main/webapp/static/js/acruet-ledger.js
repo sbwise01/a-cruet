@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       els.accountsList.innerHTML = '<p class="hint">No envelopes yet. Create one to get started.</p>';
       return;
     }
-    els.accountsList.innerHTML = state.accounts
+    const rows = state.accounts
       .map((account) => {
         const balance = state.balances.get(account.id) || 0;
         const negativeClass = balance < 0 ? ' balance-negative' : '';
@@ -106,6 +106,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>`;
       })
       .join('');
+    const grandTotal = state.accounts.reduce(
+      (sum, account) => sum + (state.balances.get(account.id) || 0),
+      0,
+    );
+    const grandTotalClass = grandTotal < 0 ? ' balance-negative' : '';
+    els.accountsList.innerHTML = `
+      ${rows}
+      <div class="account-row total-row">
+        <span class="name">Total</span>
+        <span class="balance${grandTotalClass}">${formatCents(grandTotal)}</span>
+      </div>`;
     els.accountsList.querySelectorAll('.archive-btn').forEach((button) => {
       button.addEventListener('click', async () => {
         try {
@@ -166,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
     if (type === 'DEPOSIT') {
       addDepositLines();
-      document.getElementById('txTotal').addEventListener('input', syncDepositLines);
+      document.getElementById('txTotal').addEventListener('input', autoFillDepositFromTotal);
     } else if (type === 'WITHDRAW') {
       addWithdrawLine();
     } else {
@@ -184,7 +195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
     document.getElementById('btnAddDepositLine').addEventListener('click', () => appendDepositLine());
     appendDepositLine();
-    syncDepositLines();
+    updateAllocationHint();
   }
 
   function appendDepositLine() {
@@ -241,9 +252,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function syncDepositLines() {
+    updateAllocationHint();
+  }
+
+  function autoFillDepositFromTotal() {
+    const totalInput = document.getElementById('txTotal');
+    if (!totalInput) {
+      return;
+    }
+    const amountInputs = Array.from(document.querySelectorAll('.depositAmount'));
+    if (amountInputs.length === 1) {
+      const totalValue = totalInput.value.trim();
+      amountInputs[0].value = totalValue === '' ? '0.00' : formatUsdInput(parseUsd(totalValue));
+    }
+    updateAllocationHint();
+  }
+
+  function updateAllocationHint() {
     const hint = document.getElementById('allocationHint');
-    if (!hint) return;
-    const total = parseUsd(document.getElementById('txTotal').value);
+    const totalInput = document.getElementById('txTotal');
+    if (!hint || !totalInput) {
+      return;
+    }
+    const total = parseUsd(totalInput.value);
     const allocated = sumDepositLines();
     hint.textContent = `Allocated: ${formatCents(allocated)} of ${formatCents(total)}`;
   }
@@ -416,6 +447,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sign = cents < 0 ? '-' : '';
     const abs = Math.abs(cents);
     return `${sign}$${(abs / 100).toFixed(2)}`;
+  }
+
+  function formatUsdInput(cents) {
+    return (cents / 100).toFixed(2);
   }
 
   function todayIso() {

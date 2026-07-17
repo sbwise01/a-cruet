@@ -253,7 +253,7 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 | `https://acruet.home.bradandmarsha.com/health` | HTTP 200 `{"status":"UP"}` |
 | `https://acruet-admin.home.bradandmarsha.com/health` | HTTP 200 `{"status":"UP"}` |
 | Landing pages `/` | HTTP 200 (user + admin) |
-| wise-home-index annotations | Both tiles enabled with `acruet.png` image |
+| wise-home-index annotations | Both tiles enabled with `acruet-bw.jpg` image |
 
 ---
 
