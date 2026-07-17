@@ -187,6 +187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('txTotal').addEventListener('input', autoFillWithdrawFromTotal);
     } else {
       addTransferLines();
+      document.getElementById('txTotal').addEventListener('input', autoFillTransferFromTotal);
     }
     hideFormError();
     els.formPanel.hidden = false;
@@ -249,12 +250,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     container.innerHTML = `
       <label>From</label>
       <div class="line-row">${accountSelect('transferFrom')}</div>
-      <label>To</label>
+      <label>To envelopes (amounts must equal total)</label>
       <div id="transferTos"></div>
       <button type="button" id="btnAddTransferTo">Add destination</button>
     `;
     document.getElementById('btnAddTransferTo').addEventListener('click', () => appendTransferTo());
     appendTransferTo();
+    updateTransferHint();
   }
 
   function appendTransferTo() {
@@ -262,9 +264,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     row.className = 'line-row';
     row.innerHTML = `
       ${accountSelect('transferTo')}
-      <input type="number" class="transferAmount" min="0.01" step="0.01" placeholder="Amount">
+      <input type="number" class="transferAmount" min="0" step="0.01" value="0.00">
     `;
+    row.querySelector('.transferAmount').addEventListener('input', syncTransferLines);
     document.getElementById('transferTos').appendChild(row);
+    updateTransferHint();
+  }
+
+  function syncTransferLines() {
+    updateTransferHint();
+  }
+
+  function autoFillTransferFromTotal() {
+    const totalInput = document.getElementById('txTotal');
+    if (!totalInput) {
+      return;
+    }
+    const amountInputs = Array.from(document.querySelectorAll('.transferAmount'));
+    if (amountInputs.length === 1) {
+      const totalValue = totalInput.value.trim();
+      amountInputs[0].value = totalValue === '' ? '0.00' : formatUsdInput(parseUsd(totalValue));
+    }
+    updateTransferHint();
+  }
+
+  function updateTransferHint() {
+    const hint = document.getElementById('allocationHint');
+    const totalInput = document.getElementById('txTotal');
+    if (!hint || !totalInput) {
+      return;
+    }
+    const total = parseUsd(totalInput.value);
+    const allocated = sumTransferLines();
+    hint.textContent = `Allocated: ${formatCents(allocated)} of ${formatCents(total)}`;
+  }
+
+  function sumTransferLines() {
+    return Array.from(document.querySelectorAll('.transferAmount'))
+      .reduce((sum, input) => sum + parseUsd(input.value), 0);
   }
 
   function accountSelect(className) {
@@ -444,19 +481,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         amountCents: -line.amountCents,
       }));
     } else {
+      totalCents = parseUsd(document.getElementById('txTotal').value);
+      if (totalCents <= 0) {
+        throw new Error('Enter a transfer total greater than zero.');
+      }
       const fromId = document.querySelector('.transferFrom').value;
-      const toLines = Array.from(document.querySelectorAll('#transferTos .line-row'));
-      const transferTotal = toLines.reduce(
-        (sum, row) => sum + parseUsd(row.querySelector('.transferAmount').value),
-        0,
-      );
-      if (transferTotal <= 0) throw new Error('Transfer amount must be greater than zero.');
-      totalCents = transferTotal;
-      lines = [{ accountId: fromId, amountCents: -transferTotal }];
-      toLines.forEach((row) => {
-        lines.push({
+      const positiveLines = Array.from(document.querySelectorAll('#transferTos .line-row'))
+        .map((row) => ({
           accountId: row.querySelector('select').value,
           amountCents: parseUsd(row.querySelector('.transferAmount').value),
+        }))
+        .filter((line) => line.amountCents > 0);
+      if (positiveLines.length === 0) {
+        throw new Error('Enter at least one destination amount greater than zero.');
+      }
+      const allocated = positiveLines.reduce((sum, line) => sum + line.amountCents, 0);
+      if (allocated !== totalCents) {
+        if (document.querySelectorAll('#transferTos .line-row').length > 1) {
+          showFormError(ALLOCATION_MISMATCH_MESSAGE);
+          return false;
+        }
+        throw new Error(
+          `Allocations (${formatCents(allocated)}) must equal the transfer total (${formatCents(totalCents)}).`,
+        );
+      }
+      lines = [{ accountId: fromId, amountCents: -totalCents }];
+      positiveLines.forEach((line) => {
+        lines.push({
+          accountId: line.accountId,
+          amountCents: line.amountCents,
         });
       });
     }
