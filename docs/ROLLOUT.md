@@ -81,14 +81,15 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
 | 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
 | 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
-| 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred → Phase 12 |
+| 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred → Phase 13 |
 | 7 — Client encryption + key lifecycle | ✅ Complete (2026-07-15) — setup, unlock, idle timeout, rotation |
-| 8 — Ledger core | Implemented — cluster verify pending |
-| 9 — Client-side reports | Pending |
-| 10 — Admin ops (suspend, offboard, cron) | Pending |
-| 11 — CI/CD + Flux image automation | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
-| 12 — Index tiles + E2E verification | Pending |
-| 13 — Non-technical README summary | ✅ Complete (2026-07-12) — `README.md` |
+| 8 — Ledger core | ✅ Complete (2026-07-16) — deposits, withdraws, transfers, archive, ciphertext verified |
+| 9 — Ledger UI polish | Pending |
+| 10 — Client-side reports | Pending |
+| 11 — Admin ops (suspend, offboard, cron) | Pending |
+| 12 — CI/CD + Flux image automation | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
+| 13 — Index tiles + E2E verification | Pending |
+| 14 — Non-technical README summary | ✅ Complete (2026-07-12) — `README.md` |
 
 ---
 
@@ -407,7 +408,7 @@ curl -s https://acruet.home.bradandmarsha.com/signup -X POST \
 
 Cleanup (optional): `DELETE FROM signup_attempt WHERE email LIKE '%example.com';` — for email-only test, also clear same **client IP** rows if IP limit was hit earlier (`WHERE ip_address = '…'`).
 
-- [ ] Re-apply after rejection respects 7-day cooldown / two-strike block — **deferred → Phase 12 E2E**
+- [ ] Re-apply after rejection respects 7-day cooldown / two-strike block — **deferred → Phase 13 E2E**
 
 **Image automation**
 
@@ -425,7 +426,7 @@ flux get image repository,policy,update -n flux-system | grep acruet
 
 **Goal:** Admin queue → approve creates Keycloak user + initial a-cruet records.
 
-**Status:** ✅ Complete on cluster (2026-07-14). Approve → Keycloak user → approval email → first OIDC login (temp password, change password, logout, re-login) verified (`sbwise@gmail.com`). Reject flow verification deferred to **Phase 12 E2E**. Keycloak **manual console** bootstrap (non-GitOps): `realm-management` service-account roles **and** matching roles on `acruet-admin-dedicated` scope (Keycloak 26; **Full scope allowed OFF** verified).
+**Status:** ✅ Complete on cluster (2026-07-14). Approve → Keycloak user → approval email → first OIDC login (temp password, change password, logout, re-login) verified (`sbwise@gmail.com`). Reject flow verification deferred to **Phase 13 E2E**. Keycloak **manual console** bootstrap (non-GitOps): `realm-management` service-account roles **and** matching roles on `acruet-admin-dedicated` scope (Keycloak 26; **Full scope allowed OFF** verified).
 
 ### Tasks
 
@@ -562,7 +563,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** Envelope budgeting MVP.
 
-**Status:** Implemented in `a-cruet` (2026-07-16). V5 schema, JSON API, browser ledger UI with client-side encrypt/decrypt. Cluster verify pending.
+**Status:** ✅ Complete (2026-07-16). V5 schema, JSON API, browser ledger UI with client-side encrypt/decrypt. Cluster verify complete.
 
 ### Tasks
 
@@ -601,17 +602,33 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ### Verify
 
-- [ ] Unlock key → open `/ledger`
-- [ ] Create 2+ envelopes
-- [ ] Deposit with 100% allocation across envelopes
-- [ ] Withdraw past balance → warning shown; negative balance displayed
-- [ ] Transfer between envelopes
-- [ ] Archive zero-balance envelope
-- [ ] DB: `ledger_account.encrypted_name` and `ledger_transaction.encrypted_payload` are ciphertext; `acruet_user.ledger_account_count` / `transaction_count` updated
+- [x] Unlock key → open `/ledger`
+- [x] Create 2+ envelopes
+- [x] Deposit — single envelope and multi-envelope allocation (100% of total)
+- [x] Withdraw — single envelope and multi-envelope; withdraw past balance → warning shown; negative balance displayed
+- [x] Transfer — single destination and multi-envelope split
+- [x] Archive zero-balance envelope
+- [x] DB: `ledger_account.encrypted_name` and `ledger_transaction.encrypted_payload` are ciphertext; `acruet_user.ledger_account_count` / `transaction_count` updated
 
 ---
 
-## Phase 9 — Client-side reports
+## Phase 9 — Ledger UI polish
+
+**Goal:** Non-functional ledger UX improvements — gathered item-by-item via Q&A before client-side reports.
+
+**Status:** Pending — gathering requirements.
+
+### Items
+
+*(None yet.)*
+
+### Verify
+
+- [ ] Each item verified on cluster after implementation
+
+---
+
+## Phase 10 — Client-side reports
 
 **Goal:** CSV export and stacked area chart — 100% browser-side decryption.
 
@@ -628,7 +645,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ---
 
-## Phase 10 — Admin ops (suspend, offboard, cron)
+## Phase 11 — Admin ops (suspend, offboard, cron)
 
 **Goal:** Remaining admin & abuse workflows from `PRODUCT.md` Section 6.
 
@@ -651,13 +668,13 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ---
 
-## Phase 11 — CI/CD + Flux image automation
+## Phase 12 — CI/CD + Flux image automation
 
 **Merged into Phase 5** (2026-07-14). Continuous integration lives in `a-cruet/.github/workflows/`; Flux image automation manifests live in `wise-k8s/iac/kustomize/acruet/overlays/image-automation.yaml`. See Phase 5 deploy and verify steps.
 
 ---
 
-## Phase 12 — Index tiles + E2E verification
+## Phase 13 — Index tiles + E2E verification
 
 **Goal:** Production-ready homelab service.
 
@@ -685,7 +702,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ---
 
-## Phase 13 — Non-technical README summary ✅ complete (2026-07-12)
+## Phase 14 — Non-technical README summary ✅ complete (2026-07-12)
 
 **Goal:** Give visitors and future contributors a plain-language picture of a-cruet without reading `PRODUCT.md`.
 
@@ -723,11 +740,12 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 6. Phase 5 signup + SMTP + **Flux image automation**
 7. Phase 6 admin approval ✅
 8. Phase 7 encryption ✅
-9. Phase 8 ledger
-10. Phase 9 reports
-11. Phase 10 admin ops
-12. Phase 12 E2E
-13. Phase 13 README summary (can be drafted anytime; finalize after product stabilizes)
+9. Phase 8 ledger ✅
+10. Phase 9 ledger UI polish
+11. Phase 10 reports
+12. Phase 11 admin ops
+13. Phase 13 E2E
+14. Phase 14 README summary (can be drafted anytime; finalize after product stabilizes)
 
 **Parallel work:** Keycloak Phase 6–7 (HA + observability) does not block a-cruet Phases 1–3.
 
@@ -737,7 +755,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 | Repo | Path | Change |
 |------|------|--------|
-| `a-cruet` | `README.md` | Non-technical product summary (Phase 13) |
+| `a-cruet` | `README.md` | Non-technical product summary (Phase 14) |
 | `a-cruet` | `pom.xml`, modules | Maven multi-module |
 | `a-cruet` | `.github/workflows/` | Build + push images |
 | `wise-k8s` | `iac/kustomize/acruet-cnpg/` | CNPG cluster |
