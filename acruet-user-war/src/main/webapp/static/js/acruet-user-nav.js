@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         actionsHtml = '<a href="/keys/unlock?next=/">Unlock key</a>';
       }
+      actionsHtml += '<a href="/keys/forgot-passphrase">Forgot passphrase?</a>';
       actionsHtml += '<a href="/keys/rotate">Rotate key</a>';
     }
 
