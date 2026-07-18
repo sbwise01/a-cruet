@@ -102,6 +102,7 @@ public final class LedgerViews {
                       <p id="inlineUnlockError" class="error" hidden></p>
                       <button type="button" id="btnInlineUnlock">Unlock</button>
                       <button type="button" id="btnInlineUnlockCancel" class="secondary">Cancel</button>
+                      <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a></p>
                     </div>
                   </div>
                   <div id="ledgerBrowse">
