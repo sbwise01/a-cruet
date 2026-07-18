@@ -1,6 +1,7 @@
 package com.bradandmarsha.acruet.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -19,7 +20,7 @@ public class AuthResource {
 
     @GET
     @Path("login")
-    public Response login(@Context HttpServletRequest request) {
+    public Response login(@Context HttpServletRequest request, @Context HttpServletResponse response) {
         OidcSettings settings = OidcSettings.fromEnvironment();
         if (!settings.isConfigured()) {
             return Response.status(Response.Status.SERVICE_UNAVAILABLE)
@@ -28,7 +29,7 @@ public class AuthResource {
         }
         HttpSession session = request.getSession(true);
         String state = OidcService.newState();
-        session.setAttribute(OidcAuthFilter.STATE_SESSION_ATTRIBUTE, state);
+        OidcStateSupport.save(request, response, session, state);
         OidcService service = new OidcService(settings);
         return Response.seeOther(UriBuilder.fromUri(service.beginAuthorizationUri(state)).build())
                 .build();
@@ -39,7 +40,8 @@ public class AuthResource {
     public Response callback(
             @QueryParam("code") String code,
             @QueryParam("state") String state,
-            @Context HttpServletRequest request) {
+            @Context HttpServletRequest request,
+            @Context HttpServletResponse response) {
         OidcSettings settings = OidcSettings.fromEnvironment();
         if (!settings.isConfigured()) {
             return Response.status(Response.Status.SERVICE_UNAVAILABLE)
@@ -53,13 +55,12 @@ public class AuthResource {
         }
 
         HttpSession session = request.getSession(true);
-        Object expectedState = session.getAttribute(OidcAuthFilter.STATE_SESSION_ATTRIBUTE);
-        if (expectedState == null || state == null || !state.equals(expectedState.toString())) {
+        if (!OidcStateSupport.matches(request, session, state)) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("Invalid OIDC state")
                     .build();
         }
-        session.removeAttribute(OidcAuthFilter.STATE_SESSION_ATTRIBUTE);
+        OidcStateSupport.clear(request, response, session);
 
         OidcService service = new OidcService(settings);
         OidcUser user = service.completeAuthorization(code);
@@ -73,7 +74,7 @@ public class AuthResource {
 
         if (!settings.requireAdminRole()) {
             UserSession.onLogin(request, user);
-            if (!UserSession.isKeySetupComplete(request)) {
+            if (UserSession.acruetUser(request).isPresent() && !UserSession.isKeySetupComplete(request)) {
                 return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
             }
         }

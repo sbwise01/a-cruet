@@ -942,7 +942,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** CSV export and stacked area chart — 100% browser-side decryption.
 
-**Status:** ✅ Complete on cluster (2026-07-17). UX enhancements ✅ (2026-07-18).
+**Status:** ✅ Complete and verified on cluster (2026-07-18).
 
 ### Deliverables
 
@@ -970,7 +970,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 1. API returns ciphertext blobs filtered by date range + account scope *(existing `/ledger/transactions?from=&to=`)*
 2. Browser decrypts, aggregates, renders stacked area chart (Chart.js)
-3. Browser decrypts and renders transaction report **table**; optional CSV download from the same decrypted rows
+3. Browser decrypts and renders transaction report **table**; CSV download from the same decrypted rows (independent of table)
 
 ### Verify
 
