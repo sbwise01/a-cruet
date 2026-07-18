@@ -942,16 +942,30 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** CSV export and stacked area chart — 100% browser-side decryption.
 
+**Status:** Implemented — pending cluster verification.
+
+### UX
+
+- **Reports** button in both ledger action rows (with New envelope / Deposit / Withdraw / Transfer).
+- Clicking **Reports** replaces the browse UI with a **Reports** hub: two wise-home-index-style tiles:
+  - **Transactions** — tile image `MediaSettings.tileImageUrl("/media/transactions.png")`
+  - **Balance chart** — tile image `MediaSettings.tileImageUrl("/media/report-graphs.png")`
+- Each tile opens a report runner (date range + envelope checkboxes); **Back to reports** / **Back to envelopes** navigation.
+- CSV download and stacked area chart render entirely in the browser (Chart.js 4.4.1 vendored under `/static/js/`).
+
 ### Tasks
 
-1. API returns ciphertext blobs filtered by date range + account scope
-2. Browser decrypts, aggregates, renders chart (e.g. Chart.js)
+1. API returns ciphertext blobs filtered by date range + account scope *(existing `/ledger/transactions?from=&to=`)*
+2. Browser decrypts, aggregates, renders chart (Chart.js)
 3. CSV download from decrypted data
 
 ### Verify
 
-- Report matches manual ledger operations
-- No plaintext amounts in server logs or API responses
+- [ ] **Reports** button appears in top and bottom action rows
+- [ ] Reports hub shows two tiles with media-host images
+- [ ] Transaction CSV matches manual ledger operations for a date range
+- [ ] Balance chart matches envelope balances over time
+- [ ] No plaintext amounts in server logs or API responses
 
 ---
 
@@ -1054,7 +1068,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 8. Phase 7 encryption ✅
 9. Phase 8 ledger ✅
 10. Phase 9 ledger UI polish ✅
-11. Phase 10 reports
+11. Phase 10 reports *(in progress — pending cluster verify)*
 12. Phase 11 admin ops
 13. Phase 13 E2E
 14. Phase 14 README summary (can be drafted anytime; finalize after product stabilizes)

@@ -68,6 +68,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btnCancelForm').addEventListener('click', closeForm);
   document.getElementById('btnSubmitForm').addEventListener('click', submitForm);
 
+  if (window.AcruetReports) {
+    window.AcruetReports.init({
+      getAccounts: () => state.accounts,
+      decryptTransactions,
+      escapeHtml,
+      beforeReportsOpen: () => {
+        closeForm(false);
+        els.ledgerBrowse.hidden = true;
+        els.formPanel.hidden = true;
+      },
+      afterReportsClose: () => {
+        if (AcruetCrypto.session.isUnlocked()) {
+          els.ledgerBrowse.hidden = false;
+        }
+      },
+    });
+  }
+
   function syncLockState() {
     if (AcruetCrypto.session.isUnlocked()) {
       els.ledgerLocked.hidden = true;
@@ -78,7 +96,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     els.ledgerLocked.hidden = false;
     els.ledgerBrowse.hidden = true;
-    closeForm();
+    closeForm(false);
+    if (window.AcruetReports) {
+      window.AcruetReports.closeAll();
+    }
     hideInlineUnlockForm();
   }
 
@@ -139,6 +160,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function handleAction(action) {
+    if (action === 'reports') {
+      if (window.AcruetReports) {
+        window.AcruetReports.showReportsEntry();
+      }
+      return;
+    }
+    if (window.AcruetReports) {
+      window.AcruetReports.closeAll();
+    }
     if (action === 'create') {
       showCreateForm();
     } else if (action === 'deposit') {
@@ -261,12 +291,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.formPanel.hidden = false;
   }
 
-  function closeForm() {
+  function closeForm(restoreBrowse = true) {
     hideFormError();
     els.formPanel.hidden = true;
     state.formMode = null;
     els.formBody.innerHTML = '';
-    if (AcruetCrypto.session.isUnlocked()) {
+    if (restoreBrowse && AcruetCrypto.session.isUnlocked()) {
       els.ledgerBrowse.hidden = false;
     }
   }
