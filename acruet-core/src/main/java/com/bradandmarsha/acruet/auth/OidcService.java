@@ -123,6 +123,8 @@ public final class OidcService {
                 claims.getSubject(),
                 stringClaim(claims.getClaim("preferred_username")),
                 stringClaim(claims.getClaim("email")),
+                stringClaim(claims.getClaim("given_name")),
+                stringClaim(claims.getClaim("family_name")),
                 roles);
     }
 

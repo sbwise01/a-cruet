@@ -38,6 +38,16 @@ public class KeySetupFilter implements Filter {
             return;
         }
 
+        if (UserSession.oidcUser(httpRequest).isEmpty()) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        if (UserSession.acruetUser(httpRequest).isEmpty()) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         if (!UserSession.isKeySetupComplete(httpRequest)) {
             httpResponse.sendRedirect(httpRequest.getContextPath() + "/keys/setup");
             return;

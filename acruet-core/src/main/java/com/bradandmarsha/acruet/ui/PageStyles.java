@@ -115,4 +115,96 @@ public final class PageStyles {
                 .notice.error { border-left: 3px solid #f87171; }
                 """;
     }
+
+    /** Upper-right public and authenticated navigation (Phase 9). */
+    public static String navCss() {
+        return """
+                .top-nav {
+                  position: absolute;
+                  top: 1rem;
+                  right: 1rem;
+                  z-index: 20;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                }
+                .nav-btn, .avatar-btn {
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 0.6rem 1.2rem;
+                  font: inherit;
+                  font-weight: 600;
+                  color: var(--bg);
+                  background: var(--accent);
+                  border: none;
+                  border-radius: 8px;
+                  text-decoration: none;
+                  cursor: pointer;
+                }
+                .nav-btn:hover, .avatar-btn:hover { filter: brightness(1.05); text-decoration: none; }
+                .avatar-btn {
+                  width: 2.75rem;
+                  height: 2.75rem;
+                  padding: 0;
+                  border-radius: 999px;
+                  font-size: 0.95rem;
+                  letter-spacing: 0.02em;
+                }
+                .user-menu { position: relative; }
+                .avatar-menu {
+                  position: absolute;
+                  top: calc(100% + 0.5rem);
+                  right: 0;
+                  min-width: 14rem;
+                  padding: 0.75rem 0;
+                  background: var(--bg-card);
+                  border: 1px solid rgba(148, 163, 184, 0.2);
+                  border-radius: 12px;
+                  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+                }
+                .avatar-menu-identity { padding: 0 1rem 0.65rem; border-bottom: 1px solid rgba(148, 163, 184, 0.15); }
+                .avatar-menu-name { font-weight: 600; }
+                .avatar-menu-email { font-size: 0.85rem; margin-top: 0.15rem; }
+                .avatar-menu-status { padding: 0.65rem 1rem 0.35rem; font-size: 0.9rem; }
+                .avatar-menu-actions { padding: 0.25rem 0; }
+                .avatar-menu-actions a, .avatar-menu-actions button {
+                  display: block;
+                  width: 100%;
+                  margin: 0;
+                  padding: 0.55rem 1rem;
+                  text-align: left;
+                  background: transparent;
+                  color: var(--accent);
+                  border: none;
+                  border-radius: 0;
+                  font: inherit;
+                  font-weight: 500;
+                  cursor: pointer;
+                }
+                .avatar-menu-actions a:hover, .avatar-menu-actions button:hover {
+                  background: rgba(56, 189, 248, 0.08);
+                  filter: none;
+                }
+                .avatar-menu-signout {
+                  display: block;
+                  padding: 0.65rem 1rem 0.25rem;
+                  border-top: 1px solid rgba(148, 163, 184, 0.15);
+                  color: var(--accent);
+                  text-decoration: none;
+                  font-weight: 600;
+                }
+                .avatar-menu-signout:hover { text-decoration: none; background: rgba(56, 189, 248, 0.08); }
+                """;
+    }
+
+    /** Public landing marketing sections (Phase 9 item 3). */
+    public static String marketingCss() {
+        return """
+                .marketing h2 { margin-top: 2rem; }
+                .marketing h2:first-child { margin-top: 0; }
+                .marketing ul, .marketing ol { margin: 0.75rem 0; padding-left: 1.35rem; }
+                .marketing li { margin: 0.35rem 0; }
+                """;
+    }
 }

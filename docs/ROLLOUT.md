@@ -616,11 +616,318 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** Non-functional ledger UX improvements — gathered item-by-item via Q&A before client-side reports.
 
-**Status:** Pending — gathering requirements.
+**Status:** Implemented — pending cluster verification (Phase 11 task 9 for admin alerts on unlinked login).
 
 ### Items
 
-*(None yet.)*
+#### 1. Unauthenticated landing — upper-right Sign up / Sign in buttons
+
+**Goal:** Replace text hyperlinks on the public landing page with ledger-style primary buttons in the upper-right corner, while keeping the centered logo/title hero.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Header layout | **B** — keep centered logo/title hero; float **Sign up** / **Sign in** in the upper-right of the viewport |
+| 2 | Button labels | **B** — **Sign up** → `/signup`, **Sign in** → `/auth/login` |
+| 3 | Button styling | **C** — both use primary (accent) button style; placement distinguishes them (match ledger `button` styles from `PageStyles.formCss()`) |
+| 4 | Page scope | **A** — **Sign up** / **Sign in** upper-right on anonymous **`/`** only; not on `/signup`, `/signup/verify`, or auth redirect routes |
+| 5 | Authenticated home | **Resolved via item 4** — authenticated pages use initials avatar, not Sign up / Sign in |
+
+**Behavior:**
+
+- Remove the in-body `<p class="actions">` text links from the unauthenticated landing content.
+- Add a fixed or absolutely positioned control cluster (upper-right) with two `<button>`-styled links (or `<a class="button">` equivalent) using existing ledger/accent styles.
+- Centered header (tile image, app name, subtitle) unchanged.
+- Public nav appears **only** when `LandingResource` renders the anonymous marketing page at **`/`** — not on signup/verify flows (user is already applying or awaiting approval).
+
+**Out of scope:** Sign up / Sign in on `/signup` or `/signup/verify`; authenticated surfaces (avatar menu per item 4).
+
+**Verify:**
+
+- [ ] Anonymous visit to `/` shows centered hero plus **Sign up** / **Sign in** as accent buttons in the upper-right
+- [ ] Buttons navigate to `/signup` and `/auth/login`
+- [ ] No duplicate sign-up/sign-in links in the main content area
+
+#### 2. Sticky footer — bottom of viewport on short pages
+
+**Goal:** Footer (Proverbs verse) always appears below main content; on short pages it sits at the bottom of the viewport instead of floating mid-page.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Scope | **A** — all HTML pages in user and admin apps via shared `PageLayout` |
+| 2 | Short-page layout | **A** — header and main stay at the top; flexible space between main and footer; footer pinned to bottom of viewport |
+
+**Behavior:**
+
+- Implement sticky-footer layout in `PageLayout` / `PageStyles` (e.g. `body` min-height `100vh` + flex column; `main` grows to fill remaining space).
+- When content exceeds viewport height, footer follows content normally (user scrolls to reach it).
+- When content is shorter than the viewport, footer remains at the bottom edge of the display area.
+
+**Out of scope:** Footer copy or styling changes.
+
+**Verify:**
+
+- [ ] Unauthenticated landing (`/`) — footer at bottom of viewport, not ~mid-page
+- [ ] Short page (e.g. home, key setup) — same behavior
+- [ ] Long page (e.g. `/` with many envelopes) — footer below all content after scroll
+- [ ] Admin pages (`/`, `/approvals`) — same behavior
+
+#### 3. Unauthenticated landing — marketing content from README
+
+**Goal:** Turn the public landing page into a product marketing page for visitors, using README content adapted for the web.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Content scope | **B** — include **What it does**, **How your privacy works**, and **Getting access**; lightly edited for web (shorter paragraphs, same meaning) |
+| 2 | Reports bullet | **A** — keep **View reports** in the feature list (intended capability, README-aligned) |
+| 3 | README intro | Include README opening **except the Proverbs quote** (footer already shows it): envelope-budgeting description, **cruet** metaphor, **“accrue it”** wordplay |
+| 4 | Intro placement | **B** — own **About a-cruet** `<h2>` section above the three main sections |
+
+**Include (from README):**
+
+- **About a-cruet** — intro paragraphs (no proverb blockquote)
+- **What it does** — envelope explanation, feature bullets, closing “not full accounting / bank connection” line
+- **How your privacy works** — client-side encryption, passphrase, recovery file, admin metadata limits
+- **Getting access** — invite-by-approval steps and re-apply / rejection notes
+
+**Exclude:**
+
+- Proverbs 21:20 quote (header/footer cover branding)
+- **For builders** (`PRODUCT.md` / `ROLLOUT.md` links)
+- **To Do list**
+- Current minimal body copy (`Allocate money…`, hint about Keycloak, in-body action links — superseded by items 1 and 3)
+
+**Behavior:**
+
+- Replace `LandingResource.publicPage()` body with structured marketing sections (`<h2>`, paragraphs, `<ul>` where appropriate).
+- Tone: non-technical, same audience as README.
+- **Sign up** / **Sign in** actions remain in upper-right per item 1; feature bullets may still mention **Apply for access** and signing in descriptively (button labels stay **Sign up** / **Sign in** per consistency review).
+
+**Out of scope:** Authenticated home page; builder docs links.
+
+**Verify:**
+
+- [ ] Anonymous `/` shows **About a-cruet** plus three marketing sections with README-aligned content
+- [ ] No proverb duplicate in main body; no For builders / To Do sections
+- [ ] Page reads well on mobile (single column, existing `max-width` layout)
+- [ ] Works with item 1 nav buttons and item 2 sticky footer
+
+#### 4. Authenticated user menu — initials avatar (upper-right)
+
+**Goal:** Replace “Signed in as …” with a circular initials button in the upper-right (matching item 1 placement). Click opens a dropdown with account and key controls. Shared across all authenticated user-app pages.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Click behavior | **C** — dropdown menu |
+| 2 | Dropdown contents | **Sign out**; read-only identity (name/email); **key status**; **Lock key** or **Unlock key** depending on browser session state; **Rotate key** → `/keys/rotate` when key setup complete |
+| 3 | Initials source | **A** — `AcruetUser.displayName` when linked; else Keycloak `given_name` / `family_name` from OIDC token (extend `OidcUser` / token parsing as needed) |
+| 4 | Initials fallback | **A** — first two letters of email, capitalized (e.g. **SB**) |
+| 5 | Page scope | **B** — all authenticated user-app pages (`/`, `/keys/*`, …); JSON API remains under `/ledger/*` (no HTML dashboard route per item 5) |
+| 6 | Key setup incomplete | **A** — key status: “Encryption key not set up”; action link to **`/keys/setup`**; no Lock/Unlock or Rotate until setup complete |
+| 7 | Authenticated home body | **Custom** — ~~main area keeps **Ledger** only~~ **Superseded by item 5** — home embeds full ledger UI |
+
+**Behavior:**
+
+- **Avatar:** Circular primary-styled control (ledger/accent button family), upper-right; label = two-letter initials (first + last, uppercase).
+- **Dropdown:**
+  - Read-only: full name and email (as available)
+  - Key status text (live — uses `AcruetCrypto.session` on client where applicable)
+  - **Unlock key** — on **`/`** when key locked: same as lock tile, open **inline unlock** (item 5); on other pages navigate to **`/keys/unlock`**. When DEK not in session elsewhere, link to `/keys/unlock`.
+  - **Lock key** → `AcruetCrypto.session.lock()` when unlocked
+  - **Rotate key** → `/keys/rotate` when `key_setup_complete` (omit until setup complete)
+  - **Sign out** → `/auth/logout` (clear crypto session on sign-out where applicable)
+- **Key setup gate:** Before `key_setup_complete`, show setup status + link to `/keys/setup` instead of Lock/Unlock/Rotate.
+- **No linked a-cruet account:** Avatar + read-only identity + **Sign out** only (no key menu items). Main area shows explicit **account not linked** message including **“Administrators have been alerted.”** (see item 10). Do not show ledger or redirect to key setup.
+- **Authenticated home (`/`):** **Superseded by item 5** — embed full ledger UI (not a link).
+- Implement as shared layout partial (e.g. extend `UserPageLayout` / `PageLayout`) so `/ledger`, `/keys/*`, etc. render the same control.
+
+**Out of scope:** Admin app pages.
+
+**Verify:**
+
+- [ ] Signed-in user sees initials circle upper-right on `/`, `/keys/unlock`, and other authenticated pages
+- [ ] Initials correct for full name (e.g. Stephen Wise → **SW**); email fallback when names unavailable
+- [ ] Dropdown shows identity, key status, Lock/Unlock (or setup link when incomplete), Rotate key (when setup complete), Sign out
+- [ ] Lock key clears session DEK; Unlock navigates to unlock flow; Rotate navigates to `/keys/rotate`
+- [ ] No duplicate “Signed in as …” or standalone Sign out on home
+
+#### 5. Authenticated home — embed ledger on `/`
+
+**Goal:** For signed-in users with key setup complete, **`/`** is the ledger dashboard. Remove the separate `/ledger` HTML page; keep JSON API routes unchanged.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | `/ledger` HTML route | **C** — remove `GET /ledger` dashboard (returns **404**); keep **`/ledger/accounts`**, **`/ledger/transactions`**, and other JSON API paths |
+| 2 | Key locked in browser | **Custom** — show ledger **shell** on `/` with prominent unlock prompt: **lock tile** styled like **wise-home-index** app tiles — lock image at **`/media/lock.png`** on the homelab media host + **“Unlock”** label (no redirect to `/keys/unlock`) |
+| 3 | Unlock prompt click | **B** — opens **inline unlock form** on `/` (passphrase field in main area) |
+| 4 | Locked layout | **A** — **unlock prompt only**; hide envelopes, actions, and transaction forms until DEK is in session |
+| 5 | Dropdown Unlock on `/` | **A** — avatar **Unlock key** opens **inline unlock** on `/` (same as lock tile); navigate to `/keys/unlock` on other pages |
+
+**Behavior:**
+
+- **Unauthenticated `/`:** unchanged marketing page (items 1 and 3).
+- **Authenticated, key setup incomplete:** existing `KeySetupFilter` redirect to `/keys/setup`.
+- **Authenticated, setup complete, key locked:** render ledger page structure but show only the unlock tile; clicking reveals inline unlock (reuse unlock crypto flow from `/keys/unlock`); on success, reveal full ledger and load data.
+- **Authenticated, setup complete, key unlocked:** full ledger UI on `/` (same as current `/ledger` — envelopes, actions, forms).
+- Extract shared ledger HTML/JS wiring from `LedgerResource` into a reusable fragment used by `LandingResource` (or equivalent); delete duplicate `GET /ledger` HTML handler.
+- Remove ledger nav chrome superseded by item 4 (`Home · Unlock key` links, etc.).
+- Update `acruet-ledger.js` unlock gate: no hard redirect to `/keys/unlock?next=/ledger`; use inline unlock on `/` instead. Update any `next=` deep links to `/` where applicable.
+- Unlock tile lock image: **`MediaSettings.fromEnvironment().tileImageUrl("/media/lock.png")`** — same as header tile image; **do not hardcode** the media hostname. Host comes from **`ACRUET_MEDIA_HOST`** (default `media.home.bradandmarsha.com`).
+
+**Supersedes:** Item 4 decision #7 (Ledger-only link on home).
+
+**Out of scope:** JSON API path changes; admin app.
+
+**Verify:**
+
+- [ ] Signed-in user with key setup complete and DEK unlocked sees full ledger on `/`
+- [ ] `GET /ledger` HTML returns **404** (API paths under `/ledger/*` still work)
+- [ ] Key locked: unlock tile shows lock image from media host via `MediaSettings` / `ACRUET_MEDIA_HOST`; ledger panels hidden; inline unlock works; ledger appears after unlock
+- [ ] Unauthenticated `/` still shows marketing content
+- [ ] `/keys/unlock` remains available for direct navigation / dropdown link
+
+#### 6. Ledger heading — combine envelope count
+
+**Goal:** On the ledger UI (embedded at `/` per item 5), merge the **Envelopes** section title and the envelope limit hint into one heading line.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Styling | **B** — `<h2>` with muted parenthetical: **Envelopes** at normal heading weight; **`(x of y)`** in hint/muted color (`var(--muted)`) |
+
+**Behavior:**
+
+- Replace separate `<h2>Envelopes</h2>` and `#accountLimitHint` paragraph with a single heading, e.g. **`Envelopes`** **`(3 of 100)`**.
+- **`x`** = `accountCount`, **`y`** = `accountLimit` from `/ledger/accounts` API (not hardcoded).
+- Update `acruet-ledger.js` `refresh()` to set the combined heading text instead of a separate hint line.
+- Remove the standalone `#accountLimitHint` element (or repurpose as part of the heading).
+
+**Format:** `Envelopes (x of y)` — drop the words “envelopes in use”.
+
+**Out of scope:** Changing the account limit default or API.
+
+**Verify:**
+
+- [ ] Ledger on `/` shows **Envelopes (x of y)** with muted parenthetical
+- [ ] Count updates after creating an envelope
+- [ ] No separate “x of y envelopes in use” line below the heading
+
+#### 7. Ledger — remove “Actions” heading
+
+**Goal:** On the authenticated ledger at `/`, remove the **Actions** section title; keep the action buttons.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Replacement | **A** — no section heading; **New envelope**, **Deposit**, **Withdraw**, and **Transfer** buttons remain (top and bottom rows per item 8) |
+
+**Behavior:**
+
+- Remove `<h2>Actions</h2>` from the ledger HTML fragment (`#opsPanel` or equivalent).
+- Preserve button row and `#formPanel` behavior unchanged.
+- Adjust spacing only if needed so the button row still reads clearly without the heading.
+
+**Verify:**
+
+- [ ] Ledger on `/` has no **Actions** heading
+- [ ] All four action buttons still visible and functional below envelopes
+
+#### 8. Ledger — duplicate action buttons above envelope list
+
+**Goal:** When the envelope list is long, users should reach **New envelope**, **Deposit**, **Withdraw**, and **Transfer** without scrolling past every envelope.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Placement | **A** — duplicate button row **between Envelopes heading and list**; **keep** existing row **below** the list |
+| 2 | Scroll behavior | **A** — top row **scrolls away** with heading/list; bottom row for use after scrolling |
+
+**Behavior:**
+
+- Two identical button rows wired to the same actions / `#formPanel` (shared IDs or delegated click handlers — implement without double-submit quirks).
+- Order: **Envelopes (x of y)** heading → **top buttons** → envelope list (+ total row) → **bottom buttons** (form replaces browse UI per item 9 when open).
+- Same styling as current ledger action buttons.
+
+**Verify:**
+
+- [ ] Top and bottom button rows both open deposit/withdraw/transfer/create flows correctly
+- [ ] With 7+ envelopes, top buttons reachable without scrolling; bottom buttons reachable after scrolling to end of list
+- [ ] No duplicate form submissions from either row
+
+#### 9. Ledger forms — replace main content instead of expand below
+
+**Goal:** When an action button opens a form, the form should **replace** the ledger main content instead of appearing below the envelope list at the bottom of the page.
+
+**Decisions (Q&A):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Hidden while form open | **A** — hide envelope heading, both button rows, and envelope list; show **only** the form (title, fields, Save/Cancel) |
+| 2 | Return to ledger | **A** — **Cancel** and **successful Save** both close the form and restore the full ledger view |
+
+**Behavior:**
+
+- Wrap ledger “browse” UI (`#accountsPanel`, both `#opsPanel` rows per item 8) in a container toggled hidden when `#formPanel` is open.
+- `#formPanel` occupies the main content area (not appended below a long list).
+- Opening a form from **either** top or bottom button row uses the same replace behavior.
+- Preserve existing validation, form error banner, and submit logic.
+- Page header (site tile/title), avatar menu (item 4), and footer unchanged.
+
+**Verify:**
+
+- [ ] Click **Deposit** (or any action) — envelope list and buttons disappear; form shown in main area without scrolling
+- [ ] **Cancel** restores envelope list + buttons
+- [ ] **Save** (success) restores envelope list + buttons with updated data
+- [ ] Form error (e.g. allocation mismatch) keeps form visible; browse UI stays hidden
+
+#### 10. Unlinked Keycloak session — user message + anomaly record
+
+**Goal:** Handle signed-in users with a valid OIDC session but **no `acruet_user` row** (partial approve failure, manual Keycloak user, admin on user host, recreated Keycloak subject, etc.).
+
+**Decisions (consistency review Q4):**
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | UX | **B** — initials **avatar** (identity + Sign out); main area: short **account not linked** message |
+| 2 | User copy | Message must state that **administrators have been alerted** |
+| 3 | Admin notification | **Phase 11 task 9** — full admin alert workflow; Phase 9 records the anomaly server-side on detection |
+
+**Behavior:**
+
+- **`/`** (and other authenticated pages as needed): no ledger, no key-setup redirect for this state (`KeySetupFilter` / landing logic must not send unlinked users to `/keys/setup`).
+- On first detection per sign-in (or session), persist an anomaly record (e.g. `admin_action_audit` or dedicated table) with Keycloak subject, email, timestamp.
+- User-visible text explains the account is not linked and **administrators have been alerted**.
+- Avatar dropdown: identity + Sign out only.
+
+**Depends on:** Phase 11 task — admin alert delivery for this anomaly.
+
+**Verify:**
+
+- [ ] Simulated unlinked login shows avatar + message with “administrators have been alerted”
+- [ ] No ledger, no `/keys/setup` redirect
+- [ ] Anomaly recorded server-side once per event
+
+### Consistency review (resolved)
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Public Sign up / Sign in scope | **A** — anonymous **`/`** only (item 1) |
+| 2 | Unlock on `/` from avatar | **A** — inline unlock, same as lock tile (items 4–5) |
+| 3 | `GET /ledger` HTML | **404** (item 5) |
+| 4 | Unlinked Keycloak session | **B** + admin alert in Phase 11 (item 10) |
+| 5 | Marketing “Apply for access” vs **Sign up** button | **A** — keep both (descriptive bullet vs action label) |
 
 ### Verify
 
@@ -659,12 +966,14 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 6. Client-side decrypted export (CSV/JSON) during window
 7. CronJob: on export complete or 7-day expiry → disable Keycloak + purge a-cruet data
 8. Admin unblock for twice-rejected emails
+9. **Unlinked login anomaly** — when a Keycloak session has no matching `acruet_user` (see Phase 9 item 10): alert administrators (email and/or admin UI queue); include Keycloak subject, email, and time; dedupe repeated hits in the same session where practical
 
 ### Verify
 
 - Suspend → user cannot log in; auto-restore after N days
 - Offboard → export works; data purged after trigger
 - Admin action audit entries present
+- Unlinked Keycloak login → admin alerted; user app message matches Phase 9 item 10
 
 ---
 

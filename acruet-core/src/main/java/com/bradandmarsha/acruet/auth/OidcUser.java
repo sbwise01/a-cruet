@@ -13,12 +13,22 @@ public final class OidcUser {
     private final String subject;
     private final String preferredUsername;
     private final String email;
+    private final String givenName;
+    private final String familyName;
     private final Set<String> realmRoles;
 
-    public OidcUser(String subject, String preferredUsername, String email, Set<String> realmRoles) {
+    public OidcUser(
+            String subject,
+            String preferredUsername,
+            String email,
+            String givenName,
+            String familyName,
+            Set<String> realmRoles) {
         this.subject = Objects.requireNonNull(subject, "subject");
         this.preferredUsername = preferredUsername;
         this.email = email;
+        this.givenName = givenName;
+        this.familyName = familyName;
         this.realmRoles = Set.copyOf(realmRoles);
     }
 
@@ -32,6 +42,14 @@ public final class OidcUser {
 
     public String email() {
         return email;
+    }
+
+    public String givenName() {
+        return givenName;
+    }
+
+    public String familyName() {
+        return familyName;
     }
 
     public Set<String> realmRoles() {

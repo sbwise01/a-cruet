@@ -178,11 +178,16 @@ const AcruetCrypto = (() => {
     activityBound = true;
   }
 
+  function notifyCryptoChanged() {
+    document.dispatchEvent(new CustomEvent('acruet:crypto-changed'));
+  }
+
   const session = {
     lock() {
       dek = null;
       expiryMs = null;
       clearStorage();
+      notifyCryptoChanged();
     },
 
     async unlock(passphrase, wrappedPayload) {
@@ -194,6 +199,7 @@ const AcruetCrypto = (() => {
       const subject = meResponse.ok ? (await meResponse.json()).subject : null;
       await persistSession(dekKey, subject);
       bindActivity();
+      notifyCryptoChanged();
       return dekKey;
     },
 

@@ -3,8 +3,12 @@ package com.bradandmarsha.acruet.user.rest;
 import com.bradandmarsha.acruet.auth.OidcUser;
 import com.bradandmarsha.acruet.auth.UserSession;
 import com.bradandmarsha.acruet.keys.KeyService;
+import com.bradandmarsha.acruet.ui.AuthNavContext;
+import com.bradandmarsha.acruet.ui.LedgerViews;
+import com.bradandmarsha.acruet.ui.MarketingContent;
 import com.bradandmarsha.acruet.ui.UserPageLayout;
 import com.bradandmarsha.acruet.user.AcruetUser;
+import com.bradandmarsha.acruet.user.UnlinkedLoginService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -15,86 +19,56 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.Optional;
 
 /**
- * User landing page — public welcome for anonymous visitors; app home when signed in.
+ * User landing page — public marketing for anonymous visitors; ledger home when signed in.
  */
 @Path("/")
 public class LandingResource {
 
     private final KeyService keyService = new KeyService();
+    private final UnlinkedLoginService unlinkedLoginService = new UnlinkedLoginService();
 
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String index(@Context HttpServletRequest request) {
         Optional<OidcUser> user = UserSession.oidcUser(request);
-        return user.map(this::authenticatedPage).orElseGet(this::publicPage);
+        return user.map(oidcUser -> authenticatedPage(request, oidcUser)).orElseGet(this::publicPage);
     }
 
     private String publicPage() {
-        return UserPageLayout.render(
-                UserPageLayout.APP_NAME,
-                """
-                <p>Allocate money across savings goals and track balances over time.</p>
-                <p class="hint">Access is by application and admin approval. Existing users can sign in with Keycloak.</p>
-                <p class="actions">
-                  <a href="/signup">Apply for access</a>
-                  <a href="/auth/login">Sign in</a>
-                </p>
-                """);
+        return UserPageLayout.renderPublicMarketing(MarketingContent.html());
     }
 
-    private String authenticatedPage(OidcUser oidcUser) {
+    private String authenticatedPage(HttpServletRequest request, OidcUser oidcUser) {
         Optional<AcruetUser> acruetUser = keyService.findUser(oidcUser.subject());
         if (acruetUser.isEmpty()) {
-            return UserPageLayout.render(
+            unlinkedLoginService.recordIfNeeded(request, oidcUser);
+            AuthNavContext nav = UserPageLayout.navContext(oidcUser, null, false);
+            return UserPageLayout.renderAuthenticated(
                     UserPageLayout.APP_NAME,
+                    "",
                     """
-                    <p>Signed in as <strong>%s</strong>.</p>
-                    <p class="hint">No a-cruet account is linked to this login yet.</p>
-                    <p><a href="/auth/logout">Sign out</a></p>
-                    """.formatted(escape(oidcUser.displayName())));
+                    <p>Your sign-in is not linked to an a-cruet account.</p>
+                    <p class="hint">Administrators have been alerted. If you believe this is an error, sign out and contact support.</p>
+                    """,
+                    nav);
         }
         AcruetUser user = acruetUser.get();
         if (!user.keySetupComplete()) {
-            return UserPageLayout.render(
-                    UserPageLayout.APP_NAME,
+            AuthNavContext nav = UserPageLayout.navContext(oidcUser, user, false);
+            return UserPageLayout.renderAuthenticated(
+                    "Create encryption key",
+                    "",
                     """
-                    <p>Signed in as <strong>%s</strong>.</p>
                     <p>Complete encryption key setup before using the ledger.</p>
-                    <p class="actions"><a href="/keys/setup">Create encryption key</a></p>
-                    <p><a href="/auth/logout">Sign out</a></p>
-                    """.formatted(escape(oidcUser.displayName())));
+                    <p class="actions"><a class="nav-btn" href="/keys/setup">Create encryption key</a></p>
+                    """,
+                    nav);
         }
-        return UserPageLayout.render(
+        AuthNavContext nav = UserPageLayout.navContext(oidcUser, user, true);
+        return UserPageLayout.renderAuthenticated(
                 UserPageLayout.APP_NAME,
-                """
-                <p>Signed in as <strong>%s</strong>.</p>
-                <p id="unlockStatus" class="hint">Checking encryption key status…</p>
-                <p class="actions">
-                  <a href="/keys/unlock">Unlock key</a>
-                  <a href="/keys/rotate">Rotate key</a>
-                  <a href="/ledger">Ledger</a>
-                </p>
-                <p><a href="/auth/logout" onclick="AcruetCrypto.session.lock()">Sign out</a></p>
-                <script src="/static/js/acruet-crypto.js"></script>
-                <script>
-                  document.addEventListener('DOMContentLoaded', async () => {
-                    const status = document.getElementById('unlockStatus');
-                    await AcruetCrypto.session.ensureReady();
-                    if (AcruetCrypto.session.isUnlocked()) {
-                      status.textContent = 'Encryption key unlocked for this session.';
-                    } else {
-                      status.textContent = 'Unlock your encryption key to access ledger data.';
-                    }
-                  });
-                </script>
-                """.formatted(escape(oidcUser.displayName())));
-    }
-
-    private static String escape(String value) {
-        return value
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;");
+                LedgerViews.ledgerCss(),
+                LedgerViews.ledgerMainHtml(UserPageLayout.lockImageUrl()),
+                nav);
     }
 }

@@ -19,6 +19,17 @@ final class PageLayout {
             String title,
             String extraCss,
             String mainHtml) {
+        return render(appName, tileImage, tileDescription, title, extraCss, "", mainHtml);
+    }
+
+    static String render(
+            String appName,
+            String tileImage,
+            String tileDescription,
+            String title,
+            String extraCss,
+            String topNavHtml,
+            String mainHtml) {
         return """
                 <!DOCTYPE html>
                 <html lang="en">
@@ -33,10 +44,13 @@ final class PageLayout {
                   </style>
                 </head>
                 <body>
+                  <div class="page-shell">
                 %s
-                  <main class="page">
-                  %s
-                  </main>
+                %s
+                    <main class="page">
+                %s
+                    </main>
+                  </div>
                 %s
                 </body>
                 </html>
@@ -46,6 +60,7 @@ final class PageLayout {
                         PageStyles.baseCss(),
                         layoutCss(),
                         extraCss == null ? "" : extraCss,
+                        topNavHtml == null ? "" : topNavHtml,
                         headerHtml(appName, tileImage, tileDescription),
                         mainHtml,
                         footerHtml());
@@ -78,6 +93,19 @@ final class PageLayout {
 
     private static String layoutCss() {
         return """
+                body {
+                  display: flex;
+                  flex-direction: column;
+                }
+                .page-shell {
+                  flex: 1 0 auto;
+                  display: flex;
+                  flex-direction: column;
+                  position: relative;
+                }
+                main.page {
+                  flex: 1 0 auto;
+                }
                 .page-header {
                   text-align: center;
                   padding: 2.5rem 1rem 1.5rem;
@@ -98,6 +126,7 @@ final class PageLayout {
                   border-radius: 12px;
                 }
                 .page-footer {
+                  flex-shrink: 0;
                   text-align: center;
                   color: var(--muted);
                   font-size: 0.85rem;
