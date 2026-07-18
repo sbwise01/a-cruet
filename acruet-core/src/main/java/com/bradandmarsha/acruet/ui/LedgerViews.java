@@ -125,9 +125,9 @@ public final class LedgerViews {
                     </p>
                   </section>
                 </div>
-                <script src="/static/js/chart.umd.min.js"></script>
-                <script src="/static/js/acruet-reports.js"></script>
-                <script src="/static/js/acruet-ledger.js"></script>
+                <script src="/static/js/chart.umd.min.js?v=20260718-2"></script>
+                <script src="/static/js/acruet-reports.js?v=20260718-2"></script>
+                <script src="/static/js/acruet-ledger.js?v=20260718-2"></script>
                 """
                 .formatted(
                         escapeAttr(lockImageUrl),
