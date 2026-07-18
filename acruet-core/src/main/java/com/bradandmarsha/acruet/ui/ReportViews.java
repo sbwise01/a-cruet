@@ -75,6 +75,9 @@ public final class ReportViews {
                 #reportError {
                   margin-top: 1rem;
                 }
+                #txReportError {
+                  margin-top: 0.75rem;
+                }
                 .report-table-wrap {
                   margin-top: 1.25rem;
                   overflow-x: auto;
@@ -135,6 +138,7 @@ public final class ReportViews {
                       <button type="button" id="btnShowTxReport">Show report</button>
                       <button type="button" id="btnDownloadTxCsv" class="secondary" disabled>Download CSV</button>
                     </p>
+                    <p id="txReportError" class="error" hidden></p>
                     <div id="txReportResults" class="report-table-wrap" hidden></div>
                     <p class="report-panel-actions">
                       <button type="button" id="btnTxReportBack" class="secondary">Back to reports</button>

@@ -73,6 +73,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       getAccounts: () => state.accounts,
       decryptTransactions,
       escapeHtml,
+      requireUnlocked: () => {
+        if (!AcruetCrypto.session.isUnlocked()) {
+          throw new Error('Unlock your ledger before running reports.');
+        }
+      },
       beforeReportsOpen: () => {
         closeForm(false);
         els.ledgerBrowse.hidden = true;
