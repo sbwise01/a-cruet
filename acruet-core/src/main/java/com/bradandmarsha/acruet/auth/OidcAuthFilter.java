@@ -77,7 +77,7 @@ public class OidcAuthFilter implements Filter {
             HttpServletResponse response,
             HttpSession session) throws IOException {
         String state = OidcService.newState();
-        OidcStateSupport.save(httpRequest, httpResponse, session, state);
+        OidcStateSupport.save(request, response, session, state);
         String loginUri = service.beginAuthorizationUri(state);
         response.sendRedirect(loginUri);
     }
