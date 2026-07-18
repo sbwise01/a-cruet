@@ -84,8 +84,8 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred → Phase 13 |
 | 7 — Client encryption + key lifecycle | ✅ Complete (2026-07-15) — setup, unlock, idle timeout, rotation |
 | 8 — Ledger core | ✅ Complete (2026-07-16) — deposits, withdraws, transfers, archive, ciphertext verified |
-| 9 — Ledger UI polish | Pending |
-| 10 — Client-side reports | Pending |
+| 9 — Ledger UI polish | ✅ Complete (2026-07-18) — items 1–9 + item 10 verified; admin alert → Phase 11 |
+| 10 — Client-side reports | ✅ Complete (2026-07-18) |
 | 11 — Admin ops (suspend, offboard, cron) | Pending |
 | 12 — CI/CD + Flux image automation | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
 | 13 — Index tiles + E2E verification | Pending |
@@ -545,7 +545,7 @@ kubectl -n acruet-cnpg exec -it acruet-db-1 -- psql -U app -d acruet
    );
    ```
 
-5. **Sign in on user hostname** — sign out first if already signed in. Expect **Create encryption key** (or redirect toward `/keys/setup`), **not** the unlinked-login message.
+5. **Sign in on user hostname** — sign out first if already signed in. Expect **Create encryption key** (or redirect toward `/keys/setup`), **not** the unlinked-login message. After step 6, a **Keycloak SSO logout** then fresh **Sign in** on the user hostname should complete `/auth/callback` without **`Invalid OIDC state`** (multi-replica OIDC state cookie fix; verified 2026-07-18).
 
 6. **Complete Phase 7 key setup** — `/keys/setup`: passphrase, recovery file, confirm backup. Verify:
    ```sql
@@ -569,7 +569,8 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 - [x] `admin_action_audit` row for approve (implicit in successful approve flow)
 - [x] `acruet_user` row created with `key_setup_complete = false` (Phase 7 gate)
 - [x] **Bootstrap admin backfill** — Keycloak user ID resolved; manual `INSERT` links bootstrap admin; user hostname shows key-setup prompt (not unlinked message) *(2026-07-18; `brad@bradandmarsha.com`)*
-- [ ] **Bootstrap admin backfill** — Phase 7 key setup completes (`user_encryption_key` row; `key_setup_complete = true`)
+- [x] **Bootstrap admin backfill** — Phase 7 key setup completes (`user_encryption_key` row; `key_setup_complete = true`) *(2026-07-18; `brad@bradandmarsha.com`)*
+- [x] **Bootstrap admin backfill** — Keycloak logout + fresh user-app sign-in: no **`Invalid OIDC state`** on callback *(2026-07-18; multi-replica OIDC state fix)*
 
 ---
 
@@ -690,7 +691,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 
 **Goal:** Non-functional ledger UX improvements — gathered item-by-item via Q&A before client-side reports.
 
-**Status:** ✅ Complete on cluster (2026-07-17). Items 1–9 verified. Item 10 implemented; cluster verify deferred (may occur naturally when inviting family — see item 10). Post-verify fix: mobile public-nav no longer overlaps hero.
+**Status:** ✅ Complete on cluster (2026-07-17). Items 1–9 verified. Item 10 implemented and cluster-verified (2026-07-18); admin alert delivery remains Phase 11 task 9. Post-verify fix: mobile public-nav no longer overlaps hero.
 
 ### Items
 
@@ -985,15 +986,24 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 - User-visible text explains the account is not linked and **administrators have been alerted**.
 - Avatar dropdown: identity + Sign out only.
 
-**Depends on:** Phase 11 task — admin alert delivery for this anomaly.
+**Depends on:** Phase 11 task 9 — admin alert delivery for this anomaly.
 
-**Cluster verify:** Deferred — no synthetic test run. Implementation shipped; confirm naturally if someone signs in via Keycloak before admin approval creates an `acruet_user` row (e.g. family invite timing). Expected UX: avatar + “administrators have been alerted”, no ledger, no `/keys/setup` redirect; one row per session in `login_anomaly`.
+**Post-ship fix (2026-07-18):** User app runs **2 replicas**; OIDC `state` was session-only, so login and `/auth/callback` could hit different pods → **`Invalid OIDC state`**. Fix: persist state in session **and** a short-lived HttpOnly cookie (`OidcStateSupport`); callback no longer redirects unlinked users to `/keys/setup`. Merged to `main`; cluster-verified during bootstrap backfill re-login (Keycloak logout → fresh user-app sign-in, no invalid state).
+
+**Cluster verify (2026-07-18):**
+
+| Scenario | Result |
+|----------|--------|
+| Keycloak session, **no** `acruet_user` (bootstrap admin before backfill) | Avatar + “administrators have been alerted”; no ledger; no `/keys/setup`; `login_anomaly` row |
+| Fresh sign-in after backfill (linked user) | No **`Invalid OIDC state`** on callback; key setup / ledger as expected |
 
 **Verify:**
 
-- [ ] Simulated unlinked login shows avatar + message with “administrators have been alerted” *(deferred — see above)*
-- [ ] No ledger, no `/keys/setup` redirect *(deferred)*
-- [ ] Anomaly recorded server-side once per event *(deferred; query `login_anomaly` when it occurs)*
+- [x] Unlinked login shows avatar + message with “administrators have been alerted” *(2026-07-18; bootstrap admin before backfill)*
+- [x] No ledger, no `/keys/setup` redirect for unlinked state *(2026-07-18)*
+- [x] Anomaly recorded server-side (`login_anomaly`) *(2026-07-18)*
+- [x] Fresh OIDC sign-in on user hostname (multi-replica): no **`Invalid OIDC state`** *(2026-07-18; bootstrap backfill re-login)*
+- [ ] Admin alerted on anomaly — **Phase 11 task 9**
 
 ### Consistency review (resolved)
 
@@ -1008,7 +1018,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 ### Verify
 
 - [x] Items 1–9 verified on cluster (2026-07-17)
-- [ ] Item 10 — deferred (documented above; Phase 11 adds admin alert delivery)
+- [x] Item 10 — unlinked UX + anomaly + OIDC callback verified (2026-07-18); admin alert delivery → Phase 11 task 9
 
 ---
 

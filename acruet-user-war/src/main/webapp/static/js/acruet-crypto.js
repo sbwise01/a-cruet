@@ -1,6 +1,6 @@
 /**
- * Client-side envelope encryption primitives (Phase 7).
- * Passphrase-derived KEK and wrapped DEK never send the passphrase to the server.
+ * Client-side envelope encryption primitives (Phase 7 + file-only recovery, Phase 7.1).
+ * Passphrase-derived KEK and recovery-secret wrap never send secrets to the server.
  */
 const AcruetCrypto = (() => {
   const KDF_ALGORITHM = 'PBKDF2';
@@ -10,7 +10,8 @@ const AcruetCrypto = (() => {
   const MIN_PASSPHRASE_LENGTH = 12;
   const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
   const RECOVERY_FORMAT = 'acruet-recovery';
-  const RECOVERY_VERSION = 1;
+  const RECOVERY_VERSION = 2;
+  const RECOVERY_SECRET_BYTES = 32;
   const STORAGE_DEK_KEY = 'acruet.session.dek';
   const STORAGE_EXPIRY_KEY = 'acruet.session.expiry';
   const STORAGE_SUBJECT_KEY = 'acruet.session.subject';
@@ -98,6 +99,12 @@ const AcruetCrypto = (() => {
     return salt;
   }
 
+  function randomRecoverySecret() {
+    const secret = new Uint8Array(RECOVERY_SECRET_BYTES);
+    crypto.getRandomValues(secret);
+    return secret;
+  }
+
   async function deriveKek(passphrase, saltBytes, iterations = DEFAULT_ITERATIONS) {
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
@@ -109,6 +116,16 @@ const AcruetCrypto = (() => {
     return crypto.subtle.deriveKey(
       { name: KDF_ALGORITHM, salt: saltBytes, iterations, hash: KDF_HASH },
       keyMaterial,
+      { name: WRAP_ALGORITHM, length: 256 },
+      false,
+      ['wrapKey', 'unwrapKey'],
+    );
+  }
+
+  async function importRecoveryKey(recoverySecretBytes) {
+    return crypto.subtle.importKey(
+      'raw',
+      recoverySecretBytes,
       { name: WRAP_ALGORITHM, length: 256 },
       false,
       ['wrapKey', 'unwrapKey'],
@@ -139,21 +156,40 @@ const AcruetCrypto = (() => {
     );
   }
 
-  function buildRecoveryFile({ saltBytes, iterations, wrappedDekBase64 }) {
+  function buildRecoveryFile({ recoverySecretBytes, recoveryWrappedDekBase64, emailHint }) {
     return {
       format: RECOVERY_FORMAT,
       version: RECOVERY_VERSION,
       createdAt: new Date().toISOString(),
-      kdf: {
-        algorithm: KDF_ALGORITHM,
-        hash: KDF_HASH,
-        salt: toBase64(saltBytes),
-        iterations,
-      },
-      wrap: {
+      email: emailHint || undefined,
+      recoverySecret: toBase64(recoverySecretBytes),
+      recoveryWrap: {
         algorithm: WRAP_ALGORITHM,
-        wrappedDek: wrappedDekBase64,
+        wrappedDek: recoveryWrappedDekBase64,
       },
+    };
+  }
+
+  function parseRecoveryFile(raw) {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || parsed.format !== RECOVERY_FORMAT) {
+      throw new Error('Not a valid a-cruet recovery file.');
+    }
+    if (parsed.version === 1) {
+      throw new Error(
+        'This recovery file uses the older format and cannot reset a forgotten passphrase. '
+          + 'Use your passphrase, or complete recovery enrollment after signing in.',
+      );
+    }
+    if (parsed.version !== RECOVERY_VERSION) {
+      throw new Error('Unsupported recovery file version.');
+    }
+    if (!parsed.recoverySecret || !parsed.recoveryWrap || !parsed.recoveryWrap.wrappedDek) {
+      throw new Error('Recovery file is missing required fields.');
+    }
+    return {
+      recoverySecretBytes: fromBase64(parsed.recoverySecret),
+      recoveryWrappedDekBase64: parsed.recoveryWrap.wrappedDek,
     };
   }
 
@@ -248,35 +284,72 @@ const AcruetCrypto = (() => {
     }
   }
 
-  async function createWrappedDek(passphrase) {
+  async function buildRecoveryWrap(dekKey) {
+    const recoverySecretBytes = randomRecoverySecret();
+    const recoveryKey = await importRecoveryKey(recoverySecretBytes);
+    const recoveryWrappedBuffer = await wrapDek(recoveryKey, dekKey);
+    const recoveryWrappedDekBase64 = toBase64(new Uint8Array(recoveryWrappedBuffer));
+    return {
+      recoverySecretBytes,
+      recoveryWrappedDekBase64,
+      recoveryPayload: {
+        recoveryWrapAlgorithm: WRAP_ALGORITHM,
+        recoveryWrappedDek: recoveryWrappedDekBase64,
+      },
+    };
+  }
+
+  async function createDualWrappedDek(passphrase, emailHint) {
     assertWebCrypto();
     const saltBytes = randomSalt();
     const kek = await deriveKek(passphrase, saltBytes, DEFAULT_ITERATIONS);
     const dekKey = await generateDek();
     const wrappedDekBuffer = await wrapDek(kek, dekKey);
     const wrappedDekBase64 = toBase64(new Uint8Array(wrappedDekBuffer));
+    const recovery = await buildRecoveryWrap(dekKey);
     return {
       saltBytes,
       iterations: DEFAULT_ITERATIONS,
       wrappedDekBase64,
       dekKey,
-      payload: {
+      dualPayload: {
         kdfAlgorithm: KDF_ALGORITHM,
         kdfHash: KDF_HASH,
         kdfSalt: toBase64(saltBytes),
         kdfIterations: DEFAULT_ITERATIONS,
         wrapAlgorithm: WRAP_ALGORITHM,
         wrappedDek: wrappedDekBase64,
+        recoveryWrapAlgorithm: WRAP_ALGORITHM,
+        recoveryWrappedDek: recovery.recoveryWrappedDekBase64,
       },
       recovery: buildRecoveryFile({
-        saltBytes,
-        iterations: DEFAULT_ITERATIONS,
-        wrappedDekBase64,
+        recoverySecretBytes: recovery.recoverySecretBytes,
+        recoveryWrappedDekBase64: recovery.recoveryWrappedDekBase64,
+        emailHint,
       }),
     };
   }
 
-  async function rotateWrappedDek(currentPassphrase, newPassphrase, wrappedPayload) {
+  async function enrollRecoveryWrap(passphrase, wrappedPayload, emailHint) {
+    const saltBytes = fromBase64(wrappedPayload.kdfSalt);
+    const kek = await deriveKek(passphrase, saltBytes, wrappedPayload.kdfIterations);
+    const wrappedDekBytes = fromBase64(wrappedPayload.wrappedDek);
+    const dekKey = await unwrapDek(kek, wrappedDekBytes);
+    const recovery = await buildRecoveryWrap(dekKey);
+    return {
+      recoveryPayload: {
+        recoveryWrapAlgorithm: WRAP_ALGORITHM,
+        recoveryWrappedDek: recovery.recoveryWrappedDekBase64,
+      },
+      recovery: buildRecoveryFile({
+        recoverySecretBytes: recovery.recoverySecretBytes,
+        recoveryWrappedDekBase64: recovery.recoveryWrappedDekBase64,
+        emailHint,
+      }),
+    };
+  }
+
+  async function rotateDualWrappedDek(currentPassphrase, newPassphrase, wrappedPayload, emailHint) {
     const saltBytes = fromBase64(wrappedPayload.kdfSalt);
     const currentKek = await deriveKek(currentPassphrase, saltBytes, wrappedPayload.kdfIterations);
     const wrappedDekBytes = fromBase64(wrappedPayload.wrappedDek);
@@ -286,22 +359,56 @@ const AcruetCrypto = (() => {
     const newKek = await deriveKek(newPassphrase, newSaltBytes, DEFAULT_ITERATIONS);
     const newWrappedDekBuffer = await wrapDek(newKek, dekKey);
     const newWrappedDekBase64 = toBase64(new Uint8Array(newWrappedDekBuffer));
+    const recovery = await buildRecoveryWrap(dekKey);
 
     return {
-      payload: {
+      dualPayload: {
         kdfAlgorithm: KDF_ALGORITHM,
         kdfHash: KDF_HASH,
         kdfSalt: toBase64(newSaltBytes),
         kdfIterations: DEFAULT_ITERATIONS,
         wrapAlgorithm: WRAP_ALGORITHM,
         wrappedDek: newWrappedDekBase64,
+        recoveryWrapAlgorithm: WRAP_ALGORITHM,
+        recoveryWrappedDek: recovery.recoveryWrappedDekBase64,
       },
       recovery: buildRecoveryFile({
-        saltBytes: newSaltBytes,
-        iterations: DEFAULT_ITERATIONS,
-        wrappedDekBase64: newWrappedDekBase64,
+        recoverySecretBytes: recovery.recoverySecretBytes,
+        recoveryWrappedDekBase64: recovery.recoveryWrappedDekBase64,
+        emailHint,
       }),
       dekKey,
+    };
+  }
+
+  async function resetPassphraseFromRecoveryFile(recoveryFileRaw, newPassphrase, emailHint) {
+    const parsed = parseRecoveryFile(recoveryFileRaw);
+    const recoveryKey = await importRecoveryKey(parsed.recoverySecretBytes);
+    const wrappedDekBytes = fromBase64(parsed.recoveryWrappedDekBase64);
+    const dekKey = await unwrapDek(recoveryKey, wrappedDekBytes);
+
+    const newSaltBytes = randomSalt();
+    const newKek = await deriveKek(newPassphrase, newSaltBytes, DEFAULT_ITERATIONS);
+    const newWrappedDekBuffer = await wrapDek(newKek, dekKey);
+    const newWrappedDekBase64 = toBase64(new Uint8Array(newWrappedDekBuffer));
+    const recovery = await buildRecoveryWrap(dekKey);
+
+    return {
+      dualPayload: {
+        kdfAlgorithm: KDF_ALGORITHM,
+        kdfHash: KDF_HASH,
+        kdfSalt: toBase64(newSaltBytes),
+        kdfIterations: DEFAULT_ITERATIONS,
+        wrapAlgorithm: WRAP_ALGORITHM,
+        wrappedDek: newWrappedDekBase64,
+        recoveryWrapAlgorithm: WRAP_ALGORITHM,
+        recoveryWrappedDek: recovery.recoveryWrappedDekBase64,
+      },
+      recovery: buildRecoveryFile({
+        recoverySecretBytes: recovery.recoverySecretBytes,
+        recoveryWrappedDekBase64: recovery.recoveryWrappedDekBase64,
+        emailHint,
+      }),
     };
   }
 
@@ -332,17 +439,21 @@ const AcruetCrypto = (() => {
     DEFAULT_ITERATIONS,
     MIN_PASSPHRASE_LENGTH,
     IDLE_TIMEOUT_MS,
+    RECOVERY_VERSION,
     deriveKek,
     generateDek,
     wrapDek,
     unwrapDek,
     randomSalt,
+    parseRecoveryFile,
     buildRecoveryFile,
     downloadRecoveryFile,
     toBase64,
     fromBase64,
-    createWrappedDek,
-    rotateWrappedDek,
+    createDualWrappedDek,
+    enrollRecoveryWrap,
+    rotateDualWrappedDek,
+    resetPassphraseFromRecoveryFile,
     encryptJson,
     decryptJson,
     session,

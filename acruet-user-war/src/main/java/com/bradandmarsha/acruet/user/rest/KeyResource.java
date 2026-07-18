@@ -4,6 +4,7 @@ import com.bradandmarsha.acruet.auth.OidcUser;
 import com.bradandmarsha.acruet.auth.UserSession;
 import com.bradandmarsha.acruet.keys.KeyService;
 import com.bradandmarsha.acruet.keys.KeyServiceException;
+import com.bradandmarsha.acruet.keys.RecoveryWrapPayload;
 import com.bradandmarsha.acruet.keys.WrappedDekPayload;
 import com.bradandmarsha.acruet.ui.PageStyles;
 import com.bradandmarsha.acruet.ui.UserPageLayout;
@@ -24,7 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Client-side encryption key setup, unlock, rotation, and wrapped DEK API (Phase 7).
+ * Client-side encryption key setup, unlock, rotation, recovery, and wrapped DEK API (Phase 7).
  */
 @Path("keys")
 public class KeyResource {
@@ -47,6 +48,26 @@ public class KeyResource {
     }
 
     @GET
+    @Path("enroll-recovery")
+    @Produces(MediaType.TEXT_HTML)
+    public Response enrollRecoveryPage(@Context HttpServletRequest request) {
+        Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
+        Optional<AcruetUser> user = requireUser(request);
+        if (oidcUser.isEmpty() || user.isEmpty()) {
+            return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
+        }
+        if (!user.get().keySetupComplete()) {
+            return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+        }
+        KeyService.KeyStatus status = keyService.status(user.get());
+        if (status.recoveryEnrolled()) {
+            return Response.seeOther(UriBuilder.fromPath("/").build()).build();
+        }
+        return Response.ok(renderKeyPage(
+                oidcUser.get(), user.get(), "Save recovery file", enrollRecoveryHtml())).build();
+    }
+
+    @GET
     @Path("unlock")
     @Produces(MediaType.TEXT_HTML)
     public Response unlockPage(@Context HttpServletRequest request) {
@@ -58,7 +79,26 @@ public class KeyResource {
         if (!user.get().keySetupComplete()) {
             return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
         }
+        if (!keyService.status(user.get()).recoveryEnrolled()) {
+            return Response.seeOther(UriBuilder.fromPath("/keys/enroll-recovery").build()).build();
+        }
         return Response.ok(renderKeyPage(oidcUser.get(), user.get(), "Unlock encryption key", unlockHtml())).build();
+    }
+
+    @GET
+    @Path("forgot-passphrase")
+    @Produces(MediaType.TEXT_HTML)
+    public Response forgotPassphrasePage(@Context HttpServletRequest request) {
+        Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
+        Optional<AcruetUser> user = requireUser(request);
+        if (oidcUser.isEmpty() || user.isEmpty()) {
+            return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
+        }
+        if (!user.get().keySetupComplete()) {
+            return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+        }
+        return Response.ok(renderKeyPage(
+                oidcUser.get(), user.get(), "Reset encryption passphrase", forgotPassphraseHtml())).build();
     }
 
     @GET
@@ -73,6 +113,9 @@ public class KeyResource {
         if (!user.get().keySetupComplete()) {
             return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
         }
+        if (!keyService.status(user.get()).recoveryEnrolled()) {
+            return Response.seeOther(UriBuilder.fromPath("/keys/enroll-recovery").build()).build();
+        }
         return Response.ok(renderKeyPage(oidcUser.get(), user.get(), "Rotate encryption key", rotateHtml())).build();
     }
 
@@ -84,7 +127,8 @@ public class KeyResource {
             KeyService.KeyStatus status = keyService.status(user);
             return Response.ok(Map.of(
                     "keySetupComplete", status.keySetupComplete(),
-                    "hasWrappedDek", status.hasWrappedDek())).build();
+                    "hasWrappedDek", status.hasWrappedDek(),
+                    "recoveryEnrolled", status.recoveryEnrolled())).build();
         });
     }
 
@@ -114,10 +158,10 @@ public class KeyResource {
     @Path("wrapped-dek")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response storeWrappedDek(WrappedDekRequest body, @Context HttpServletRequest request) {
+    public Response storeWrappedDek(DualWrapRequest body, @Context HttpServletRequest request) {
         return withUser(request, user -> {
             try {
-                keyService.storeInitialWrappedDek(user, toPayload(body));
+                keyService.storeInitialWrappedDek(user, toPassphrasePayload(body), toRecoveryPayload(body));
                 return Response.ok(Map.of("stored", true)).build();
             } catch (KeyServiceException exception) {
                 return Response.status(Response.Status.BAD_REQUEST)
@@ -145,14 +189,48 @@ public class KeyResource {
     }
 
     @POST
+    @Path("enroll-recovery")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response enrollRecovery(RecoveryWrapRequest body, @Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                keyService.enrollRecoveryWrap(user, toRecoveryPayload(body));
+                return Response.ok(Map.of("recoveryEnrolled", true)).build();
+            } catch (KeyServiceException exception) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(Map.of("error", exception.getMessage()))
+                        .build();
+            }
+        });
+    }
+
+    @POST
     @Path("rotate")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response rotateWrappedDek(WrappedDekRequest body, @Context HttpServletRequest request) {
+    public Response rotateWrappedDek(DualWrapRequest body, @Context HttpServletRequest request) {
         return withUser(request, user -> {
             try {
-                keyService.rotateWrappedDek(user, toPayload(body));
+                keyService.rotateWrappedDek(user, toPassphrasePayload(body), toRecoveryPayload(body));
                 return Response.ok(Map.of("rotated", true)).build();
+            } catch (KeyServiceException exception) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(Map.of("error", exception.getMessage()))
+                        .build();
+            }
+        });
+    }
+
+    @POST
+    @Path("reset-passphrase")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response resetPassphrase(DualWrapRequest body, @Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                keyService.resetPassphrase(user, toPassphrasePayload(body), toRecoveryPayload(body));
+                return Response.ok(Map.of("reset", true)).build();
             } catch (KeyServiceException exception) {
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(Map.of("error", exception.getMessage()))
@@ -179,7 +257,7 @@ public class KeyResource {
         return keyService.findUser(oidcUser.get().subject());
     }
 
-    private static WrappedDekPayload toPayload(WrappedDekRequest body) {
+    private static WrappedDekPayload toPassphrasePayload(DualWrapRequest body) {
         return new WrappedDekPayload(
                 body.kdfAlgorithm,
                 body.kdfHash,
@@ -189,10 +267,18 @@ public class KeyResource {
                 body.wrappedDek);
     }
 
+    private static RecoveryWrapPayload toRecoveryPayload(DualWrapRequest body) {
+        return new RecoveryWrapPayload(body.recoveryWrapAlgorithm, body.recoveryWrappedDek);
+    }
+
+    private static RecoveryWrapPayload toRecoveryPayload(RecoveryWrapRequest body) {
+        return new RecoveryWrapPayload(body.recoveryWrapAlgorithm, body.recoveryWrappedDek);
+    }
+
     private static String setupHtml() {
         return """
                 <h2>Create your encryption key</h2>
-                <p class="hint">Your passphrase never leaves this browser. a-cruet stores only a wrapped copy of your data key.</p>
+                <p class="hint">Your passphrase never leaves this browser. Store the recovery file somewhere safe — it is required to reset a forgotten passphrase.</p>
                 <div id="step-passphrase" class="wizard-step">
                   <p><strong>Step 1:</strong> Choose a strong passphrase (12+ characters).</p>
                   <p class="hint">Spaces and punctuation are allowed. Your passphrase never leaves this browser.</p>
@@ -205,7 +291,7 @@ public class KeyResource {
                 </div>
                 <div id="step-recovery" class="wizard-step" hidden>
                   <p><strong>Step 2:</strong> Download your recovery file and keep it somewhere safe.</p>
-                  <p class="hint">Without your passphrase or this file, your ledger data cannot be recovered.</p>
+                  <p class="hint">You do not need to memorize the file contents. Without your passphrase or this file, your ledger cannot be recovered.</p>
                   <button type="button" id="btnDownloadRecovery">Download recovery file</button>
                   <p id="recoveryStatus" class="notice" hidden></p>
                   <label><input type="checkbox" id="recoveryConfirmed"> I saved my recovery file in a safe place</label>
@@ -217,6 +303,26 @@ public class KeyResource {
                 """;
     }
 
+    private static String enrollRecoveryHtml() {
+        return """
+                <h2>Save a recovery file</h2>
+                <p class="hint">Your account needs an updated recovery file so you can reset a forgotten passphrase. Enter your current passphrase, then download and store the file.</p>
+                <label for="passphrase">Current passphrase</label>
+                <input id="passphrase" type="password" autocomplete="current-password" required>
+                <p id="passphraseError" class="error" hidden></p>
+                <button type="button" id="btnGenerateRecovery">Continue</button>
+                <div id="step-recovery" class="wizard-step" hidden>
+                  <button type="button" id="btnDownloadRecovery">Download recovery file</button>
+                  <p id="recoveryStatus" class="notice" hidden></p>
+                  <label><input type="checkbox" id="recoveryConfirmed"> I saved my recovery file in a safe place</label>
+                  <p id="recoveryError" class="error" hidden></p>
+                  <button type="button" id="btnFinishEnroll" disabled>Finish</button>
+                </div>
+                <p id="enrollError" class="error" hidden></p>
+                <script src="/static/js/acruet-key-enroll-recovery.js"></script>
+                """;
+    }
+
     private static String unlockHtml() {
         return """
                 <h2>Unlock your ledger</h2>
@@ -225,15 +331,34 @@ public class KeyResource {
                 <input id="passphrase" type="password" autocomplete="current-password" required>
                 <p id="unlockError" class="error" hidden></p>
                 <button type="button" id="btnUnlock">Unlock</button>
-                <p class="actions"><a href="/">Back to home</a></p>
+                <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a> · <a href="/">Back to home</a></p>
                 <script src="/static/js/acruet-key-unlock.js"></script>
+                """;
+    }
+
+    private static String forgotPassphraseHtml() {
+        return """
+                <h2>Reset encryption passphrase</h2>
+                <p class="hint">Upload your recovery file, then choose a new passphrase. Your ledger data is unchanged. A new recovery file will be downloaded afterward.</p>
+                <label for="recoveryFile">Recovery file (acruet-recovery.json)</label>
+                <input id="recoveryFile" type="file" accept="application/json,.json">
+                <p id="fileError" class="error" hidden></p>
+                <label for="newPassphrase">New passphrase</label>
+                <input id="newPassphrase" type="password" autocomplete="new-password" minlength="12" required>
+                <label for="newPassphraseConfirm">Confirm new passphrase</label>
+                <input id="newPassphraseConfirm" type="password" autocomplete="new-password" minlength="12" required>
+                <p id="resetError" class="error" hidden></p>
+                <button type="button" id="btnResetPassphrase">Reset passphrase</button>
+                <p id="resetSuccess" class="notice success" hidden></p>
+                <p class="actions"><a href="/keys/unlock">Back to unlock</a></p>
+                <script src="/static/js/acruet-key-forgot-passphrase.js"></script>
                 """;
     }
 
     private static String rotateHtml() {
         return """
                 <h2>Rotate encryption key</h2>
-                <p class="hint">Re-wraps your existing data key with a new passphrase. Ledger ciphertext is unchanged.</p>
+                <p class="hint">Re-wraps your existing data key with a new passphrase. Ledger ciphertext is unchanged. A new recovery file is downloaded afterward.</p>
                 <label for="currentPassphrase">Current passphrase</label>
                 <input id="currentPassphrase" type="password" autocomplete="current-password" required>
                 <label for="newPassphrase">New passphrase</label>
@@ -263,12 +388,19 @@ public class KeyResource {
                 """;
     }
 
-    public static class WrappedDekRequest {
+    public static class DualWrapRequest {
         public String kdfAlgorithm;
         public String kdfHash;
         public String kdfSalt;
         public int kdfIterations;
         public String wrapAlgorithm;
         public String wrappedDek;
+        public String recoveryWrapAlgorithm;
+        public String recoveryWrappedDek;
+    }
+
+    public static class RecoveryWrapRequest {
+        public String recoveryWrapAlgorithm;
+        public String recoveryWrappedDek;
     }
 }

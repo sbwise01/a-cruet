@@ -39,12 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Could not load wrapped encryption key.');
       }
       const payload = await response.json();
-      const rotated = await AcruetCrypto.rotateWrappedDek(currentPassphrase, newPassphrase, payload);
+      const rotated = await AcruetCrypto.rotateDualWrappedDek(currentPassphrase, newPassphrase, payload);
 
       const rotateResponse = await fetch('/keys/rotate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rotated.payload),
+        body: JSON.stringify(rotated.dualPayload),
       });
       if (!rotateResponse.ok) {
         const body = await rotateResponse.json();

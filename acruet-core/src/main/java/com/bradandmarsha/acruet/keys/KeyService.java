@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Server-side key lifecycle: store wrapped DEK, confirm recovery, rotate wrap (Phase 7).
+ * Server-side key lifecycle: store wrapped DEK, recovery wrap, confirm recovery, rotate wrap (Phase 7).
  */
 public final class KeyService {
 
@@ -42,7 +42,8 @@ public final class KeyService {
         try {
             return Database.inTransactionReturning(connection -> {
                 boolean hasWrappedDek = encryptionRepository.existsForUser(connection, user.id());
-                return new KeyStatus(user.keySetupComplete(), hasWrappedDek);
+                boolean recoveryEnrolled = encryptionRepository.recoveryEnrolled(connection, user.id());
+                return new KeyStatus(user.keySetupComplete(), hasWrappedDek, recoveryEnrolled);
             });
         } catch (SQLException exception) {
             throw new KeyServiceException("Failed to load key status", exception);
@@ -59,11 +60,9 @@ public final class KeyService {
         }
     }
 
-    public void storeInitialWrappedDek(AcruetUser user, WrappedDekPayload payload) {
-        Optional<String> validationError = payload.validationError();
-        if (validationError.isPresent()) {
-            throw new KeyServiceException(validationError.get());
-        }
+    public void storeInitialWrappedDek(AcruetUser user, WrappedDekPayload passphrase, RecoveryWrapPayload recovery) {
+        validatePassphraseWrap(passphrase);
+        validateRecoveryWrap(recovery);
         if (user.keySetupComplete()) {
             throw new KeyServiceException("Encryption key is already configured.");
         }
@@ -72,7 +71,7 @@ public final class KeyService {
                 if (encryptionRepository.existsForUser(connection, user.id())) {
                     throw new KeyServiceException("Wrapped DEK already exists.");
                 }
-                encryptionRepository.insert(connection, toEncryptionKey(user.id(), payload));
+                encryptionRepository.insert(connection, toEncryptionKey(user.id(), passphrase, recovery));
             });
         } catch (KeyServiceException exception) {
             throw exception;
@@ -87,8 +86,12 @@ public final class KeyService {
         }
         try {
             Database.inTransaction(connection -> {
-                if (!encryptionRepository.existsForUser(connection, user.id())) {
+                Optional<UserEncryptionKey> key = encryptionRepository.findByUserId(connection, user.id());
+                if (key.isEmpty()) {
                     throw new KeyServiceException("Store a wrapped DEK before confirming recovery.");
+                }
+                if (!key.get().recoveryEnrolled()) {
+                    throw new KeyServiceException("Store a recovery wrap before confirming recovery.");
                 }
                 userRepository.markKeySetupComplete(connection, user.id());
             });
@@ -99,11 +102,35 @@ public final class KeyService {
         }
     }
 
-    public void rotateWrappedDek(AcruetUser user, WrappedDekPayload payload) {
-        Optional<String> validationError = payload.validationError();
-        if (validationError.isPresent()) {
-            throw new KeyServiceException(validationError.get());
+    public void enrollRecoveryWrap(AcruetUser user, RecoveryWrapPayload recovery) {
+        validateRecoveryWrap(recovery);
+        if (!user.keySetupComplete()) {
+            throw new KeyServiceException("Complete key setup before enrolling recovery.");
         }
+        try {
+            Database.inTransaction(connection -> {
+                if (!encryptionRepository.existsForUser(connection, user.id())) {
+                    throw new KeyServiceException("No wrapped DEK exists.");
+                }
+                if (encryptionRepository.recoveryEnrolled(connection, user.id())) {
+                    throw new KeyServiceException("Recovery wrap is already enrolled.");
+                }
+                encryptionRepository.updateRecoveryWrap(
+                        connection,
+                        user.id(),
+                        recovery.recoveryWrappedDekBytes(),
+                        recovery.wrapAlgorithm());
+            });
+        } catch (KeyServiceException exception) {
+            throw exception;
+        } catch (SQLException exception) {
+            throw new KeyServiceException("Failed to enroll recovery wrap", exception);
+        }
+    }
+
+    public void rotateWrappedDek(AcruetUser user, WrappedDekPayload passphrase, RecoveryWrapPayload recovery) {
+        validatePassphraseWrap(passphrase);
+        validateRecoveryWrap(recovery);
         if (!user.keySetupComplete()) {
             throw new KeyServiceException("Complete key setup before rotating.");
         }
@@ -112,7 +139,7 @@ public final class KeyService {
                 if (!encryptionRepository.existsForUser(connection, user.id())) {
                     throw new KeyServiceException("No wrapped DEK exists to rotate.");
                 }
-                encryptionRepository.updateWrappedDek(connection, toEncryptionKey(user.id(), payload));
+                encryptionRepository.updateDualWrap(connection, toEncryptionKey(user.id(), passphrase, recovery));
             });
         } catch (KeyServiceException exception) {
             throw exception;
@@ -121,24 +148,57 @@ public final class KeyService {
         }
     }
 
-    public Optional<AcruetUser> reloadUser(AcruetUser user) {
-        return findUser(user.keycloakUserId());
+    public void resetPassphrase(AcruetUser user, WrappedDekPayload passphrase, RecoveryWrapPayload recovery) {
+        validatePassphraseWrap(passphrase);
+        validateRecoveryWrap(recovery);
+        if (!user.keySetupComplete()) {
+            throw new KeyServiceException("Complete key setup before resetting passphrase.");
+        }
+        try {
+            Database.inTransaction(connection -> {
+                if (!encryptionRepository.existsForUser(connection, user.id())) {
+                    throw new KeyServiceException("No wrapped DEK exists.");
+                }
+                encryptionRepository.updateDualWrap(connection, toEncryptionKey(user.id(), passphrase, recovery));
+            });
+        } catch (KeyServiceException exception) {
+            throw exception;
+        } catch (SQLException exception) {
+            throw new KeyServiceException("Failed to reset passphrase", exception);
+        }
     }
 
-    private static UserEncryptionKey toEncryptionKey(UUID userId, WrappedDekPayload payload) {
+    private static void validatePassphraseWrap(WrappedDekPayload payload) {
+        Optional<String> validationError = payload.validationError();
+        if (validationError.isPresent()) {
+            throw new KeyServiceException(validationError.get());
+        }
+    }
+
+    private static void validateRecoveryWrap(RecoveryWrapPayload payload) {
+        Optional<String> validationError = payload.validationError();
+        if (validationError.isPresent()) {
+            throw new KeyServiceException(validationError.get());
+        }
+    }
+
+    private static UserEncryptionKey toEncryptionKey(
+            UUID userId, WrappedDekPayload passphrase, RecoveryWrapPayload recovery) {
         return new UserEncryptionKey(
                 userId,
-                payload.wrappedDekBytes(),
-                payload.wrapAlgorithm(),
-                payload.kdfAlgorithm(),
-                payload.kdfHash(),
-                payload.kdfSaltBytes(),
-                payload.kdfIterations(),
+                passphrase.wrappedDekBytes(),
+                passphrase.wrapAlgorithm(),
+                passphrase.kdfAlgorithm(),
+                passphrase.kdfHash(),
+                passphrase.kdfSaltBytes(),
+                passphrase.kdfIterations(),
+                recovery.recoveryWrappedDekBytes(),
+                recovery.wrapAlgorithm(),
                 Instant.EPOCH,
                 Instant.EPOCH);
     }
 
-    public record KeyStatus(boolean keySetupComplete, boolean hasWrappedDek) {
+    public record KeyStatus(boolean keySetupComplete, boolean hasWrappedDek, boolean recoveryEnrolled) {
     }
 
     public record WrappedDekResponse(

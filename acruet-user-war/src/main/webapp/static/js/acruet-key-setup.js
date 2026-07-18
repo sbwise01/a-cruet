@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupError.classList.remove('error');
     setupError.style.color = 'var(--muted)';
     try {
-      setupState = await AcruetCrypto.createWrappedDek(passphrase);
+      setupState = await AcruetCrypto.createDualWrappedDek(passphrase);
       setupError.hidden = true;
       stepPassphrase.hidden = true;
       stepRecovery.hidden = false;
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const storeResponse = await fetch('/keys/wrapped-dek', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(setupState.payload),
+        body: JSON.stringify(setupState.dualPayload),
       });
       if (!storeResponse.ok) {
         const body = await storeResponse.json();
