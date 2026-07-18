@@ -7,15 +7,21 @@ window.AcruetReports = (() => {
   let lastTxReport = null;
 
   const els = {};
+  let panelWired = false;
 
-  function init(ledgerApi) {
-    api = ledgerApi;
+  function refreshElementRefs() {
     els.panel = document.getElementById('reportsPanel');
     els.hub = document.getElementById('reportsHub');
     els.transactionsPanel = document.getElementById('reportTransactionsPanel');
     els.chartPanel = document.getElementById('reportChartPanel');
     els.error = document.getElementById('reportError');
     els.txError = document.getElementById('txReportError');
+  }
+
+  function init(ledgerApi) {
+    api = ledgerApi;
+    refreshElementRefs();
+    wirePanelActions();
     if (!els.panel) {
       return;
     }
@@ -23,8 +29,6 @@ window.AcruetReports = (() => {
     bindButton('btnReportsBack', closeAll);
     bindButton('btnTxReportBack', showHub);
     bindButton('btnChartReportBack', showHub);
-    bindButton('btnDownloadTxCsv', downloadTransactionsCsv);
-    bindButton('btnShowTxReport', showTransactionsReport);
     bindButton('btnRenderChart', renderBalanceChart);
 
     els.hub.querySelectorAll('.report-tile').forEach((tile) => {
@@ -33,6 +37,32 @@ window.AcruetReports = (() => {
 
     setDefaultDates(document.getElementById('txReportFrom'), document.getElementById('txReportTo'), 'year');
     setDefaultDates(document.getElementById('chartReportFrom'), document.getElementById('chartReportTo'), 'month');
+  }
+
+  function wirePanelActions() {
+    if (panelWired) {
+      return;
+    }
+    const panel = document.getElementById('reportsPanel');
+    if (!panel) {
+      return;
+    }
+    panelWired = true;
+    panel.addEventListener('click', (event) => {
+      const button = event.target.closest('button[id]');
+      if (!button || !panel.contains(button)) {
+        return;
+      }
+      if (button.id === 'btnShowTxReport') {
+        event.preventDefault();
+        void showTransactionsReport();
+        return;
+      }
+      if (button.id === 'btnDownloadTxCsv') {
+        event.preventDefault();
+        void downloadTransactionsCsv();
+      }
+    });
   }
 
   function bindButton(id, handler) {
@@ -183,10 +213,6 @@ window.AcruetReports = (() => {
 
   function safeClearTxReport() {
     lastTxReport = null;
-    const downloadBtn = document.getElementById('btnDownloadTxCsv');
-    if (downloadBtn) {
-      downloadBtn.disabled = true;
-    }
     const results = document.getElementById('txReportResults');
     if (results) {
       results.hidden = true;
@@ -250,30 +276,90 @@ window.AcruetReports = (() => {
   }
 
   async function showTransactionsReport() {
+    const showBtn = document.getElementById('btnShowTxReport');
+    if (showBtn) {
+      showBtn.disabled = true;
+      showBtn.textContent = 'Loading…';
+    }
     hideError();
     hideTxError();
-    const showBtn = document.getElementById('btnShowTxReport');
-    if (!showBtn) {
-      return;
-    }
-    showBtn.disabled = true;
-    showBtn.textContent = 'Loading…';
     try {
+      if (!api) {
+        throw new Error('Reports are still loading. Wait for the ledger to finish loading, then try again.');
+      }
       const { accounts, selectedIds, from, to } = readTxReportInputs();
       const rows = await buildTransactionRows(accounts, selectedIds, from, to);
       lastTxReport = { rows, from, to };
       renderTxReportTable(rows);
-      const downloadBtn = document.getElementById('btnDownloadTxCsv');
-      if (downloadBtn) {
-        downloadBtn.disabled = false;
-      }
     } catch (error) {
       safeClearTxReport();
       showTxError(error.message || 'Failed to load report.');
       console.error(error);
     } finally {
-      showBtn.disabled = false;
-      showBtn.textContent = 'Show report';
+      if (showBtn) {
+        showBtn.disabled = false;
+        showBtn.textContent = 'Show report';
+      }
+    }
+  }
+
+  function showTxReportClick(event) {
+    if (event) {
+      event.preventDefault();
+    }
+    void showTransactionsReport();
+    return false;
+  }
+
+  function downloadTxCsvClick(event) {
+    if (event) {
+      event.preventDefault();
+    }
+    void downloadTransactionsCsv();
+    return false;
+  }
+
+  function rowsToCsv(rows) {
+    return rows.map((row, index) => {
+      if (index === 0) {
+        return row;
+      }
+      return [
+        row[0],
+        row[1],
+        row[2],
+        row[3],
+        formatCsvAmount(row[4]),
+      ];
+    });
+  }
+
+  async function downloadTransactionsCsv() {
+    const downloadBtn = document.getElementById('btnDownloadTxCsv');
+    if (downloadBtn) {
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = 'Preparing…';
+    }
+    hideError();
+    hideTxError();
+    try {
+      if (!api) {
+        throw new Error('Reports are still loading. Wait for the ledger to finish loading, then try again.');
+      }
+      const { accounts, selectedIds, from, to } = readTxReportInputs();
+      const rows = await buildTransactionRows(accounts, selectedIds, from, to);
+      downloadCsv(
+        `acruet-transactions-${from}-to-${to}.csv`,
+        rowsToCsv(rows),
+      );
+    } catch (error) {
+      showTxError(error.message || 'Failed to download CSV.');
+      console.error(error);
+    } finally {
+      if (downloadBtn) {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Download CSV';
+      }
     }
   }
 
@@ -307,35 +393,6 @@ window.AcruetReports = (() => {
         <tbody>${tableRows}</tbody>
       </table>`;
     results.hidden = false;
-  }
-
-  function downloadTransactionsCsv() {
-    hideError();
-    hideTxError();
-    try {
-      if (!lastTxReport) {
-        throw new Error('Show the report first.');
-      }
-      const csvRows = lastTxReport.rows.map((row, index) => {
-        if (index === 0) {
-          return row;
-        }
-        return [
-          row[0],
-          row[1],
-          row[2],
-          row[3],
-          formatCsvAmount(row[4]),
-        ];
-      });
-      downloadCsv(
-        `acruet-transactions-${lastTxReport.from}-to-${lastTxReport.to}.csv`,
-        csvRows,
-      );
-    } catch (error) {
-      showTxError(error.message || 'Failed to download CSV.');
-      console.error(error);
-    }
   }
 
   function formatCents(cents) {
@@ -534,12 +591,16 @@ window.AcruetReports = (() => {
   }
 
   function showTxError(message) {
-    const target = els.txError || els.error;
+    refreshElementRefs();
+    const target = els.txError || els.error || document.getElementById('txReportError')
+      || document.getElementById('reportError');
     if (!target) {
+      console.error('Transaction report error:', message);
       return;
     }
     target.textContent = message;
     target.hidden = false;
+    target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   function hideTxError() {
@@ -549,5 +610,21 @@ window.AcruetReports = (() => {
     }
   }
 
-  return { init, showReportsEntry, closeAll };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      refreshElementRefs();
+      wirePanelActions();
+    });
+  } else {
+    refreshElementRefs();
+    wirePanelActions();
+  }
+
+  return {
+    init,
+    showReportsEntry,
+    closeAll,
+    showTxReportClick,
+    downloadTxCsvClick,
+  };
 })();

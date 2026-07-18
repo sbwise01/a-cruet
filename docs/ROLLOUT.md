@@ -947,12 +947,13 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 ### Deliverables
 
 1. **Reports hub** — **Reports** button in both ledger action rows opens a hub with two wise-home-index-style tiles (**Transactions**, **Balance chart**); images from `MediaSettings.tileImageUrl` (`/media/transactions.png`, `/media/report-graphs.png`); **Back to reports** / **Back to envelopes** navigation.
-2. **Transaction report** — date range + envelope checkboxes; **Show report** decrypts ledger lines in the browser and renders an on-page **table** (Date, Type, Memo, Envelope, Amount; negative amounts styled like the ledger). **Download CSV** is **optional** (secondary button, disabled until a report is shown; exports the same rows as the table).
+2. **Transaction report** — date range + envelope checkboxes; **Show report** decrypts ledger lines in the browser and renders an on-page **table** (Date, Type, Memo, Envelope, Amount; negative amounts styled like the ledger). **Download CSV** is always available (secondary button); uses the same filters and row data as the table, with or without showing the table first.
 3. **Balance chart** — date range + envelope checkboxes; **Show chart** renders a stacked area chart (Chart.js 4.4.1 vendored under `/static/js/`); all aggregation client-side after decrypt.
 4. **UX enhancements (post-ship):**
    - **Chart size** — chart canvas **640px** tall (2× original); main content **max-width 80rem** while the chart panel is open (`page--report-chart`).
    - **Tile icon contrast** — report tile images use a **white background + padding** so dark artwork reads on the dark tile card.
-   - **Transaction table first** — primary action is **Show report** (table); CSV download is secondary and requires a shown report (see deliverable 2).
+   - **Transaction table + CSV** — primary action is **Show report** (table); **Download CSV** is independent (same filters, no need to show the table first).
+   - **Static asset cache bust** — ledger report scripts load with a `?v=` query param so JS updates are not stuck behind browser cache after deploy.
 
 ### UX
 
@@ -961,7 +962,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
   - **Transactions** — tile image `MediaSettings.tileImageUrl("/media/transactions.png")` (white-backed icon on tile)
   - **Balance chart** — tile image `MediaSettings.tileImageUrl("/media/report-graphs.png")` (white-backed icon on tile)
 - Each tile opens a report runner (date range + envelope checkboxes); **Back to reports** / **Back to envelopes** navigation.
-- **Transactions:** **Show report** → on-page table; **Download CSV** optional once the table is shown.
+- **Transactions:** **Show report** → on-page table; **Download CSV** anytime (same filters, independent of table).
 - **Balance chart:** wider main column when chart is open; tall stacked area chart.
 - All decryption, table rendering, CSV generation, and chart aggregation happen in the browser only.
 
@@ -976,7 +977,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 - [x] **Reports** button appears in top and bottom action rows
 - [x] Reports hub shows two tiles with media-host images (readable on dark tiles)
 - [x] **Show report** displays transaction table for a date range + envelope selection
-- [x] **Download CSV** (after Show report) matches the on-screen table
+- [x] **Download CSV** matches the on-screen table when both are run with the same filters; works without **Show report**
 - [x] Balance chart matches envelope balances over time (640px chart, wider page while open)
 - [x] No plaintext amounts in server logs or API responses
 

@@ -77,6 +77,10 @@ public final class ReportViews {
                 }
                 #txReportError {
                   margin-top: 0.75rem;
+                  padding: 0.75rem 1rem;
+                  border-radius: 8px;
+                  background: rgba(248, 113, 113, 0.12);
+                  border-left: 3px solid #f87171;
                 }
                 .report-table-wrap {
                   margin-top: 1.25rem;
@@ -128,16 +132,18 @@ public final class ReportViews {
                   </div>
                   <div id="reportTransactionsPanel" hidden>
                     <h2>Transaction report</h2>
-                    <p class="hint">View ledger lines for the selected envelopes and date range.</p>
+                    <p class="hint">View ledger lines on screen or download CSV for the same filters.</p>
                     <label for="txReportFrom">From</label>
                     <input id="txReportFrom" type="date" required>
                     <label for="txReportTo">To</label>
                     <input id="txReportTo" type="date" required>
                     <div id="txReportAccounts" class="report-account-list"></div>
-                    <p class="report-tx-actions">
-                      <button type="button" id="btnShowTxReport">Show report</button>
-                      <button type="button" id="btnDownloadTxCsv" class="secondary" disabled>Download CSV</button>
-                    </p>
+                    <div class="report-tx-actions">
+                      <button type="button" id="btnShowTxReport"
+                              onclick="return window.AcruetReports &amp;&amp; window.AcruetReports.showTxReportClick(event)">Show report</button>
+                      <button type="button" id="btnDownloadTxCsv" class="secondary"
+                              onclick="return window.AcruetReports &amp;&amp; window.AcruetReports.downloadTxCsvClick(event)">Download CSV</button>
+                    </div>
                     <p id="txReportError" class="error" hidden></p>
                     <div id="txReportResults" class="report-table-wrap" hidden></div>
                     <p class="report-panel-actions">

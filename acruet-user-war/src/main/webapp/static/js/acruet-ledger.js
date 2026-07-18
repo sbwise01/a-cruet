@@ -43,6 +43,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     onKeyLocked: () => syncLockState(),
   };
 
+  if (window.AcruetReports) {
+    window.AcruetReports.init({
+      getAccounts: () => state.accounts,
+      decryptTransactions,
+      escapeHtml,
+      requireUnlocked: () => {
+        if (!AcruetCrypto.session.isUnlocked()) {
+          throw new Error('Unlock your ledger before running reports.');
+        }
+      },
+      beforeReportsOpen: () => {
+        closeForm(false);
+        els.ledgerBrowse.hidden = true;
+        els.formPanel.hidden = true;
+      },
+      afterReportsClose: () => {
+        if (AcruetCrypto.session.isUnlocked()) {
+          els.ledgerBrowse.hidden = false;
+        }
+      },
+    });
+  }
+
   await AcruetCrypto.session.ensureReady();
   syncLockState();
   document.addEventListener('acruet:crypto-changed', syncLockState);
@@ -67,29 +90,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btnCancelForm').addEventListener('click', closeForm);
   document.getElementById('btnSubmitForm').addEventListener('click', submitForm);
-
-  if (window.AcruetReports) {
-    window.AcruetReports.init({
-      getAccounts: () => state.accounts,
-      decryptTransactions,
-      escapeHtml,
-      requireUnlocked: () => {
-        if (!AcruetCrypto.session.isUnlocked()) {
-          throw new Error('Unlock your ledger before running reports.');
-        }
-      },
-      beforeReportsOpen: () => {
-        closeForm(false);
-        els.ledgerBrowse.hidden = true;
-        els.formPanel.hidden = true;
-      },
-      afterReportsClose: () => {
-        if (AcruetCrypto.session.isUnlocked()) {
-          els.ledgerBrowse.hidden = false;
-        }
-      },
-    });
-  }
 
   function syncLockState() {
     if (AcruetCrypto.session.isUnlocked()) {
