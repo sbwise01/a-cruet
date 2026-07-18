@@ -78,7 +78,7 @@ public final class LedgerViews {
                   object-fit: contain;
                   border-radius: 12px;
                 }
-                .unlock-tile-label { font-weight: 600; }
+                .unlock-tile-label { font-weight: 600; text-align: center; line-height: 1.3; }
                 #inlineUnlockForm { max-width: 24rem; margin: 1.5rem auto 0; }
                 """;
     }
@@ -90,7 +90,7 @@ public final class LedgerViews {
                     <div class="unlock-tile-wrap">
                       <button type="button" id="unlockTile" class="unlock-tile">
                         <img src="%s" alt="Locked">
-                        <span class="unlock-tile-label">Unlock</span>
+                        <span class="unlock-tile-label">Unlock envelopes</span>
                       </button>
                     </div>
                     <div id="inlineUnlockForm" hidden>
