@@ -45,7 +45,7 @@ public final class UserPageLayout {
                 title,
                 PageStyles.navCss() + (extraCss == null ? "" : extraCss),
                 UserNav.authNavHtml(nav),
-                mainHtml + UserNav.authNavScripts());
+                UserNav.authNavScripts() + mainHtml);
     }
 
     /** Signup and other flows without top nav chrome. */
