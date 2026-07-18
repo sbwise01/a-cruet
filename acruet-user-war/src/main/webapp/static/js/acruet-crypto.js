@@ -126,7 +126,7 @@ const AcruetCrypto = (() => {
     return crypto.subtle.importKey(
       'raw',
       recoverySecretBytes,
-      { name: WRAP_ALGORITHM, length: 256 },
+      { name: WRAP_ALGORITHM },
       false,
       ['wrapKey', 'unwrapKey'],
     );
@@ -331,11 +331,32 @@ const AcruetCrypto = (() => {
   }
 
   async function enrollRecoveryWrap(passphrase, wrappedPayload, emailHint) {
+    assertWebCrypto();
+    const iterations = Number(wrappedPayload.kdfIterations);
+    if (!Number.isFinite(iterations) || iterations <= 0) {
+      throw new Error('Stored encryption parameters are invalid.');
+    }
     const saltBytes = fromBase64(wrappedPayload.kdfSalt);
-    const kek = await deriveKek(passphrase, saltBytes, wrappedPayload.kdfIterations);
-    const wrappedDekBytes = fromBase64(wrappedPayload.wrappedDek);
-    const dekKey = await unwrapDek(kek, wrappedDekBytes);
-    const recovery = await buildRecoveryWrap(dekKey);
+    let dekKey;
+    try {
+      const kek = await deriveKek(passphrase, saltBytes, iterations);
+      const wrappedDekBytes = fromBase64(wrappedPayload.wrappedDek);
+      dekKey = await unwrapDek(kek, wrappedDekBytes);
+    } catch (error) {
+      if (error && error.name === 'OperationError') {
+        throw new Error('Incorrect passphrase.');
+      }
+      throw error;
+    }
+    let recovery;
+    try {
+      recovery = await buildRecoveryWrap(dekKey);
+    } catch (error) {
+      throw new Error(
+        'Could not generate recovery wrap in this browser. Try a current browser over HTTPS.',
+        { cause: error },
+      );
+    }
     return {
       recoveryPayload: {
         recoveryWrapAlgorithm: WRAP_ALGORITHM,

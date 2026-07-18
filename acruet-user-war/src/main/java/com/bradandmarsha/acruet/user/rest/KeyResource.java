@@ -7,6 +7,7 @@ import com.bradandmarsha.acruet.keys.KeyServiceException;
 import com.bradandmarsha.acruet.keys.RecoveryWrapPayload;
 import com.bradandmarsha.acruet.keys.WrappedDekPayload;
 import com.bradandmarsha.acruet.ui.PageStyles;
+import com.bradandmarsha.acruet.ui.UserNav;
 import com.bradandmarsha.acruet.ui.UserPageLayout;
 import com.bradandmarsha.acruet.user.AcruetUser;
 import jakarta.servlet.http.HttpServletRequest;
@@ -299,8 +300,7 @@ public class KeyResource {
                   <button type="button" id="btnFinishSetup" disabled>Finish setup</button>
                 </div>
                 <p id="setupError" class="error" hidden></p>
-                <script src="/static/js/acruet-key-setup.js"></script>
-                """;
+                """ + UserNav.keyPageScript("acruet-key-setup.js");
     }
 
     private static String enrollRecoveryHtml() {
@@ -319,8 +319,7 @@ public class KeyResource {
                   <button type="button" id="btnFinishEnroll" disabled>Finish</button>
                 </div>
                 <p id="enrollError" class="error" hidden></p>
-                <script src="/static/js/acruet-key-enroll-recovery.js"></script>
-                """;
+                """ + UserNav.keyPageScript("acruet-key-enroll-recovery.js");
     }
 
     private static String unlockHtml() {
@@ -332,8 +331,7 @@ public class KeyResource {
                 <p id="unlockError" class="error" hidden></p>
                 <button type="button" id="btnUnlock">Unlock</button>
                 <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a> · <a href="/">Back to home</a></p>
-                <script src="/static/js/acruet-key-unlock.js"></script>
-                """;
+                """ + UserNav.keyPageScript("acruet-key-unlock.js");
     }
 
     private static String forgotPassphraseHtml() {
@@ -351,8 +349,7 @@ public class KeyResource {
                 <button type="button" id="btnResetPassphrase">Reset passphrase</button>
                 <p id="resetSuccess" class="notice success" hidden></p>
                 <p class="actions"><a href="/keys/unlock">Back to unlock</a></p>
-                <script src="/static/js/acruet-key-forgot-passphrase.js"></script>
-                """;
+                """ + UserNav.keyPageScript("acruet-key-forgot-passphrase.js");
     }
 
     private static String rotateHtml() {
@@ -369,8 +366,7 @@ public class KeyResource {
                 <button type="button" id="btnRotate">Rotate key</button>
                 <p id="rotateSuccess" class="notice success" hidden></p>
                 <p class="actions"><a href="/">Back to home</a></p>
-                <script src="/static/js/acruet-key-rotate.js"></script>
-                """;
+                """ + UserNav.keyPageScript("acruet-key-rotate.js");
     }
 
     private static String renderKeyPage(OidcUser oidcUser, AcruetUser user, String title, String mainHtml) {

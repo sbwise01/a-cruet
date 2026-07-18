@@ -30,20 +30,37 @@ document.addEventListener('DOMContentLoaded', () => {
       showError(passphraseError, 'Enter your current passphrase.');
       return;
     }
+    if (typeof AcruetCrypto === 'undefined' || typeof AcruetCrypto.enrollRecoveryWrap !== 'function') {
+      showError(
+        enrollError,
+        'Encryption scripts failed to load. Hard-refresh the page or check /static/js/acruet-crypto.js in the network tab.',
+      );
+      return;
+    }
     btnGenerateRecovery.disabled = true;
     btnGenerateRecovery.textContent = 'Verifying…';
+    showError(
+      enrollError,
+      'Verifying passphrase — key derivation can take 10–20 seconds. Please wait.',
+    );
+    enrollError.classList.remove('error');
+    enrollError.style.color = 'var(--muted)';
     try {
       const response = await fetch('/keys/wrapped-dek');
       if (!response.ok) {
-        throw new Error('Could not load wrapped encryption key.');
+        throw new Error(`Could not load your encryption key (HTTP ${response.status}).`);
       }
       const payload = await response.json();
       enrollState = await AcruetCrypto.enrollRecoveryWrap(passphrase, payload);
+      hideError(enrollError);
       stepRecovery.hidden = false;
       btnGenerateRecovery.hidden = true;
       passphraseInput.disabled = true;
     } catch (error) {
-      showError(passphraseError, 'Incorrect passphrase or recovery generation failed.');
+      hideError(enrollError);
+      enrollError.style.color = '';
+      enrollError.classList.add('error');
+      showError(passphraseError, error.message || 'Recovery enrollment failed.');
       console.error(error);
     } finally {
       btnGenerateRecovery.disabled = false;
