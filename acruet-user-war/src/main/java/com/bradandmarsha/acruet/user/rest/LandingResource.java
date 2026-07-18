@@ -6,6 +6,7 @@ import com.bradandmarsha.acruet.keys.KeyService;
 import com.bradandmarsha.acruet.ui.AuthNavContext;
 import com.bradandmarsha.acruet.ui.LedgerViews;
 import com.bradandmarsha.acruet.ui.MarketingContent;
+import com.bradandmarsha.acruet.ui.ReportViews;
 import com.bradandmarsha.acruet.ui.UserPageLayout;
 import com.bradandmarsha.acruet.user.AcruetUser;
 import com.bradandmarsha.acruet.user.UnlinkedLoginService;
@@ -67,8 +68,11 @@ public class LandingResource {
         AuthNavContext nav = UserPageLayout.navContext(oidcUser, user, true);
         return UserPageLayout.renderAuthenticated(
                 UserPageLayout.APP_NAME,
-                LedgerViews.ledgerCss(),
-                LedgerViews.ledgerMainHtml(UserPageLayout.lockImageUrl()),
+                LedgerViews.ledgerCss() + ReportViews.reportsCss(),
+                LedgerViews.ledgerMainHtml(
+                        UserPageLayout.lockImageUrl(),
+                        UserPageLayout.transactionsImageUrl(),
+                        UserPageLayout.reportGraphsImageUrl()),
                 nav);
     }
 }

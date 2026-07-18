@@ -83,7 +83,8 @@ public final class LedgerViews {
                 """;
     }
 
-    public static String ledgerMainHtml(String lockImageUrl) {
+    public static String ledgerMainHtml(
+            String lockImageUrl, String transactionsImageUrl, String chartImageUrl) {
         return """
                 <div id="ledgerRoot" data-lock-image="%s">
                   <div id="ledgerLocked" hidden>
@@ -113,6 +114,7 @@ public final class LedgerViews {
                       %s
                     </section>
                   </div>
+                  %s
                   <section id="formPanel" hidden>
                     <h2 id="formTitle"></h2>
                     <div id="formError" class="form-error" hidden></div>
@@ -123,13 +125,16 @@ public final class LedgerViews {
                     </p>
                   </section>
                 </div>
+                <script src="/static/js/chart.umd.min.js"></script>
+                <script src="/static/js/acruet-reports.js"></script>
                 <script src="/static/js/acruet-ledger.js"></script>
                 """
                 .formatted(
                         escapeAttr(lockImageUrl),
                         escapeAttr(lockImageUrl),
                         actionButtonsHtml(false),
-                        actionButtonsHtml(true));
+                        actionButtonsHtml(true),
+                        ReportViews.reportsPanelHtml(transactionsImageUrl, chartImageUrl));
     }
 
     private static String actionButtonsHtml(boolean bottom) {
@@ -140,6 +145,7 @@ public final class LedgerViews {
                   <button type="button" class="ledger-action-btn" data-action="deposit">Deposit</button>
                   <button type="button" class="ledger-action-btn" data-action="withdraw">Withdraw</button>
                   <button type="button" class="ledger-action-btn" data-action="transfer">Transfer</button>
+                  <button type="button" class="ledger-action-btn" data-action="reports">Reports</button>
                 </div>
                 """
                 .formatted(bottomClass);

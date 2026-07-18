@@ -15,6 +15,8 @@ public final class UserPageLayout {
     public static final String APP_NAME = "a-cruet";
     public static final String TILE_IMAGE_PATH = "/media/acruet-bw.jpg";
     public static final String LOCK_IMAGE_PATH = "/media/lock.png";
+    public static final String TRANSACTIONS_IMAGE_PATH = "/media/transactions.png";
+    public static final String REPORT_GRAPHS_IMAGE_PATH = "/media/report-graphs.png";
     public static final String TILE_DESCRIPTION = "Envelope-budgeting web application";
 
     private UserPageLayout() {
@@ -68,6 +70,18 @@ public final class UserPageLayout {
     }
 
     public static String lockImageUrl() {
-        return MediaSettings.fromEnvironment().tileImageUrl(LOCK_IMAGE_PATH);
+        return mediaImageUrl(LOCK_IMAGE_PATH);
+    }
+
+    public static String transactionsImageUrl() {
+        return mediaImageUrl(TRANSACTIONS_IMAGE_PATH);
+    }
+
+    public static String reportGraphsImageUrl() {
+        return mediaImageUrl(REPORT_GRAPHS_IMAGE_PATH);
+    }
+
+    private static String mediaImageUrl(String path) {
+        return MediaSettings.fromEnvironment().tileImageUrl(path);
     }
 }
