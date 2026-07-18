@@ -487,6 +487,78 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 # expect 200 (not 403)
 ```
 
+### Bootstrap admin backfill (link existing Keycloak user to `acruet_user`)
+
+**When:** First admin(s) are created **manually in Keycloak** (`PRODUCT.md` #46): they have the **`a-cruet-admin`** realm role and can use the **admin hostname**, but **no `acruet_user` row** exists yet. The normal approve workflow cannot link them — `KeycloakAdminClient.provisionUser` rejects emails that already exist in Keycloak.
+
+**Symptom on user hostname:** Phase 9 item 10 unlinked-login UX (avatar + “administrators have been alerted”); **`/keys/setup` must not run** until this backfill is done. Admin hostname continues to work on Keycloak role alone.
+
+**Not the same as approve:** Signup → verify → approve creates **both** Keycloak user and `acruet_user`. Bootstrap is the inverse — Keycloak user exists first; backfill adds the app row.
+
+**Database:** CNPG cluster `acruet-db`, database **`acruet`** (not `app`). Example shell:
+
+```bash
+kubectl -n acruet-cnpg exec -it acruet-db-1 -- psql -U app -d acruet
+```
+
+#### Steps
+
+1. **Resolve Keycloak user ID** (`keycloak_user_id` — must match OIDC token `sub`):
+   - From a prior unlinked visit: `SELECT keycloak_user_id, email, created_at FROM login_anomaly WHERE email = '…' ORDER BY created_at DESC LIMIT 1;`
+   - Keycloak console → **Users** → user → copy **ID**
+   - Admin API: `GET /admin/realms/wise-k8s/users?email=…&exact=true` → `id`
+
+2. **Confirm no existing row:**
+   ```sql
+   SELECT id, keycloak_user_id, email, key_setup_complete
+   FROM acruet_user
+   WHERE LOWER(email) = LOWER('<email>')
+      OR keycloak_user_id = '<keycloak-user-id>';
+   ```
+   Expect zero rows.
+
+3. **Insert `acruet_user`** (bootstrap: `signup_application_id` is `NULL`):
+   ```sql
+   INSERT INTO acruet_user (
+       id, keycloak_user_id, email, display_name, signup_application_id
+   ) VALUES (
+       gen_random_uuid(),
+       '<keycloak-user-id>',
+       '<email>',
+       '<display-name>',
+       NULL
+   );
+   ```
+   Defaults: `key_setup_complete = false`, ledger counts zero, 100-account limit.
+
+4. **Optional audit** (recommended for traceability):
+   ```sql
+   INSERT INTO admin_action_audit (
+       admin_keycloak_user_id, admin_email, action, target_type, target_id, detail
+   ) VALUES (
+       '<keycloak-user-id>',
+       '<email>',
+       'bootstrap_link_user',
+       'acruet_user',
+       (SELECT id FROM acruet_user WHERE keycloak_user_id = '<keycloak-user-id>'),
+       'Manual bootstrap backfill: linked existing Keycloak admin to acruet_user'
+   );
+   ```
+
+5. **Sign in on user hostname** — sign out first if already signed in. Expect **Create encryption key** (or redirect toward `/keys/setup`), **not** the unlinked-login message.
+
+6. **Complete Phase 7 key setup** — `/keys/setup`: passphrase, recovery file, confirm backup. Verify:
+   ```sql
+   SELECT key_setup_complete FROM acruet_user WHERE keycloak_user_id = '<keycloak-user-id>';
+   SELECT user_id FROM user_encryption_key WHERE user_id = (
+     SELECT id FROM acruet_user WHERE keycloak_user_id = '<keycloak-user-id>'
+   );
+   ```
+
+After step 6, the bootstrap admin can use **both** hostnames without routine unlinked-login anomalies. Phase 11 grant-admin (existing `acruet_user` only) applies to this row.
+
+**Re-testing Phase 9 item 10:** deleting the `acruet_user` row (or using a separate Keycloak-only test user) is required — a linked bootstrap admin cannot simulate unlinked UX again.
+
 ### Verify
 
 - [x] `acruet-admin` Keycloak bootstrap: service-account roles + dedicated scope role mappings (**Full scope allowed OFF**; pre-flight curl returns 200)
@@ -496,6 +568,8 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 - [x] First OIDC login succeeds (password change prompt from Keycloak; logout + re-login)
 - [x] `admin_action_audit` row for approve (implicit in successful approve flow)
 - [x] `acruet_user` row created with `key_setup_complete = false` (Phase 7 gate)
+- [x] **Bootstrap admin backfill** — Keycloak user ID resolved; manual `INSERT` links bootstrap admin; user hostname shows key-setup prompt (not unlinked message) *(2026-07-18; `brad@bradandmarsha.com`)*
+- [ ] **Bootstrap admin backfill** — Phase 7 key setup completes (`user_encryption_key` row; `key_setup_complete = true`)
 
 ---
 
@@ -992,7 +1066,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 | # | Topic | Decision |
 |---|--------|----------|
 | 1 | Grant `a-cruet-admin` | **Only for existing user-app users** — admin UI grant/revoke applies to identities that already have an `acruet_user` row (approved + provisioned). No Keycloak-only admin identities via the app. |
-| 2 | Bootstrap | **Manual Keycloak console** remains the exception for the first admin(s) (`PRODUCT.md` #46); those operators should complete normal user signup/approve so they have an `acruet_user` row, or accept rare unlinked user-app visits until linked. |
+| 2 | Bootstrap | **Manual Keycloak console** remains the exception for the first admin(s) (`PRODUCT.md` #46). Link them to the user app via **Phase 6 bootstrap admin backfill** (manual `acruet_user` insert — signup/approve cannot run when Keycloak user already exists). Until linked, rare unlinked user-app visits are expected (Phase 9 item 10). |
 | 3 | Login anomaly scope | Phase 9 item 10 + task 9 below remain for pending approval, partial provision failures, and bootstrap — not routine admin workflow after task 2. |
 
 ### Tasks
