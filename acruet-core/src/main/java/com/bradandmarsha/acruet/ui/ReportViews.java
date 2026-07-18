@@ -9,7 +9,7 @@ public final class ReportViews {
     }
 
     public static String reportsCss() {
-        return """
+        return PageStyles.tableCss() + """
                 .report-tile-grid {
                   display: grid;
                   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -42,6 +42,9 @@ public final class ReportViews {
                   height: 64px;
                   object-fit: contain;
                   border-radius: 12px;
+                  background: #fff;
+                  padding: 0.4rem;
+                  box-sizing: border-box;
                 }
                 .report-tile-label { font-weight: 600; text-align: center; line-height: 1.3; }
                 .report-panel-actions { margin-top: 1.25rem; }
@@ -63,12 +66,40 @@ public final class ReportViews {
                 .report-account-list input { width: auto; margin: 0; }
                 .report-chart-wrap {
                   position: relative;
-                  height: 320px;
+                  height: 640px;
                   margin-top: 1.25rem;
+                }
+                main.page.page--report-chart {
+                  max-width: 80rem;
                 }
                 #reportError {
                   margin-top: 1rem;
                 }
+                .report-table-wrap {
+                  margin-top: 1.25rem;
+                  overflow-x: auto;
+                }
+                .report-table-wrap .hint {
+                  margin-top: 0;
+                }
+                .report-tx-actions {
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 0.5rem;
+                  margin-top: 0.25rem;
+                }
+                .report-tx-actions button {
+                  margin-top: 0;
+                }
+                .report-tx-actions button + button {
+                  margin-left: 0;
+                }
+                .report-tx-actions button.secondary:disabled {
+                  opacity: 0.45;
+                  cursor: not-allowed;
+                  filter: none;
+                }
+                .report-amount-negative { color: #fbbf24; }
                 """;
     }
 
@@ -94,13 +125,17 @@ public final class ReportViews {
                   </div>
                   <div id="reportTransactionsPanel" hidden>
                     <h2>Transaction report</h2>
-                    <p class="hint">Download a CSV of ledger lines for the selected envelopes and date range.</p>
+                    <p class="hint">View ledger lines for the selected envelopes and date range.</p>
                     <label for="txReportFrom">From</label>
                     <input id="txReportFrom" type="date" required>
                     <label for="txReportTo">To</label>
                     <input id="txReportTo" type="date" required>
                     <div id="txReportAccounts" class="report-account-list"></div>
-                    <button type="button" id="btnDownloadTxCsv">Download CSV</button>
+                    <p class="report-tx-actions">
+                      <button type="button" id="btnShowTxReport">Show report</button>
+                      <button type="button" id="btnDownloadTxCsv" class="secondary" disabled>Download CSV</button>
+                    </p>
+                    <div id="txReportResults" class="report-table-wrap" hidden></div>
                     <p class="report-panel-actions">
                       <button type="button" id="btnTxReportBack" class="secondary">Back to reports</button>
                     </p>

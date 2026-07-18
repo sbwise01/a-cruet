@@ -4,6 +4,7 @@
 window.AcruetReports = (() => {
   let api = null;
   let chartInstance = null;
+  let lastTxReport = null;
 
   const els = {};
 
@@ -22,6 +23,7 @@ window.AcruetReports = (() => {
     document.getElementById('btnTxReportBack').addEventListener('click', showHub);
     document.getElementById('btnChartReportBack').addEventListener('click', showHub);
     document.getElementById('btnDownloadTxCsv').addEventListener('click', downloadTransactionsCsv);
+    document.getElementById('btnShowTxReport').addEventListener('click', showTransactionsReport);
     document.getElementById('btnRenderChart').addEventListener('click', renderBalanceChart);
 
     els.hub.querySelectorAll('.report-tile').forEach((tile) => {
@@ -39,8 +41,13 @@ window.AcruetReports = (() => {
     fromInput.value = formatIsoDate(start);
   }
 
+  function setChartLayoutActive(active) {
+    document.querySelector('main.page')?.classList.toggle('page--report-chart', active);
+  }
+
   function showHub() {
     hideError();
+    setChartLayoutActive(false);
     els.hub.hidden = false;
     els.transactionsPanel.hidden = true;
     els.chartPanel.hidden = true;
@@ -52,6 +59,8 @@ window.AcruetReports = (() => {
     els.hub.hidden = true;
     if (kind === 'transactions') {
       populateAccountList('txReportAccounts');
+      setChartLayoutActive(false);
+      clearTxReport();
       els.transactionsPanel.hidden = false;
       els.chartPanel.hidden = true;
       destroyChart();
@@ -61,6 +70,7 @@ window.AcruetReports = (() => {
       populateAccountList('chartReportAccounts');
       els.chartPanel.hidden = false;
       els.transactionsPanel.hidden = true;
+      setChartLayoutActive(true);
       destroyChart();
     }
   }
@@ -79,6 +89,7 @@ window.AcruetReports = (() => {
       return;
     }
     hideError();
+    setChartLayoutActive(false);
     els.panel.hidden = true;
     showHub();
     destroyChart();
@@ -137,50 +148,139 @@ window.AcruetReports = (() => {
     return api.decryptTransactions(body.transactions);
   }
 
-  async function downloadTransactionsCsv() {
+  function clearTxReport() {
+    lastTxReport = null;
+    const downloadBtn = document.getElementById('btnDownloadTxCsv');
+    const results = document.getElementById('txReportResults');
+    downloadBtn.disabled = true;
+    results.hidden = true;
+    results.innerHTML = '';
+  }
+
+  function readTxReportInputs() {
+    const accounts = api.getAccounts();
+    if (accounts.length === 0) {
+      throw new Error('Create at least one envelope first.');
+    }
+    const selectedIds = new Set(selectedAccountIds('txReportAccounts'));
+    if (selectedIds.size === 0) {
+      throw new Error('Select at least one envelope.');
+    }
+    const from = document.getElementById('txReportFrom').value;
+    const to = document.getElementById('txReportTo').value;
+    if (!from || !to || from > to) {
+      throw new Error('Enter a valid date range.');
+    }
+    return { accounts, selectedIds, from, to };
+  }
+
+  async function buildTransactionRows(accounts, selectedIds, from, to) {
+    const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
+    const transactions = await loadTransactions(from, to);
+    const rows = [['Date', 'Type', 'Memo', 'Envelope', 'Amount']];
+    transactions
+      .slice()
+      .sort(compareTransactions)
+      .forEach((transaction) => {
+        transaction.payload.lines.forEach((line) => {
+          if (!selectedIds.has(line.accountId)) {
+            return;
+          }
+          rows.push([
+            transaction.transactionDate,
+            transaction.transactionType,
+            transaction.payload.memo || '',
+            accountNames.get(line.accountId) || '',
+            line.amountCents,
+          ]);
+        });
+      });
+    if (rows.length === 1) {
+      throw new Error('No transactions found for that range and envelope selection.');
+    }
+    return rows;
+  }
+
+  async function showTransactionsReport() {
+    hideError();
+    const showBtn = document.getElementById('btnShowTxReport');
+    showBtn.disabled = true;
+    showBtn.textContent = 'Loading…';
+    try {
+      const { accounts, selectedIds, from, to } = readTxReportInputs();
+      const rows = await buildTransactionRows(accounts, selectedIds, from, to);
+      lastTxReport = { rows, from, to };
+      renderTxReportTable(rows);
+      document.getElementById('btnDownloadTxCsv').disabled = false;
+    } catch (error) {
+      clearTxReport();
+      showError(error.message || 'Failed to load report.');
+      console.error(error);
+    } finally {
+      showBtn.disabled = false;
+      showBtn.textContent = 'Show report';
+    }
+  }
+
+  function renderTxReportTable(rows) {
+    const header = rows[0];
+    const bodyRows = rows.slice(1);
+    const results = document.getElementById('txReportResults');
+    const tableRows = bodyRows
+      .map((row) => {
+        const amountClass = row[4] < 0 ? ' class="report-amount-negative"' : '';
+        const amount = formatCents(row[4]);
+        return `<tr>
+          <td>${api.escapeHtml(row[0])}</td>
+          <td>${api.escapeHtml(row[1])}</td>
+          <td>${api.escapeHtml(row[2])}</td>
+          <td>${api.escapeHtml(row[3])}</td>
+          <td${amountClass}>${api.escapeHtml(amount)}</td>
+        </tr>`;
+      })
+      .join('');
+    results.innerHTML = `
+      <table>
+        <thead>
+          <tr>${header.map((cell) => `<th>${api.escapeHtml(cell)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>`;
+    results.hidden = false;
+  }
+
+  function downloadTransactionsCsv() {
     hideError();
     try {
-      const accounts = api.getAccounts();
-      if (accounts.length === 0) {
-        throw new Error('Create at least one envelope first.');
+      if (!lastTxReport) {
+        throw new Error('Show the report first.');
       }
-      const selectedIds = new Set(selectedAccountIds('txReportAccounts'));
-      if (selectedIds.size === 0) {
-        throw new Error('Select at least one envelope.');
-      }
-      const from = document.getElementById('txReportFrom').value;
-      const to = document.getElementById('txReportTo').value;
-      if (!from || !to || from > to) {
-        throw new Error('Enter a valid date range.');
-      }
-      const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
-      const transactions = await loadTransactions(from, to);
-      const rows = [['Date', 'Type', 'Memo', 'Envelope', 'Amount']];
-      transactions
-        .slice()
-        .sort(compareTransactions)
-        .forEach((transaction) => {
-          transaction.payload.lines.forEach((line) => {
-            if (!selectedIds.has(line.accountId)) {
-              return;
-            }
-            rows.push([
-              transaction.transactionDate,
-              transaction.transactionType,
-              transaction.payload.memo || '',
-              accountNames.get(line.accountId) || '',
-              formatCsvAmount(line.amountCents),
-            ]);
-          });
-        });
-      if (rows.length === 1) {
-        throw new Error('No transactions found for that range and envelope selection.');
-      }
-      downloadCsv(`acruet-transactions-${from}-to-${to}.csv`, rows);
+      const csvRows = lastTxReport.rows.map((row, index) => {
+        if (index === 0) {
+          return row;
+        }
+        return [
+          row[0],
+          row[1],
+          row[2],
+          row[3],
+          formatCsvAmount(row[4]),
+        ];
+      });
+      downloadCsv(
+        `acruet-transactions-${lastTxReport.from}-to-${lastTxReport.to}.csv`,
+        csvRows,
+      );
     } catch (error) {
-      showError(error.message || 'Failed to generate CSV.');
+      showError(error.message || 'Failed to download CSV.');
       console.error(error);
     }
+  }
+
+  function formatCents(cents) {
+    const sign = cents < 0 ? '-' : '';
+    const abs = Math.abs(cents);
+    return `${sign}$${(abs / 100).toFixed(2)}`;
   }
 
   async function renderBalanceChart() {
