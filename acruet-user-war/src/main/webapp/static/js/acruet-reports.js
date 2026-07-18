@@ -15,30 +15,60 @@ window.AcruetReports = (() => {
     els.transactionsPanel = document.getElementById('reportTransactionsPanel');
     els.chartPanel = document.getElementById('reportChartPanel');
     els.error = document.getElementById('reportError');
+    els.txError = document.getElementById('txReportError');
     if (!els.panel) {
       return;
     }
 
-    document.getElementById('btnReportsBack').addEventListener('click', closeAll);
-    document.getElementById('btnTxReportBack').addEventListener('click', showHub);
-    document.getElementById('btnChartReportBack').addEventListener('click', showHub);
-    document.getElementById('btnDownloadTxCsv').addEventListener('click', downloadTransactionsCsv);
-    document.getElementById('btnShowTxReport').addEventListener('click', showTransactionsReport);
-    document.getElementById('btnRenderChart').addEventListener('click', renderBalanceChart);
+    bindButton('btnReportsBack', closeAll);
+    bindButton('btnTxReportBack', showHub);
+    bindButton('btnChartReportBack', showHub);
+    bindButton('btnDownloadTxCsv', downloadTransactionsCsv);
+    bindButton('btnShowTxReport', showTransactionsReport);
+    bindButton('btnRenderChart', renderBalanceChart);
 
     els.hub.querySelectorAll('.report-tile').forEach((tile) => {
       tile.addEventListener('click', () => openReport(tile.dataset.report));
     });
 
-    setDefaultDates(document.getElementById('txReportFrom'), document.getElementById('txReportTo'));
-    setDefaultDates(document.getElementById('chartReportFrom'), document.getElementById('chartReportTo'));
+    setDefaultDates(document.getElementById('txReportFrom'), document.getElementById('txReportTo'), 'year');
+    setDefaultDates(document.getElementById('chartReportFrom'), document.getElementById('chartReportTo'), 'month');
   }
 
-  function setDefaultDates(fromInput, toInput) {
+  function bindButton(id, handler) {
+    const button = document.getElementById(id);
+    if (button) {
+      button.addEventListener('click', handler);
+    }
+  }
+
+  function normalizeAccountId(id) {
+    return String(id ?? '').trim().toLowerCase();
+  }
+
+  function safeEscapeHtml(value) {
+    const text = value == null ? '' : String(value);
+    if (api && typeof api.escapeHtml === 'function') {
+      return api.escapeHtml(text);
+    }
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function setDefaultDates(fromInput, toInput, range = 'month') {
+    if (!fromInput || !toInput) {
+      return;
+    }
     const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    toInput.value = formatIsoDate(today);
-    fromInput.value = formatIsoDate(start);
+    toInput.value = localIsoDate(today);
+    if (range === 'year') {
+      fromInput.value = localIsoDate(new Date(today.getFullYear(), 0, 1));
+      return;
+    }
+    fromInput.value = localIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
   }
 
   function setChartLayoutActive(active) {
@@ -47,6 +77,7 @@ window.AcruetReports = (() => {
 
   function showHub() {
     hideError();
+    hideTxError();
     setChartLayoutActive(false);
     els.hub.hidden = false;
     els.transactionsPanel.hidden = true;
@@ -56,11 +87,12 @@ window.AcruetReports = (() => {
 
   function openReport(kind) {
     hideError();
+    hideTxError();
     els.hub.hidden = true;
     if (kind === 'transactions') {
       populateAccountList('txReportAccounts');
       setChartLayoutActive(false);
-      clearTxReport();
+      safeClearTxReport();
       els.transactionsPanel.hidden = false;
       els.chartPanel.hidden = true;
       destroyChart();
@@ -145,24 +177,35 @@ window.AcruetReports = (() => {
       throw new Error('Failed to load transactions for report.');
     }
     const body = await response.json();
-    return api.decryptTransactions(body.transactions);
+    const raw = Array.isArray(body.transactions) ? body.transactions : [];
+    return api.decryptTransactions(raw);
   }
 
-  function clearTxReport() {
+  function safeClearTxReport() {
     lastTxReport = null;
     const downloadBtn = document.getElementById('btnDownloadTxCsv');
+    if (downloadBtn) {
+      downloadBtn.disabled = true;
+    }
     const results = document.getElementById('txReportResults');
-    downloadBtn.disabled = true;
-    results.hidden = true;
-    results.innerHTML = '';
+    if (results) {
+      results.hidden = true;
+      results.innerHTML = '';
+    }
+    hideTxError();
   }
 
   function readTxReportInputs() {
+    if (api.requireUnlocked) {
+      api.requireUnlocked();
+    }
     const accounts = api.getAccounts();
     if (accounts.length === 0) {
       throw new Error('Create at least one envelope first.');
     }
-    const selectedIds = new Set(selectedAccountIds('txReportAccounts'));
+    const selectedIds = new Set(
+      selectedAccountIds('txReportAccounts').map(normalizeAccountId),
+    );
     if (selectedIds.size === 0) {
       throw new Error('Select at least one envelope.');
     }
@@ -175,22 +218,27 @@ window.AcruetReports = (() => {
   }
 
   async function buildTransactionRows(accounts, selectedIds, from, to) {
-    const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
+    const accountNames = new Map(
+      accounts.map((account) => [normalizeAccountId(account.id), account.name]),
+    );
     const transactions = await loadTransactions(from, to);
     const rows = [['Date', 'Type', 'Memo', 'Envelope', 'Amount']];
     transactions
       .slice()
       .sort(compareTransactions)
       .forEach((transaction) => {
-        transaction.payload.lines.forEach((line) => {
-          if (!selectedIds.has(line.accountId)) {
+        const payload = transaction.payload || {};
+        const lines = Array.isArray(payload.lines) ? payload.lines : [];
+        lines.forEach((line) => {
+          const accountId = normalizeAccountId(line.accountId);
+          if (!selectedIds.has(accountId)) {
             return;
           }
           rows.push([
             transaction.transactionDate,
             transaction.transactionType,
-            transaction.payload.memo || '',
-            accountNames.get(line.accountId) || '',
+            payload.memo || '',
+            accountNames.get(accountId) || '',
             line.amountCents,
           ]);
         });
@@ -203,7 +251,11 @@ window.AcruetReports = (() => {
 
   async function showTransactionsReport() {
     hideError();
+    hideTxError();
     const showBtn = document.getElementById('btnShowTxReport');
+    if (!showBtn) {
+      return;
+    }
     showBtn.disabled = true;
     showBtn.textContent = 'Loading…';
     try {
@@ -211,10 +263,13 @@ window.AcruetReports = (() => {
       const rows = await buildTransactionRows(accounts, selectedIds, from, to);
       lastTxReport = { rows, from, to };
       renderTxReportTable(rows);
-      document.getElementById('btnDownloadTxCsv').disabled = false;
+      const downloadBtn = document.getElementById('btnDownloadTxCsv');
+      if (downloadBtn) {
+        downloadBtn.disabled = false;
+      }
     } catch (error) {
-      clearTxReport();
-      showError(error.message || 'Failed to load report.');
+      safeClearTxReport();
+      showTxError(error.message || 'Failed to load report.');
       console.error(error);
     } finally {
       showBtn.disabled = false;
@@ -226,23 +281,28 @@ window.AcruetReports = (() => {
     const header = rows[0];
     const bodyRows = rows.slice(1);
     const results = document.getElementById('txReportResults');
+    if (!results) {
+      return;
+    }
     const tableRows = bodyRows
       .map((row) => {
         const amountClass = row[4] < 0 ? ' class="report-amount-negative"' : '';
         const amount = formatCents(row[4]);
         return `<tr>
-          <td>${api.escapeHtml(row[0])}</td>
-          <td>${api.escapeHtml(row[1])}</td>
-          <td>${api.escapeHtml(row[2])}</td>
-          <td>${api.escapeHtml(row[3])}</td>
-          <td${amountClass}>${api.escapeHtml(amount)}</td>
+          <td>${safeEscapeHtml(row[0])}</td>
+          <td>${safeEscapeHtml(row[1])}</td>
+          <td>${safeEscapeHtml(row[2])}</td>
+          <td>${safeEscapeHtml(row[3])}</td>
+          <td${amountClass}>${safeEscapeHtml(amount)}</td>
         </tr>`;
       })
       .join('');
+    const lineLabel = bodyRows.length === 1 ? 'line' : 'lines';
     results.innerHTML = `
+      <p class="hint">${bodyRows.length} transaction ${lineLabel}</p>
       <table>
         <thead>
-          <tr>${header.map((cell) => `<th>${api.escapeHtml(cell)}</th>`).join('')}</tr>
+          <tr>${header.map((cell) => `<th>${safeEscapeHtml(cell)}</th>`).join('')}</tr>
         </thead>
         <tbody>${tableRows}</tbody>
       </table>`;
@@ -251,6 +311,7 @@ window.AcruetReports = (() => {
 
   function downloadTransactionsCsv() {
     hideError();
+    hideTxError();
     try {
       if (!lastTxReport) {
         throw new Error('Show the report first.');
@@ -272,7 +333,7 @@ window.AcruetReports = (() => {
         csvRows,
       );
     } catch (error) {
-      showError(error.message || 'Failed to download CSV.');
+      showTxError(error.message || 'Failed to download CSV.');
       console.error(error);
     }
   }
@@ -393,7 +454,7 @@ window.AcruetReports = (() => {
     if (a.transactionDate !== b.transactionDate) {
       return a.transactionDate < b.transactionDate ? -1 : 1;
     }
-    return a.createdAt.localeCompare(b.createdAt);
+    return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
   }
 
   function listDates(from, to) {
@@ -401,14 +462,17 @@ window.AcruetReports = (() => {
     const cursor = new Date(`${from}T12:00:00`);
     const end = new Date(`${to}T12:00:00`);
     while (cursor <= end) {
-      dates.push(formatIsoDate(cursor));
+      dates.push(localIsoDate(cursor));
       cursor.setDate(cursor.getDate() + 1);
     }
     return dates;
   }
 
-  function formatIsoDate(date) {
-    return date.toISOString().slice(0, 10);
+  function localIsoDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   function formatCsvAmount(cents) {
@@ -455,6 +519,9 @@ window.AcruetReports = (() => {
   }
 
   function showError(message) {
+    if (!els.error) {
+      return;
+    }
     els.error.textContent = message;
     els.error.hidden = false;
   }
@@ -463,6 +530,22 @@ window.AcruetReports = (() => {
     if (els.error) {
       els.error.hidden = true;
       els.error.textContent = '';
+    }
+  }
+
+  function showTxError(message) {
+    const target = els.txError || els.error;
+    if (!target) {
+      return;
+    }
+    target.textContent = message;
+    target.hidden = false;
+  }
+
+  function hideTxError() {
+    if (els.txError) {
+      els.txError.hidden = true;
+      els.txError.textContent = '';
     }
   }
 
