@@ -35,42 +35,45 @@ public class KeyResource {
     @Path("setup")
     @Produces(MediaType.TEXT_HTML)
     public Response setupPage(@Context HttpServletRequest request) {
+        Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
         Optional<AcruetUser> user = requireUser(request);
-        if (user.isEmpty()) {
+        if (oidcUser.isEmpty() || user.isEmpty()) {
             return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
         }
         if (user.get().keySetupComplete()) {
             return Response.seeOther(UriBuilder.fromPath("/").build()).build();
         }
-        return Response.ok(setupHtml()).build();
+        return Response.ok(renderKeyPage(oidcUser.get(), user.get(), "Create encryption key", setupHtml())).build();
     }
 
     @GET
     @Path("unlock")
     @Produces(MediaType.TEXT_HTML)
     public Response unlockPage(@Context HttpServletRequest request) {
+        Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
         Optional<AcruetUser> user = requireUser(request);
-        if (user.isEmpty()) {
+        if (oidcUser.isEmpty() || user.isEmpty()) {
             return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
         }
         if (!user.get().keySetupComplete()) {
             return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
         }
-        return Response.ok(unlockHtml()).build();
+        return Response.ok(renderKeyPage(oidcUser.get(), user.get(), "Unlock encryption key", unlockHtml())).build();
     }
 
     @GET
     @Path("rotate")
     @Produces(MediaType.TEXT_HTML)
     public Response rotatePage(@Context HttpServletRequest request) {
+        Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
         Optional<AcruetUser> user = requireUser(request);
-        if (user.isEmpty()) {
+        if (oidcUser.isEmpty() || user.isEmpty()) {
             return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
         }
         if (!user.get().keySetupComplete()) {
             return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
         }
-        return Response.ok(rotateHtml()).build();
+        return Response.ok(renderKeyPage(oidcUser.get(), user.get(), "Rotate encryption key", rotateHtml())).build();
     }
 
     @GET
@@ -187,10 +190,7 @@ public class KeyResource {
     }
 
     private static String setupHtml() {
-        return UserPageLayout.render(
-                "Create encryption key",
-                PageStyles.formCss() + wizardCss(),
-                """
+        return """
                 <h2>Create your encryption key</h2>
                 <p class="hint">Your passphrase never leaves this browser. a-cruet stores only a wrapped copy of your data key.</p>
                 <div id="step-passphrase" class="wizard-step">
@@ -213,16 +213,12 @@ public class KeyResource {
                   <button type="button" id="btnFinishSetup" disabled>Finish setup</button>
                 </div>
                 <p id="setupError" class="error" hidden></p>
-                <script src="/static/js/acruet-crypto.js"></script>
                 <script src="/static/js/acruet-key-setup.js"></script>
-                """);
+                """;
     }
 
     private static String unlockHtml() {
-        return UserPageLayout.render(
-                "Unlock encryption key",
-                PageStyles.formCss(),
-                """
+        return """
                 <h2>Unlock your ledger</h2>
                 <p class="hint">Enter your passphrase to decrypt data for this session (30-minute idle timeout).</p>
                 <label for="passphrase">Passphrase</label>
@@ -230,16 +226,12 @@ public class KeyResource {
                 <p id="unlockError" class="error" hidden></p>
                 <button type="button" id="btnUnlock">Unlock</button>
                 <p class="actions"><a href="/">Back to home</a></p>
-                <script src="/static/js/acruet-crypto.js"></script>
                 <script src="/static/js/acruet-key-unlock.js"></script>
-                """);
+                """;
     }
 
     private static String rotateHtml() {
-        return UserPageLayout.render(
-                "Rotate encryption key",
-                PageStyles.formCss() + wizardCss(),
-                """
+        return """
                 <h2>Rotate encryption key</h2>
                 <p class="hint">Re-wraps your existing data key with a new passphrase. Ledger ciphertext is unchanged.</p>
                 <label for="currentPassphrase">Current passphrase</label>
@@ -252,9 +244,16 @@ public class KeyResource {
                 <button type="button" id="btnRotate">Rotate key</button>
                 <p id="rotateSuccess" class="notice success" hidden></p>
                 <p class="actions"><a href="/">Back to home</a></p>
-                <script src="/static/js/acruet-crypto.js"></script>
                 <script src="/static/js/acruet-key-rotate.js"></script>
-                """);
+                """;
+    }
+
+    private static String renderKeyPage(OidcUser oidcUser, AcruetUser user, String title, String mainHtml) {
+        return UserPageLayout.renderAuthenticated(
+                title,
+                PageStyles.formCss() + wizardCss(),
+                mainHtml,
+                UserPageLayout.navContext(oidcUser, user, false));
     }
 
     private static String wizardCss() {

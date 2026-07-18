@@ -1,7 +1,12 @@
 /**
- * Ledger UI — client-side decrypt, balance computation, envelope operations (Phase 8).
+ * Ledger UI — client-side decrypt, balance computation, envelope operations (Phase 8–9).
  */
 document.addEventListener('DOMContentLoaded', async () => {
+  const ledgerRoot = document.getElementById('ledgerRoot');
+  if (!ledgerRoot) {
+    return;
+  }
+
   const state = {
     accounts: [],
     transactions: [],
@@ -13,11 +18,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     'Your total amount must match the sum of all of the allocated amounts.';
 
   const els = {
+    ledgerLocked: document.getElementById('ledgerLocked'),
+    ledgerBrowse: document.getElementById('ledgerBrowse'),
+    unlockTile: document.getElementById('unlockTile'),
+    inlineUnlockForm: document.getElementById('inlineUnlockForm'),
+    inlinePassphrase: document.getElementById('inlinePassphrase'),
+    inlineUnlockError: document.getElementById('inlineUnlockError'),
+    btnInlineUnlock: document.getElementById('btnInlineUnlock'),
+    btnInlineUnlockCancel: document.getElementById('btnInlineUnlockCancel'),
     error: document.getElementById('ledgerError'),
     warning: document.getElementById('ledgerWarning'),
     formError: document.getElementById('formError'),
     accountsList: document.getElementById('accountsList'),
-    accountLimitHint: document.getElementById('accountLimitHint'),
+    envelopesHeading: document.getElementById('envelopesHeading'),
     formPanel: document.getElementById('formPanel'),
     formTitle: document.getElementById('formTitle'),
     formBody: document.getElementById('formBody'),
@@ -25,20 +38,117 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let formErrorTimeout = null;
 
+  window.AcruetLedger = {
+    showInlineUnlock: () => showInlineUnlockForm(),
+    onKeyLocked: () => syncLockState(),
+  };
+
   await AcruetCrypto.session.ensureReady();
-  if (!AcruetCrypto.session.isUnlocked()) {
-    window.location.assign('/keys/unlock?next=/ledger');
-    return;
+  syncLockState();
+  document.addEventListener('acruet:crypto-changed', syncLockState);
+
+  if (els.unlockTile) {
+    els.unlockTile.addEventListener('click', showInlineUnlockForm);
+  }
+  if (els.btnInlineUnlock) {
+    els.btnInlineUnlock.addEventListener('click', submitInlineUnlock);
+  }
+  if (els.btnInlineUnlockCancel) {
+    els.btnInlineUnlockCancel.addEventListener('click', hideInlineUnlockForm);
   }
 
-  document.getElementById('btnShowCreate').addEventListener('click', () => showCreateForm());
-  document.getElementById('btnShowDeposit').addEventListener('click', () => showTransactionForm('DEPOSIT'));
-  document.getElementById('btnShowWithdraw').addEventListener('click', () => showTransactionForm('WITHDRAW'));
-  document.getElementById('btnShowTransfer').addEventListener('click', () => showTransactionForm('TRANSFER'));
-  document.getElementById('btnCancelForm').addEventListener('click', hideForm);
+  els.ledgerBrowse.addEventListener('click', (event) => {
+    const button = event.target.closest('.ledger-action-btn');
+    if (!button) {
+      return;
+    }
+    handleAction(button.dataset.action);
+  });
+
+  document.getElementById('btnCancelForm').addEventListener('click', closeForm);
   document.getElementById('btnSubmitForm').addEventListener('click', submitForm);
 
-  await refresh();
+  function syncLockState() {
+    if (AcruetCrypto.session.isUnlocked()) {
+      els.ledgerLocked.hidden = true;
+      hideInlineUnlockForm();
+      els.ledgerBrowse.hidden = false;
+      refresh();
+      return;
+    }
+    els.ledgerLocked.hidden = false;
+    els.ledgerBrowse.hidden = true;
+    closeForm();
+    hideInlineUnlockForm();
+  }
+
+  function showInlineUnlockForm() {
+    if (!els.inlineUnlockForm) {
+      return;
+    }
+    els.unlockTile.closest('.unlock-tile-wrap').hidden = true;
+    els.inlineUnlockForm.hidden = false;
+    els.inlineUnlockError.hidden = true;
+    els.inlinePassphrase.value = '';
+    els.inlinePassphrase.focus();
+  }
+
+  function hideInlineUnlockForm() {
+    if (!els.inlineUnlockForm) {
+      return;
+    }
+    els.inlineUnlockForm.hidden = true;
+    if (els.unlockTile) {
+      els.unlockTile.closest('.unlock-tile-wrap').hidden = false;
+    }
+    els.inlineUnlockError.hidden = true;
+  }
+
+  async function submitInlineUnlock() {
+    els.inlineUnlockError.hidden = true;
+    els.btnInlineUnlock.disabled = true;
+    els.btnInlineUnlock.textContent = 'Unlocking…';
+    const passphrase = els.inlinePassphrase.value;
+    if (!passphrase) {
+      showInlineError('Enter your passphrase.');
+      els.btnInlineUnlock.disabled = false;
+      els.btnInlineUnlock.textContent = 'Unlock';
+      return;
+    }
+    try {
+      const response = await fetch('/keys/wrapped-dek');
+      if (!response.ok) {
+        throw new Error('Could not load wrapped encryption key.');
+      }
+      const payload = await response.json();
+      await AcruetCrypto.session.unlock(passphrase, payload);
+      hideInlineUnlockForm();
+      syncLockState();
+    } catch (error) {
+      showInlineError('Incorrect passphrase or unlock failed.');
+      console.error(error);
+    } finally {
+      els.btnInlineUnlock.disabled = false;
+      els.btnInlineUnlock.textContent = 'Unlock';
+    }
+  }
+
+  function showInlineError(message) {
+    els.inlineUnlockError.textContent = message;
+    els.inlineUnlockError.hidden = false;
+  }
+
+  function handleAction(action) {
+    if (action === 'create') {
+      showCreateForm();
+    } else if (action === 'deposit') {
+      showTransactionForm('DEPOSIT');
+    } else if (action === 'withdraw') {
+      showTransactionForm('WITHDRAW');
+    } else if (action === 'transfer') {
+      showTransactionForm('TRANSFER');
+    }
+  }
 
   async function refresh() {
     hideError();
@@ -56,8 +166,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.accounts = await decryptAccounts(accountsBody.accounts);
     state.transactions = await decryptTransactions(transactionsBody.transactions);
     state.balances = computeBalances(state.accounts, state.transactions);
-    els.accountLimitHint.textContent =
-      `${accountsBody.accountCount} of ${accountsBody.accountLimit} envelopes in use`;
+    els.envelopesHeading.innerHTML =
+      `Envelopes <span class="heading-meta">(${accountsBody.accountCount} of ${accountsBody.accountLimit})</span>`;
     renderAccounts();
   }
 
@@ -146,6 +256,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     await refresh();
   }
 
+  function openForm() {
+    els.ledgerBrowse.hidden = true;
+    els.formPanel.hidden = false;
+  }
+
+  function closeForm() {
+    hideFormError();
+    els.formPanel.hidden = true;
+    state.formMode = null;
+    els.formBody.innerHTML = '';
+    if (AcruetCrypto.session.isUnlocked()) {
+      els.ledgerBrowse.hidden = false;
+    }
+  }
+
   function showCreateForm() {
     state.formMode = 'CREATE';
     els.formTitle.textContent = 'New envelope';
@@ -154,7 +279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       <input id="accountName" type="text" required maxlength="120">
     `;
     hideFormError();
-    els.formPanel.hidden = false;
+    openForm();
   }
 
   function showTransactionForm(type) {
@@ -190,7 +315,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('txTotal').addEventListener('input', autoFillTransferFromTotal);
     }
     hideFormError();
-    els.formPanel.hidden = false;
+    openForm();
   }
 
   function addDepositLines() {
@@ -397,7 +522,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
       }
-      hideForm();
+      closeForm();
       await refresh();
     } catch (error) {
       showError(error.message || 'Operation failed.');
@@ -552,13 +677,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
     return warnings;
-  }
-
-  function hideForm() {
-    hideFormError();
-    els.formPanel.hidden = true;
-    state.formMode = null;
-    els.formBody.innerHTML = '';
   }
 
   function showFormError(message, durationMs = 5000) {
