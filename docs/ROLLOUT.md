@@ -616,7 +616,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** Non-functional ledger UX improvements — gathered item-by-item via Q&A before client-side reports.
 
-**Status:** Implemented — pending cluster verification (Phase 11 task 9 for admin alerts on unlinked login).
+**Status:** ✅ Complete on cluster (2026-07-17). Items 1–9 verified. Item 10 implemented; cluster verify deferred (may occur naturally when inviting family — see item 10). Post-verify fix: mobile public-nav no longer overlaps hero.
 
 ### Items
 
@@ -645,9 +645,9 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Anonymous visit to `/` shows centered hero plus **Sign up** / **Sign in** as accent buttons in the upper-right
-- [ ] Buttons navigate to `/signup` and `/auth/login`
-- [ ] No duplicate sign-up/sign-in links in the main content area
+- [x] Anonymous visit to `/` shows centered hero plus **Sign up** / **Sign in** as accent buttons in the upper-right
+- [x] Buttons navigate to `/signup` and `/auth/login`
+- [x] No duplicate sign-up/sign-in links in the main content area
 
 #### 2. Sticky footer — bottom of viewport on short pages
 
@@ -670,10 +670,10 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Unauthenticated landing (`/`) — footer at bottom of viewport, not ~mid-page
-- [ ] Short page (e.g. home, key setup) — same behavior
-- [ ] Long page (e.g. `/` with many envelopes) — footer below all content after scroll
-- [ ] Admin pages (`/`, `/approvals`) — same behavior
+- [x] Unauthenticated landing (`/`) — footer at bottom of viewport, not ~mid-page
+- [x] Short page (e.g. home, key setup) — same behavior
+- [x] Long page (e.g. `/` with many envelopes) — footer below all content after scroll
+- [x] Admin pages (`/`, `/approvals`) — same behavior
 
 #### 3. Unauthenticated landing — marketing content from README
 
@@ -712,10 +712,10 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Anonymous `/` shows **About a-cruet** plus three marketing sections with README-aligned content
-- [ ] No proverb duplicate in main body; no For builders / To Do sections
-- [ ] Page reads well on mobile (single column, existing `max-width` layout)
-- [ ] Works with item 1 nav buttons and item 2 sticky footer
+- [x] Anonymous `/` shows **About a-cruet** plus three marketing sections with README-aligned content
+- [x] No proverb duplicate in main body; no For builders / To Do sections
+- [x] Page reads well on mobile (single column, existing `max-width` layout); public nav overlap fixed post-verify
+- [x] Works with item 1 nav buttons and item 2 sticky footer
 
 #### 4. Authenticated user menu — initials avatar (upper-right)
 
@@ -752,11 +752,11 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Signed-in user sees initials circle upper-right on `/`, `/keys/unlock`, and other authenticated pages
-- [ ] Initials correct for full name (e.g. Stephen Wise → **SW**); email fallback when names unavailable
-- [ ] Dropdown shows identity, key status, Lock/Unlock (or setup link when incomplete), Rotate key (when setup complete), Sign out
-- [ ] Lock key clears session DEK; Unlock navigates to unlock flow; Rotate navigates to `/keys/rotate`
-- [ ] No duplicate “Signed in as …” or standalone Sign out on home
+- [x] Signed-in user sees initials circle upper-right on `/`, `/keys/unlock`, and other authenticated pages
+- [x] Initials correct for full name (e.g. Stephen Wise → **SW**); email fallback when names unavailable
+- [x] Dropdown shows identity, key status, Lock/Unlock (or setup link when incomplete), Rotate key (when setup complete), Sign out
+- [x] Lock key clears session DEK; Unlock navigates to unlock flow; Rotate navigates to `/keys/rotate`
+- [x] No duplicate “Signed in as …” or standalone Sign out on home
 
 #### 5. Authenticated home — embed ledger on `/`
 
@@ -789,11 +789,11 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Signed-in user with key setup complete and DEK unlocked sees full ledger on `/`
-- [ ] `GET /ledger` HTML returns **404** (API paths under `/ledger/*` still work)
-- [ ] Key locked: unlock tile shows lock image from media host via `MediaSettings` / `ACRUET_MEDIA_HOST`; ledger panels hidden; inline unlock works; ledger appears after unlock
-- [ ] Unauthenticated `/` still shows marketing content
-- [ ] `/keys/unlock` remains available for direct navigation / dropdown link
+- [x] Signed-in user with key setup complete and DEK unlocked sees full ledger on `/`
+- [x] `GET /ledger` HTML returns **404** (API paths under `/ledger/*` still work)
+- [x] Key locked: unlock tile shows lock image from media host via `MediaSettings` / `ACRUET_MEDIA_HOST`; ledger panels hidden; inline unlock works; ledger appears after unlock
+- [x] Unauthenticated `/` still shows marketing content
+- [x] `/keys/unlock` remains available for direct navigation / dropdown link
 
 #### 6. Ledger heading — combine envelope count
 
@@ -818,9 +818,9 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Ledger on `/` shows **Envelopes (x of y)** with muted parenthetical
-- [ ] Count updates after creating an envelope
-- [ ] No separate “x of y envelopes in use” line below the heading
+- [x] Ledger on `/` shows **Envelopes (x of y)** with muted parenthetical
+- [x] Count updates after creating an envelope
+- [x] No separate “x of y envelopes in use” line below the heading
 
 #### 7. Ledger — remove “Actions” heading
 
@@ -840,8 +840,8 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Ledger on `/` has no **Actions** heading
-- [ ] All four action buttons still visible and functional below envelopes
+- [x] Ledger on `/` has no **Actions** heading
+- [x] All four action buttons still visible and functional below envelopes
 
 #### 8. Ledger — duplicate action buttons above envelope list
 
@@ -862,9 +862,9 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Top and bottom button rows both open deposit/withdraw/transfer/create flows correctly
-- [ ] With 7+ envelopes, top buttons reachable without scrolling; bottom buttons reachable after scrolling to end of list
-- [ ] No duplicate form submissions from either row
+- [x] Top and bottom button rows both open deposit/withdraw/transfer/create flows correctly
+- [x] With 7+ envelopes, top buttons reachable without scrolling; bottom buttons reachable after scrolling to end of list
+- [x] No duplicate form submissions from either row
 
 #### 9. Ledger forms — replace main content instead of expand below
 
@@ -887,10 +887,10 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Verify:**
 
-- [ ] Click **Deposit** (or any action) — envelope list and buttons disappear; form shown in main area without scrolling
-- [ ] **Cancel** restores envelope list + buttons
-- [ ] **Save** (success) restores envelope list + buttons with updated data
-- [ ] Form error (e.g. allocation mismatch) keeps form visible; browse UI stays hidden
+- [x] Click **Deposit** (or any action) — envelope list and buttons disappear; form shown in main area without scrolling
+- [x] **Cancel** restores envelope list + buttons
+- [x] **Save** (success) restores envelope list + buttons with updated data
+- [x] Form error (e.g. allocation mismatch) keeps form visible; browse UI stays hidden
 
 #### 10. Unlinked Keycloak session — user message + anomaly record
 
@@ -913,11 +913,13 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Depends on:** Phase 11 task — admin alert delivery for this anomaly.
 
+**Cluster verify:** Deferred — no synthetic test run. Implementation shipped; confirm naturally if someone signs in via Keycloak before admin approval creates an `acruet_user` row (e.g. family invite timing). Expected UX: avatar + “administrators have been alerted”, no ledger, no `/keys/setup` redirect; one row per session in `login_anomaly`.
+
 **Verify:**
 
-- [ ] Simulated unlinked login shows avatar + message with “administrators have been alerted”
-- [ ] No ledger, no `/keys/setup` redirect
-- [ ] Anomaly recorded server-side once per event
+- [ ] Simulated unlinked login shows avatar + message with “administrators have been alerted” *(deferred — see above)*
+- [ ] No ledger, no `/keys/setup` redirect *(deferred)*
+- [ ] Anomaly recorded server-side once per event *(deferred; query `login_anomaly` when it occurs)*
 
 ### Consistency review (resolved)
 
@@ -931,7 +933,8 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ### Verify
 
-- [ ] Each item verified on cluster after implementation
+- [x] Items 1–9 verified on cluster (2026-07-17)
+- [ ] Item 10 — deferred (documented above; Phase 11 adds admin alert delivery)
 
 ---
 
@@ -1050,7 +1053,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 7. Phase 6 admin approval ✅
 8. Phase 7 encryption ✅
 9. Phase 8 ledger ✅
-10. Phase 9 ledger UI polish
+10. Phase 9 ledger UI polish ✅
 11. Phase 10 reports
 12. Phase 11 admin ops
 13. Phase 13 E2E

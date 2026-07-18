@@ -195,6 +195,25 @@ public final class PageStyles {
                   font-weight: 600;
                 }
                 .avatar-menu-signout:hover { text-decoration: none; background: rgba(56, 189, 248, 0.08); }
+                @media (max-width: 40rem) {
+                  .page-shell:has(.top-nav) .page-header {
+                    padding-top: 4.5rem;
+                  }
+                  .top-nav {
+                    top: 0.75rem;
+                    right: 0.75rem;
+                    left: 0.75rem;
+                    justify-content: flex-end;
+                  }
+                  .top-nav.public-nav {
+                    flex-wrap: wrap;
+                    gap: 0.35rem;
+                  }
+                  .nav-btn {
+                    padding: 0.5rem 0.85rem;
+                    font-size: 0.875rem;
+                  }
+                }
                 """;
     }
 
