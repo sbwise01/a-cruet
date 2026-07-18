@@ -894,7 +894,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 #### 10. Unlinked Keycloak session — user message + anomaly record
 
-**Goal:** Handle signed-in users with a valid OIDC session but **no `acruet_user` row** (partial approve failure, manual Keycloak user, admin on user host, recreated Keycloak subject, etc.).
+**Goal:** Handle signed-in users with a valid OIDC session but **no `acruet_user` row** (partial approve failure, manual Keycloak user, bootstrap admin before user row exists, recreated Keycloak subject, etc.). Phase 11 task 2 (grant admin only for existing `acruet_user`) removes the routine “admin on user host without a user row” path.
 
 **Decisions (consistency review Q4):**
 
@@ -942,7 +942,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** CSV export and stacked area chart — 100% browser-side decryption.
 
-**Status:** ✅ Complete on cluster (2026-07-17). UX enhancements ✅ (2026-07-18).
+**Status:** ✅ Complete and verified on cluster (2026-07-18).
 
 ### Deliverables
 
@@ -970,7 +970,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 1. API returns ciphertext blobs filtered by date range + account scope *(existing `/ledger/transactions?from=&to=`)*
 2. Browser decrypts, aggregates, renders stacked area chart (Chart.js)
-3. Browser decrypts and renders transaction report **table**; optional CSV download from the same decrypted rows
+3. Browser decrypts and renders transaction report **table**; CSV download from the same decrypted rows (independent of table)
 
 ### Verify
 
@@ -987,10 +987,18 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 **Goal:** Remaining admin & abuse workflows from `PRODUCT.md` Section 6.
 
+### Decisions (pre-implementation)
+
+| # | Topic | Decision |
+|---|--------|----------|
+| 1 | Grant `a-cruet-admin` | **Only for existing user-app users** — admin UI grant/revoke applies to identities that already have an `acruet_user` row (approved + provisioned). No Keycloak-only admin identities via the app. |
+| 2 | Bootstrap | **Manual Keycloak console** remains the exception for the first admin(s) (`PRODUCT.md` #46); those operators should complete normal user signup/approve so they have an `acruet_user` row, or accept rare unlinked user-app visits until linked. |
+| 3 | Login anomaly scope | Phase 9 item 10 + task 9 below remain for pending approval, partial provision failures, and bootstrap — not routine admin workflow after task 2. |
+
 ### Tasks
 
 1. User list with operational counts (accounts, transactions, last active)
-2. Grant/revoke `a-cruet-admin` via admin UI → Keycloak Admin API
+2. Grant/revoke `a-cruet-admin` via admin UI → Keycloak Admin API — **eligible users only:** must have an existing `acruet_user` row; UI selects from provisioned users (e.g. user list / email search), not arbitrary Keycloak accounts
 3. Suspend: disable Keycloak user + email with admin-set duration
 4. CronJob: auto-unsuspend when suspension ends
 5. Offboard: email 7-day export window
@@ -1004,7 +1012,8 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 - Suspend → user cannot log in; auto-restore after N days
 - Offboard → export works; data purged after trigger
 - Admin action audit entries present
-- Unlinked Keycloak login → admin alerted; user app message matches Phase 9 item 10
+- Grant admin → only succeeds for users with `acruet_user`; granted admin can use **both** user and admin hostnames without unlinked user-app state
+- Unlinked Keycloak login (non-routine paths) → admin alerted; user app message matches Phase 9 item 10
 
 ---
 
