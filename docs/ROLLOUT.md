@@ -83,6 +83,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
 | 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred → Phase 13 |
 | 7 — Client encryption + key lifecycle | ✅ Complete (2026-07-15) — setup, unlock, idle timeout, rotation |
+| 7.1 — v2 recovery wrap + legacy enroll | ✅ Complete (2026-07-18) — dual wrap, forgot-passphrase, legacy enroll; cache-bust fix |
 | 8 — Ledger core | ✅ Complete (2026-07-16) — deposits, withdraws, transfers, archive, ciphertext verified |
 | 9 — Ledger UI polish | ✅ Complete (2026-07-18) — items 1–9 + item 10 verified; admin alert → Phase 11 |
 | 10 — Client-side reports | ✅ Complete (2026-07-18) |
@@ -634,6 +635,67 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 
 ---
 
+## Phase 7.1 — v2 recovery wrap + legacy enroll ✅ complete (2026-07-18)
+
+**Goal:** File-only v2 recovery (dual wrap: passphrase + recovery secret in `acruet-recovery.json`); forgot-passphrase flow; one-time legacy enroll for users who completed Phase 7 before `recovery_wrapped_dek` existed.
+
+**Status:** ✅ Complete on cluster (2026-07-18). Both pre-v2 accounts enrolled; unlock and ledger access restored. See [`PRODUCT.md`](PRODUCT.md) §3 (recovery / forgot-passphrase / legacy users).
+
+**Background:** Phase 7 shipped v1 recovery files that could not reset a forgotten passphrase. v2 stores an independent recovery wrap on the server (`V7__recovery_wrap.sql`) and a random recovery secret in the downloaded file. Users who finished key setup before this deploy had a wrapped DEK but no recovery wrap — they are redirected to **`/keys/enroll-recovery`** until enroll completes.
+
+### Tasks
+
+1. Flyway `V7__recovery_wrap.sql` — `recovery_wrapped_dek`, `recovery_wrap_algorithm` on `user_encryption_key`
+2. Dual wrap at setup / rotate / forgot-passphrase reset (passphrase wrap unchanged on enroll-only path)
+3. **`/keys/enroll-recovery`** — legacy one-time flow: current passphrase → download v2 file → POST recovery wrap only
+4. **`/keys/forgot-passphrase`** — upload recovery file, set new passphrase, download new recovery file
+5. `KeySetupFilter` — after `key_setup_complete`, redirect until recovery wrap enrolled
+6. Static JS cache-busting + load order (`acruet-crypto.js` before key page scripts) — avoid stale cached crypto without `enrollRecoveryWrap`
+
+### a-cruet
+
+| Component | Notes |
+|-----------|--------|
+| `RecoveryWrapPayload`, `UserEncryptionKey` | Recovery wrap validation + persistence |
+| `KeyService.enrollRecoveryWrap` | Legacy enroll — recovery columns only; passphrase wrap unchanged |
+| `KeyResource` | `/keys/enroll-recovery`, `/keys/forgot-passphrase`, dual-wrap setup/rotate APIs |
+| `KeySetupFilter` | Gate on `recoveryEnrolled` after key setup |
+| `static/js/acruet-crypto.js` | v2 recovery file format; `enrollRecoveryWrap`, `resetPassphraseFromRecoveryFile` |
+| `static/js/acruet-key-enroll-recovery.js` | Legacy enroll wizard |
+| `UserNav.STATIC_ASSET_VERSION` | `?v=…` on crypto + key page scripts |
+
+### API (additions / changes)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/keys/enroll-recovery` | Legacy enroll HTML |
+| POST | `/keys/enroll-recovery` | Store recovery wrap only |
+| GET | `/keys/forgot-passphrase` | Forgot-passphrase HTML |
+| POST | `/keys/reset-passphrase` | Replace passphrase wrap from recovery file |
+| PUT | `/keys/wrapped-dek` | Initial setup — passphrase + recovery dual wrap |
+| POST | `/keys/rotate` | Rotate — new passphrase + new recovery dual wrap |
+| GET | `/keys/status` | Adds `recoveryEnrolled` |
+
+### Verify
+
+**Legacy enroll (pre-v2 key setup)**
+
+- [x] Sign in → redirect to `/keys/enroll-recovery` when `recovery_wrapped_dek` is null
+- [x] Enter current passphrase → PBKDF2 verify (10–20 s) → download v2 `acruet-recovery.json` → confirm → Finish
+- [x] `user_encryption_key.recovery_wrapped_dek` populated; passphrase wrap unchanged; ledger ciphertext unchanged
+- [x] Both legacy accounts completed enroll *(2026-07-18; `sbwise@gmail.com`, `brad@bradandmarsha.com`)*
+- [x] Static JS cache-busting — enroll succeeds without manual hard refresh after deploy *(2026-07-18; second legacy account)*
+
+**Out of scope for enroll:** a user who **forgot their passphrase** before v2 cannot use enroll — requires full account reprovision (Keycloak + app row + fresh key setup).
+
+**New users (post-v2 deploy)**
+
+- [ ] `/keys/setup` stores dual wrap in one step; no separate enroll step
+- [ ] `/keys/forgot-passphrase` with recovery file → new passphrase + new recovery file download
+- [ ] v1 recovery files rejected with clear message on forgot-passphrase
+
+---
+
 ## Phase 8 — Ledger core
 
 **Goal:** Envelope budgeting MVP.
@@ -1172,7 +1234,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 5. Phase 4 OIDC + **KEYCLOAK.md Phase 5**
 6. Phase 5 signup + SMTP + **Flux image automation**
 7. Phase 6 admin approval ✅
-8. Phase 7 encryption ✅
+8. Phase 7 encryption ✅ — Phase 7.1 v2 recovery + legacy enroll ✅ (2026-07-18)
 9. Phase 8 ledger ✅
 10. Phase 9 ledger UI polish ✅
 11. Phase 10 reports ✅
