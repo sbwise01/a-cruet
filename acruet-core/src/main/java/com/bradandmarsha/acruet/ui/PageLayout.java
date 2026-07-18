@@ -86,6 +86,7 @@ final class PageLayout {
                   <footer class="page-footer">
                     <p class="verse">&ldquo;%s&rdquo;</p>
                     <p class="citation">&mdash; %s</p>
+                    <p class="issues-link"><a href="https://github.com/sbwise01/a-cruet/issues" target="_blank" rel="noopener noreferrer">Report issues or enhancement requests</a></p>
                   </footer>
                 """
                 .formatted(escapeText(FOOTER_VERSE), escapeText(FOOTER_CITATION));
@@ -141,6 +142,15 @@ final class PageLayout {
                 }
                 .page-footer .citation {
                   margin: 0.35rem 0 0;
+                }
+                .page-footer .issues-link {
+                  margin: 1rem 0 0;
+                }
+                .page-footer .issues-link a {
+                  color: var(--accent);
+                }
+                .page-footer .issues-link a:hover {
+                  text-decoration: underline;
                 }
                 """;
     }

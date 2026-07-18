@@ -1,5 +1,7 @@
 package com.bradandmarsha.acruet.auth;
 
+import com.bradandmarsha.acruet.keys.KeyService;
+import com.bradandmarsha.acruet.user.AcruetUser;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -9,11 +11,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
- * Redirects authenticated users without completed key setup to {@code /keys/setup} (Phase 7).
+ * Redirects authenticated users without completed key setup or recovery enrollment (Phase 7).
  */
 public class KeySetupFilter implements Filter {
+
+    private static final KeyService KEY_SERVICE = new KeyService();
 
     private boolean enforceKeySetup;
 
@@ -38,18 +43,19 @@ public class KeySetupFilter implements Filter {
             return;
         }
 
-        if (UserSession.oidcUser(httpRequest).isEmpty()) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        if (UserSession.acruetUser(httpRequest).isEmpty()) {
+        Optional<AcruetUser> acruetUser = UserSession.acruetUser(httpRequest);
+        if (acruetUser.isEmpty()) {
             chain.doFilter(request, response);
             return;
         }
 
         if (!UserSession.isKeySetupComplete(httpRequest)) {
             httpResponse.sendRedirect(httpRequest.getContextPath() + "/keys/setup");
+            return;
+        }
+
+        if (!KEY_SERVICE.status(acruetUser.get()).recoveryEnrolled()) {
+            httpResponse.sendRedirect(httpRequest.getContextPath() + "/keys/enroll-recovery");
             return;
         }
 

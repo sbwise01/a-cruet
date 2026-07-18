@@ -29,7 +29,7 @@ public final class MarketingContent {
 
                   <h2>How your privacy works</h2>
                   <p>Your financial details — envelope names, amounts, notes, and balances — are <strong>encrypted in your browser</strong> before they ever reach the server. The service stores scrambled data it cannot read.</p>
-                  <p>You choose a <strong>passphrase</strong> to unlock your ledger. The app asks you to save a <strong>recovery file</strong> when you first set up encryption. If you lose both your passphrase and that file, <strong>your data cannot be recovered</strong> — not even by an administrator. That is intentional: your savings picture stays yours alone.</p>
+                  <p>You choose a <strong>passphrase</strong> to unlock your ledger. The app downloads a <strong>recovery file</strong> when you set up encryption — store that file somewhere safe; you do not need to memorize it. Use the file on <strong>Forgot passphrase?</strong> if you forget your passphrase. If you lose <strong>both</strong> your passphrase and that file, <strong>your data cannot be recovered</strong> — not even by an administrator.</p>
                   <p>Administrators can see <strong>who</strong> uses the app and <strong>how much activity</strong> there is (for example, how many envelopes or transactions exist), but they <strong>never</strong> see your actual balances or descriptions.</p>
 
                   <h2>Getting access</h2>

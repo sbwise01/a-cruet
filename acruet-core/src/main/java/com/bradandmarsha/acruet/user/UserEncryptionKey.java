@@ -14,6 +14,15 @@ public record UserEncryptionKey(
         String kdfHash,
         byte[] kdfSalt,
         int kdfIterations,
+        byte[] recoveryWrappedDek,
+        String recoveryWrapAlgorithm,
         Instant createdAt,
         Instant updatedAt) {
+
+    public boolean recoveryEnrolled() {
+        return recoveryWrappedDek != null
+                && recoveryWrappedDek.length > 0
+                && recoveryWrapAlgorithm != null
+                && !recoveryWrapAlgorithm.isBlank();
+    }
 }
