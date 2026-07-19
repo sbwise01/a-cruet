@@ -8,7 +8,7 @@ import java.util.UUID;
  */
 public record LedgerAccount(
         UUID id,
-        UUID userId,
+        UUID householdId,
         LedgerAccountStatus status,
         byte[] encryptedName,
         Instant createdAt,

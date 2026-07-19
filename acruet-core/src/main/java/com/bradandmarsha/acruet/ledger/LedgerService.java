@@ -14,7 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Ledger account and transaction orchestration (Phase 8).
+ * Ledger account and transaction orchestration (Phase 8, household-scoped Phase 12).
  */
 public final class LedgerService {
 
@@ -26,7 +26,7 @@ public final class LedgerService {
     public List<LedgerAccount> listAccounts(AcruetUser user, boolean includeArchived) {
         try {
             return Database.inTransactionReturning(connection ->
-                    accountRepository.listByUser(connection, user.id(), includeArchived));
+                    accountRepository.listByHousehold(connection, user.householdId(), includeArchived));
         } catch (SQLException exception) {
             throw new LedgerException("Failed to list accounts", exception);
         }
@@ -43,10 +43,10 @@ public final class LedgerService {
                     throw new LedgerException("Account limit reached (" + current.ledgerAccountLimit() + ").");
                 }
                 byte[] encryptedName = EncryptedBlob.decode(encryptedNameBase64);
-                accountRepository.insert(connection, accountId, user.id(), encryptedName);
-                userRepository.incrementLedgerAccountCount(connection, user.id());
+                accountRepository.insert(connection, accountId, current.householdId(), encryptedName);
+                userRepository.incrementLedgerAccountCount(connection, current.householdId());
                 rateLimiter.record(connection, user.id());
-                return accountRepository.findById(connection, user.id(), accountId)
+                return accountRepository.findById(connection, current.householdId(), accountId)
                         .orElseThrow(() -> new LedgerException("Account not found after insert"));
             });
         } catch (LedgerException exception) {
@@ -62,9 +62,9 @@ public final class LedgerService {
             return Database.inTransactionReturning(connection -> {
                 checkWriteRateLimit(connection, user.id());
                 byte[] encryptedName = EncryptedBlob.decode(encryptedNameBase64);
-                accountRepository.updateEncryptedName(connection, user.id(), accountId, encryptedName);
+                accountRepository.updateEncryptedName(connection, user.householdId(), accountId, encryptedName);
                 rateLimiter.record(connection, user.id());
-                return accountRepository.findById(connection, user.id(), accountId)
+                return accountRepository.findById(connection, user.householdId(), accountId)
                         .orElseThrow(() -> new LedgerException("Account not found"));
             });
         } catch (LedgerException exception) {
@@ -78,15 +78,15 @@ public final class LedgerService {
         try {
             return Database.inTransactionReturning(connection -> {
                 checkWriteRateLimit(connection, user.id());
-                LedgerAccount account = accountRepository.findById(connection, user.id(), accountId)
+                LedgerAccount account = accountRepository.findById(connection, user.householdId(), accountId)
                         .orElseThrow(() -> new LedgerException("Account not found"));
                 if (account.status() != LedgerAccountStatus.ACTIVE) {
                     throw new LedgerException("Account is already archived.");
                 }
-                accountRepository.archive(connection, user.id(), accountId);
-                userRepository.decrementLedgerAccountCount(connection, user.id());
+                accountRepository.archive(connection, user.householdId(), accountId);
+                userRepository.decrementLedgerAccountCount(connection, user.householdId());
                 rateLimiter.record(connection, user.id());
-                return accountRepository.findById(connection, user.id(), accountId)
+                return accountRepository.findById(connection, user.householdId(), accountId)
                         .orElseThrow(() -> new LedgerException("Account not found after archive"));
             });
         } catch (LedgerException exception) {
@@ -103,7 +103,8 @@ public final class LedgerService {
             UUID accountId) {
         try {
             return Database.inTransactionReturning(connection ->
-                    transactionRepository.listByUser(connection, user.id(), fromDate, toDate, accountId));
+                    transactionRepository.listByHousehold(
+                            connection, user.householdId(), fromDate, toDate, accountId));
         } catch (SQLException exception) {
             throw new LedgerException("Failed to list transactions", exception);
         }
@@ -127,21 +128,21 @@ public final class LedgerService {
         try {
             return Database.inTransactionReturning(connection -> {
                 checkWriteRateLimit(connection, user.id());
-                if (!accountRepository.allBelongToUser(connection, user.id(), accountIds)) {
+                if (!accountRepository.allBelongToHousehold(connection, user.householdId(), accountIds)) {
                     throw new LedgerException("One or more accounts are invalid.");
                 }
                 byte[] encryptedPayload = EncryptedBlob.decode(encryptedPayloadBase64);
                 transactionRepository.insert(
                         connection,
                         transactionId,
-                        user.id(),
+                        user.householdId(),
                         transactionType,
                         transactionDate,
                         encryptedPayload,
                         accountIds);
-                userRepository.incrementTransactionCount(connection, user.id(), now);
+                userRepository.incrementTransactionCount(connection, user.id(), user.householdId(), now);
                 rateLimiter.record(connection, user.id());
-                return transactionRepository.findById(connection, user.id(), transactionId)
+                return transactionRepository.findById(connection, user.householdId(), transactionId)
                         .orElseThrow(() -> new LedgerException("Transaction not found after insert"));
             });
         } catch (LedgerException exception) {
@@ -154,7 +155,7 @@ public final class LedgerService {
     public Optional<LedgerAccount> findAccount(AcruetUser user, UUID accountId) {
         try {
             return Database.inTransactionReturning(connection ->
-                    accountRepository.findById(connection, user.id(), accountId));
+                    accountRepository.findById(connection, user.householdId(), accountId));
         } catch (SQLException exception) {
             throw new LedgerException("Failed to load account", exception);
         }

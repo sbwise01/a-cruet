@@ -15,6 +15,7 @@ public record AcruetUser(
         String phone,
         String mailingAddress,
         boolean allowNegativeWithdraw,
+        UUID householdId,
         int ledgerAccountCount,
         int transactionCount,
         int ledgerAccountLimit,

@@ -116,14 +116,14 @@ Product and technical decisions captured during requirements clarification. Each
 
 | Item | Decision |
 |------|----------|
-| v1 | **Single-user** — one Keycloak user, one isolated ledger |
-| Future | **Design for shared household** — schema/API should not preclude multi-user ledger access later |
+| v1 (shipped) | **Single-user** — one Keycloak user, one isolated ledger |
+| v2 | **Shared household** — up to **5** Keycloak users share **one ledger** (Section 7) |
 
 #### Accounts
 
 | Item | Decision |
 |------|----------|
-| Limit | **100 accounts default** per user — admin can raise per user |
+| Limit | **100 accounts default** per **household** — admin can raise per household (v2); v1 per-user limit migrated to household on deploy |
 | Removal | **Archive only** — account must be **zero balance** to archive; hidden from active list |
 
 #### Transactions
@@ -206,7 +206,7 @@ Product and technical decisions captured during requirements clarification. Each
 |---|------|----------|
 | 48 | Offboarding flow | Admin initiates offboard → **email** to user with **7-day** data-export window |
 | 48a | Data export | User signs in during window → **client-side decrypted export** (CSV/JSON bundle) while key is unlocked |
-| 48b | Purge trigger | After **export complete** or **7-day expiration** (whichever first) → **disable Keycloak user** + **purge all a-cruet data** automatically — **no** further admin confirmation required |
+| 48b | Purge trigger | After **export complete** or **7-day expiration** (whichever first) → **disable Keycloak user** + **purge a-cruet data** automatically — **no** further admin confirmation required. **Household:** purge **shared ledger** only when **last member** is removed; single-member offboard leaves ledger intact for remaining members (Section 7) |
 
 #### Abuse prevention & monitoring
 
@@ -224,6 +224,68 @@ Product and technical decisions captured during requirements clarification. Each
 | 100 account default limit; admin can raise | Section 4 |
 | Plaintext operational counts for abuse monitoring | Section 3 |
 | Admins never see decrypted ledger content | Section 3 |
+| Shared household ledger | Section 7 |
+
+### 7. Shared household ✅ locked (2026-07-19)
+
+Extends Section 4 (ledger ownership) and Section 3 (encryption). **Release:** app **2.0.0** when rollout Phase 12 ships.
+
+#### Household model
+
+| Item | Decision |
+|------|----------|
+| Scope | **One ledger per household** — all members see the same envelopes and transactions |
+| Size cap | **5 members maximum** per household — **active members + pending invites** both count toward the cap |
+| Solo users | Every provisioned user belongs to exactly **one** household; existing v1 users migrate to a **1-member** household (owner role) |
+| Roles (v2) | **`owner`** (first member / migration default) and **`member`** — invite and offboard rules below |
+
+#### Member invite
+
+| Item | Decision |
+|------|----------|
+| Who invites | **Existing household member** from the **user app** (must have ledger **unlocked**) |
+| Inviter input | **Email address only** in the UI — client-side crypto runs in the background while unlocked |
+| Server stores | **Ciphertext invite payload only** (wrapped household DEK + KDF metadata) — same privacy model as `user_encryption_key` |
+| Email | App sends invitee a **signup link** with a one-time token |
+| Admin | **Separate step** — admin still **approves or rejects** the signup application; approval does **not** create a new solo ledger |
+| Signup link | Application row references the invite; on approve, user is provisioned as a **household member** |
+
+#### Encryption (household DEK)
+
+| Item | Decision |
+|------|----------|
+| DEK | **One DEK per household** for all ledger ciphertext |
+| Per member | Each member has **their own passphrase-derived KEK** and **their own recovery file**, each wrapping the **same DEK** |
+| Join key setup | New member **does not** generate a fresh DEK — **household join** flow unwraps the invite payload, sets passphrase, stores `user_encryption_key`, issues recovery file |
+| Key rotation | Member rotates **their** KEK only (re-wrap same DEK) — unchanged envelope model |
+| Inviter crypto | While unlocked, inviter client generates invite wrap and POSTs ciphertext to server before email is sent |
+
+#### Ledger & abuse metadata
+
+| Item | Decision |
+|------|----------|
+| Ledger rows | Scoped by **`household_id`** (not per-user isolation) |
+| Operational counts | **`ledger_account_count`**, **`transaction_count`**, **`ledger_account_limit`** on **household** |
+| Write rate limits | Still **per Keycloak user** (abuse monitoring) |
+| Activity timestamps | Still **per user** (`last_login_at`, `last_transaction_at`) |
+| Admin UI | Show **household membership** on user list; approval queue shows when applicant **joins an existing household** |
+
+#### Offboard & purge (household)
+
+| Item | Decision |
+|------|----------|
+| Single member offboard | Remove **that member’s** Keycloak access, key wraps, and app user row; **shared ledger and other members unchanged** |
+| Last member offboard | Same as v1 full purge — disable Keycloak + **purge household ledger data** when no members remain |
+| Export window | Offboarded member may still export during the **7-day window** if they can sign in and unlock |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Signup + admin approval | Section 1 |
+| Envelope semantics, append-only ledger | Section 4 |
+| Recovery file / forgot-passphrase | Section 3 |
+| Offboard email + export window | Section 6 (#48) |
 
 ## Product requirements
 
@@ -274,6 +336,8 @@ Product and technical decisions captured during requirements clarification. Each
     - report will be a stacked area graph
   - rotate encryption key
   - update user credentials
+  - invite a household member (existing member, unlocked session; email-only UI)
+  - join a household on first login after invite (passphrase + recovery file; shared ledger)
 - The application will support the following administrative workflows:
   - approve new user applications
   - assign administrators
