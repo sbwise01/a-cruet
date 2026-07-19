@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     unlockError.hidden = false;
   }
 
-    btnUnlock.addEventListener('click', async () => {
+  async function submitUnlock() {
     unlockError.hidden = true;
     btnUnlock.disabled = true;
     btnUnlock.textContent = 'Unlocking…';
@@ -34,6 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       btnUnlock.disabled = false;
       btnUnlock.textContent = 'Unlock';
+    }
+  }
+
+  btnUnlock.addEventListener('click', submitUnlock);
+  passphraseInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      submitUnlock();
     }
   });
 });

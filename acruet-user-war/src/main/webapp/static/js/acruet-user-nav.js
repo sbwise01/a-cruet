@@ -39,23 +39,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!accountLinked) {
       statusText = 'No a-cruet account linked.';
-    } else if (!keySetup) {
-      statusText = 'Encryption key not set up.';
-      actionsHtml = '<a href="/keys/setup">Set up encryption key</a>';
-    } else if (unlocked) {
-      statusText = 'Encryption key unlocked for this session.';
-      actionsHtml = `
+    } else {
+      actionsHtml = '<a href="/profile">Profile</a>';
+      if (!keySetup) {
+        statusText = 'Encryption key not set up.';
+        actionsHtml += '<a href="/keys/setup">Set up encryption key</a>';
+      } else if (unlocked) {
+        statusText = 'Encryption key unlocked for this session.';
+        actionsHtml += `
         <button type="button" id="avatarLockKey">Lock key</button>
         <a href="/keys/rotate">Rotate key</a>`;
-    } else {
-      statusText = 'Encryption key locked.';
-      if (inlineUnlockHome) {
-        actionsHtml = '<button type="button" id="avatarUnlockKey">Unlock key</button>';
       } else {
-        actionsHtml = '<a href="/keys/unlock?next=/">Unlock key</a>';
+        statusText = 'Encryption key locked.';
+        if (inlineUnlockHome) {
+          actionsHtml += '<button type="button" id="avatarUnlockKey">Unlock key</button>';
+        } else {
+          actionsHtml += '<a href="/keys/unlock?next=/">Unlock key</a>';
+        }
+        actionsHtml += '<a href="/keys/forgot-passphrase">Forgot passphrase?</a>';
+        actionsHtml += '<a href="/keys/rotate">Rotate key</a>';
       }
-      actionsHtml += '<a href="/keys/forgot-passphrase">Forgot passphrase?</a>';
-      actionsHtml += '<a href="/keys/rotate">Rotate key</a>';
     }
 
     menu.innerHTML = `

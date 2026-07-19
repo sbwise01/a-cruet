@@ -22,6 +22,25 @@ public final class LedgerViews {
                   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
                 }
                 .account-row .name { font-weight: 600; }
+                .envelope-name {
+                  font: inherit;
+                  font-weight: 600;
+                  color: inherit;
+                  background: transparent;
+                  border: none;
+                  padding: 0.1rem 0.35rem;
+                  margin: 0;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  text-align: left;
+                }
+                .envelope-name:hover { background: rgba(148, 163, 184, 0.15); }
+                .envelope-name-input {
+                  font: inherit;
+                  font-weight: 600;
+                  width: min(100%, 16rem);
+                  margin: 0;
+                }
                 .account-row .balance { font-variant-numeric: tabular-nums; }
                 .account-row.total-row {
                   margin-top: 0.35rem;
@@ -126,16 +145,15 @@ public final class LedgerViews {
                     </p>
                   </section>
                 </div>
-                <script src="/static/js/chart.umd.min.js?v=20260718-2"></script>
-                <script src="/static/js/acruet-reports.js?v=20260718-2"></script>
-                <script src="/static/js/acruet-ledger.js?v=20260718-2"></script>
-                """
-                .formatted(
+                """.formatted(
                         escapeAttr(lockImageUrl),
                         escapeAttr(lockImageUrl),
                         actionButtonsHtml(false),
                         actionButtonsHtml(true),
-                        ReportViews.reportsPanelHtml(transactionsImageUrl, chartImageUrl));
+                        ReportViews.reportsPanelHtml(transactionsImageUrl, chartImageUrl))
+                + UserNav.keyPageScript("chart.umd.min.js")
+                + UserNav.keyPageScript("acruet-reports.js")
+                + UserNav.keyPageScript("acruet-ledger.js");
     }
 
     private static String actionButtonsHtml(boolean bottom) {

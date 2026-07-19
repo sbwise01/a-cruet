@@ -98,6 +98,8 @@ public final class ApprovalService {
                         provisioned.keycloakUserId(),
                         application.email(),
                         application.fullName(),
+                        application.phone(),
+                        application.mailingAddress(),
                         applicationId);
                 auditRepository.insert(
                         connection,

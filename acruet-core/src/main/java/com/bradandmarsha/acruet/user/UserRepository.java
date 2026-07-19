@@ -20,18 +20,23 @@ public final class UserRepository {
             String keycloakUserId,
             String email,
             String displayName,
+            String phone,
+            String mailingAddress,
             UUID signupApplicationId) throws SQLException {
         String sql = """
                 INSERT INTO acruet_user (
-                    id, keycloak_user_id, email, display_name, signup_application_id
-                ) VALUES (?, ?, ?, ?, ?)
+                    id, keycloak_user_id, email, display_name, phone, mailing_address,
+                    signup_application_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
             statement.setString(2, keycloakUserId);
             statement.setString(3, email.trim());
             statement.setString(4, displayName.trim());
-            statement.setObject(5, signupApplicationId);
+            statement.setString(5, phone.trim());
+            statement.setString(6, mailingAddress.trim());
+            statement.setObject(7, signupApplicationId);
             statement.executeUpdate();
         }
     }
@@ -40,6 +45,7 @@ public final class UserRepository {
             throws SQLException {
         String sql = """
                 SELECT id, keycloak_user_id, email, display_name, signup_application_id,
+                       phone, mailing_address, allow_negative_withdraw,
                        ledger_account_count, transaction_count, ledger_account_limit,
                        key_setup_complete, created_at, updated_at, last_login_at, last_transaction_at
                 FROM acruet_user
@@ -59,6 +65,7 @@ public final class UserRepository {
     public Optional<AcruetUser> findById(Connection connection, UUID userId) throws SQLException {
         String sql = """
                 SELECT id, keycloak_user_id, email, display_name, signup_application_id,
+                       phone, mailing_address, allow_negative_withdraw,
                        ledger_account_count, transaction_count, ledger_account_limit,
                        key_setup_complete, created_at, updated_at, last_login_at, last_transaction_at
                 FROM acruet_user
@@ -141,6 +148,30 @@ public final class UserRepository {
         }
     }
 
+    public void updateProfile(
+            Connection connection,
+            UUID userId,
+            String displayName,
+            String phone,
+            String mailingAddress,
+            boolean allowNegativeWithdraw)
+            throws SQLException {
+        String sql = """
+                UPDATE acruet_user
+                SET display_name = ?, phone = ?, mailing_address = ?,
+                    allow_negative_withdraw = ?, updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, displayName);
+            statement.setString(2, phone);
+            statement.setString(3, mailingAddress);
+            statement.setBoolean(4, allowNegativeWithdraw);
+            statement.setObject(5, userId);
+            statement.executeUpdate();
+        }
+    }
+
     private static AcruetUser mapRow(ResultSet resultSet) throws SQLException {
         Timestamp lastLoginAt = resultSet.getTimestamp("last_login_at");
         Timestamp lastTransactionAt = resultSet.getTimestamp("last_transaction_at");
@@ -150,6 +181,9 @@ public final class UserRepository {
                 resultSet.getString("email"),
                 resultSet.getString("display_name"),
                 resultSet.getObject("signup_application_id", UUID.class),
+                resultSet.getString("phone"),
+                resultSet.getString("mailing_address"),
+                resultSet.getBoolean("allow_negative_withdraw"),
                 resultSet.getInt("ledger_account_count"),
                 resultSet.getInt("transaction_count"),
                 resultSet.getInt("ledger_account_limit"),
