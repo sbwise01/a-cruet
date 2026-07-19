@@ -18,6 +18,7 @@ With a-cruet you can:
 - **Sign in** securely and manage your own envelopes
 - **Record deposits**, **withdrawals**, and **transfers** between envelopes
 - **View reports** — a spreadsheet-style history and a chart of balances over time
+- **Share a household ledger** — an existing member can invite family by email so you use the same envelopes together (each person has their own sign-in and encryption passphrase; up to five members per household)
 - **Protect your data** with a personal encryption passphrase that only you know
 
 The app is built for people who want a simple, intentional way to **allocate and track savings by purpose**, not a full double-entry accounting system or a bank connection.

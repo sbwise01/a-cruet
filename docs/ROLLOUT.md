@@ -88,7 +88,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 9 — Ledger UI polish | ✅ Complete (2026-07-18) — items 1–9 + item 10 verified; admin alert → Phase 11 |
 | 10 — Client-side reports | ✅ Complete (2026-07-18) |
 | 11 — Admin ops (suspend, offboard, cron) | ✅ Complete (2026-07-19) — core ops verified; some E2E skipped |
-| 12 — Shared household (v2) | In progress — **12a/12b** ✅ verified *(2026-07-19)*; **12c + 12d** implemented *(2026-07-19)* — cluster verify pending |
+| 12 — Shared household (v2) | In progress — **12a–12d** ✅ verified *(2026-07-19)*; **12e/12f** remaining |
 | 13 — Index tiles + E2E verification | Pending — after Phase 12; uses household member for most flows |
 | *(CI/CD + Flux)* | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
 | 14 — Non-technical README summary | ✅ Complete (2026-07-12) — `README.md` |
@@ -1183,7 +1183,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 
 **Background:** v1 scoped ledger rows and encryption to a single user. v2 introduces `household`, `household_member`, and `household_invite`; migrates existing users to 1-member households; re-scopes ledger tables to `household_id`. Each member keeps their own passphrase and recovery file wrapping the **same household DEK**.
 
-**Status:** **12a + 12b** ✅ complete on cluster *(2026-07-19)*. **12c + 12d** implemented in repo *(2026-07-19)* — member invite (UI/API, signup link, invite-linked approve) and household join key setup (`/keys/join-household`, invite DEK unwrap, recovery file). **Next:** cluster verify full invitee path (12c + 12d together), then **12e** offboard.
+**Status:** **12a + 12b** ✅ complete on cluster *(2026-07-19)*. **12c + 12d** ✅ cluster-verified *(2026-07-19)* — member invite (auto-application, notification + verification emails, invite-linked approve) and household join key setup (`/keys/join-household`, invite DEK unwrap, recovery file). **Next:** **12e** offboard, **12f** admin UI polish.
 
 ### Sub-phases (implementation order)
 
@@ -1191,8 +1191,8 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 |------|--------|
 | **12a** | Flyway migration — `household`, `household_member`, backfill 1-member households; add `household_id` to ledger tables; move counts/limit to household ✅ *(2026-07-19)* |
 | **12b** | `LedgerService` + repositories — read/write by household; rate limits still per user ✅ *(2026-07-19; bundled with 12a for deploy safety)* |
-| **12c** | Member invite — user UI (email only, unlocked), store ciphertext invite payload, signup link email, `signup_application.household_invite_id` ✅ *(2026-07-19; code)* |
-| **12d** | Household join key setup — invited members use `/keys/join-household` (unwrap invite DEK, dual wrap + recovery); gated by invite-linked signup ✅ *(2026-07-19; code)* |
+| **12c** | Member invite — user UI (email only, unlocked), auto-application + notification/verification emails, `signup_application.household_invite_id` ✅ *(2026-07-19; cluster)* |
+| **12d** | Household join key setup — invited members use `/keys/join-household` (unwrap invite DEK, dual wrap + recovery); gated by invite-linked signup ✅ *(2026-07-19; cluster)* |
 | **12e** | Offboard member vs purge household — member-only removal when others remain (Section 7) |
 | **12f** | Admin UI — household on user list + approval queue; cluster verify: owner invites second user → approve → join → shared ledger |
 
@@ -1215,15 +1215,15 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 3. [x] `last_transaction_at` still per acting user
 4. [x] Solo-user purge deletes empty household (ledger CASCADE) when last member removed
 
-**12c + 12d — Member invite + join key setup** ✅ *(2026-07-19 — code)*
+**12c + 12d — Member invite + join key setup** ✅ *(2026-07-19 — cluster)*
 
 **12c — Invite**
 
 1. [x] User app page **`/household/invite`** + profile/avatar links
 2. [x] Require unlocked session client-side; POST `/household/invite/api` with invite-wrapped DEK ciphertext
 3. [x] Enforce **5-member cap** (active + pending invites)
-4. [x] Email with signup URL `?invite=<token>` (7-day invite expiry)
-5. [x] Signup form accepts invite token; `signup_application.household_invite_id` set; admin approve provisions **member** into inviter household
+4. [x] Notification email (no apply link) + verification email; auto-create `signup_application` linked to invite (7-day invite expiry)
+5. [x] Invitee verifies email → admin approve provisions **member** into inviter household; profile completed on first login
 
 **12d — Join key setup**
 
@@ -1245,11 +1245,11 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 ### Verify
 
 - [x] Existing solo user(s) migrated to 1-member household; ledger unchanged after deploy *(2026-07-19; `sbwise@gmail.com` — owner row, counts, sign-in + ledger)*
-- [ ] **12c + 12d — full invitee path (cluster):**
-  - [ ] Owner (`sbwise@gmail.com`) unlocks → **`/household/invite`** → invite by email (pending invite counts toward 5-member cap)
-  - [ ] Invitee receives signup link with `?invite=<token>`; signup → verify → admin approve → provisioned as **member** (not new solo household)
-  - [ ] Invitee first sign-in → **`/keys/join-household`** (not `/keys/setup`); re-enter invite token → passphrase → recovery file → `key_setup_complete`
-  - [ ] Member decrypts existing household envelopes; deposit/withdraw visible to owner (shared ledger)
+- [x] **12c + 12d — full invitee path (cluster)** *(2026-07-19)*
+  - [x] Owner unlocks → **`/household/invite`** → invite by email (pending invite counts toward 5-member cap)
+  - [x] Invitee receives notification email (invitation token) + verification email; verify → admin approve → provisioned as **member** (not new solo household)
+  - [x] Invitee first sign-in → **`/keys/join-household`** (not `/keys/setup`); invite token → passphrase → recovery file → `key_setup_complete`
+  - [x] Member decrypts existing household envelopes; shared ledger works for owner + member
 - [ ] Offboard member only — owner ledger intact; member data purged *(12e)*
 - [ ] Admin UI shows household membership *(12f)*
 
@@ -1287,8 +1287,8 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 
 | # | Flow | Actor | Expected |
 |---|------|-------|----------|
-| 0 | Household invite → signup link | Owner | Invitee receives email; application linked to household |
-| 1 | Public signup + verify + approve | Member | User can sign in |
+| 0 | Household invite → verify → approve | Owner + member | Notification + verification emails; application linked to household; member join key setup |
+| 1 | Sign in + profile after invite | Member | User can sign in; profile on first login |
 | 2 | Household join key + recovery | Member | Shared ledger unlocked (not fresh solo DEK) |
 | 3 | Deposit / withdraw / transfer | Member | Balances correct client-side; owner sees same data |
 | 4 | CSV + chart report | Member | Matches shared ledger |
