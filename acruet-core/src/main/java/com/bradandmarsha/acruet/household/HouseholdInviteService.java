@@ -4,6 +4,7 @@ import com.bradandmarsha.acruet.auth.OidcSettings;
 import com.bradandmarsha.acruet.config.SmtpSettings;
 import com.bradandmarsha.acruet.crypto.EncryptedBlob;
 import com.bradandmarsha.acruet.db.Database;
+import com.bradandmarsha.acruet.keys.WrappedDekPayload;
 import com.bradandmarsha.acruet.mail.MailSender;
 import com.bradandmarsha.acruet.signup.SignupTokens;
 import com.bradandmarsha.acruet.user.AcruetUser;
@@ -194,14 +195,34 @@ public final class HouseholdInviteService {
         if (isBlank(request.inviteToken())) {
             return Optional.of("Invite token is required.");
         }
-        if (EncryptedBlob.validationError(request.wrappedDek()).isPresent()) {
+        if (validationErrorForBase64Blob(request.wrappedDek(), WrappedDekPayload.MIN_WRAPPED_DEK_BYTES).isPresent()) {
             return Optional.of("Invalid invite encryption payload.");
         }
-        if (EncryptedBlob.validationError(request.kdfSalt()).isPresent()) {
+        if (validationErrorForBase64Blob(request.kdfSalt(), WrappedDekPayload.MIN_SALT_BYTES).isPresent()) {
             return Optional.of("Invalid invite encryption metadata.");
         }
         if (isBlank(request.wrapAlgorithm()) || isBlank(request.kdfAlgorithm()) || isBlank(request.kdfHash())) {
             return Optional.of("Invite encryption metadata is incomplete.");
+        }
+        if (!WrappedDekPayload.WRAP_ALGORITHM.equals(request.wrapAlgorithm())) {
+            return Optional.of("Unsupported invite wrap algorithm.");
+        }
+        if (request.kdfIterations() < 0) {
+            return Optional.of("Invalid invite encryption metadata.");
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<String> validationErrorForBase64Blob(String base64, int minBytes) {
+        if (base64 == null || base64.isBlank()) {
+            return Optional.of("Value is required.");
+        }
+        byte[] bytes = EncryptedBlob.decode(base64);
+        if (bytes == null) {
+            return Optional.of("Value is not valid base64.");
+        }
+        if (bytes.length < minBytes) {
+            return Optional.of("Value is too short.");
         }
         return Optional.empty();
     }
