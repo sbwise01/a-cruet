@@ -129,6 +129,7 @@ public class AdminUserResource {
                       <td>%d</td>
                       <td>%s</td>
                       <td>%s</td>
+                      <td>%s</td>
                       <td class="row-actions">%s</td>
                     </tr>
                     """
