@@ -126,6 +126,41 @@ public final class SignupRepository {
     public record RejectionResult(int rejectionCount, ApplicationStatus status) {
     }
 
+    public List<SignupApplication> listBlocked() throws SQLException {
+        String sql = """
+                SELECT id, email, full_name, reason, phone, mailing_address, status,
+                       rejection_count, last_rejected_at, created_at
+                FROM signup_application
+                WHERE status = ?
+                ORDER BY created_at DESC
+                """;
+        List<SignupApplication> blocked = new ArrayList<>();
+        try (Connection connection = Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, ApplicationStatus.BLOCKED.dbValue());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    blocked.add(mapApplication(resultSet));
+                }
+            }
+        }
+        return blocked;
+    }
+
+    public boolean unblock(Connection connection, UUID id) throws SQLException {
+        String sql = """
+                UPDATE signup_application
+                SET status = ?, rejection_count = 0, last_rejected_at = NULL, updated_at = NOW()
+                WHERE id = ? AND status = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, ApplicationStatus.REJECTED.dbValue());
+            statement.setObject(2, id);
+            statement.setString(3, ApplicationStatus.BLOCKED.dbValue());
+            return statement.executeUpdate() == 1;
+        }
+    }
+
     public Optional<SignupApplication> findLatestByEmail(String email) throws SQLException {
         String sql = """
                 SELECT id, email, full_name, reason, phone, mailing_address, status,

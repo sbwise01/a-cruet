@@ -89,6 +89,7 @@ public class OidcAuthFilter implements Filter {
         }
         if (path.equals("/health")
                 || path.startsWith("/auth/")
+                || path.startsWith("/internal/cron/")
                 || path.equals("/signup")
                 || path.startsWith("/signup/")) {
             return true;

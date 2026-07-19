@@ -102,9 +102,18 @@ public final class LedgerViews {
                 """;
     }
 
-    public static String ledgerMainHtml(
-            String lockImageUrl, String transactionsImageUrl, String chartImageUrl) {
+    public static String offboardBannerHtml() {
         return """
+                <div class="notice">
+                  <p>Your account is being offboarded. <a href="/offboard">Export your data</a> before access is removed.</p>
+                </div>
+                """;
+    }
+
+    public static String ledgerMainHtml(
+            String bannerHtml, String lockImageUrl, String transactionsImageUrl, String chartImageUrl) {
+        return (bannerHtml == null ? "" : bannerHtml)
+                + """
                 <div id="ledgerRoot" data-lock-image="%s">
                   <div id="ledgerLocked" hidden>
                     <div class="unlock-tile-wrap">
