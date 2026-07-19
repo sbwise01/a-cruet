@@ -334,7 +334,7 @@ public class KeyResource {
         String tokenValue = inviteToken == null ? "" : escapeAttr(inviteToken);
         return """
                 <h2>Join household encryption</h2>
-                <p class="hint">You were invited to share a household ledger. Use the <strong>same invitation token</strong> from your household invite email (the <code>?invite=</code> part of the signup link).</p>
+                <p class="hint">You were invited to share a household ledger. Use the <strong>invitation token</strong> from your household invitation email.</p>
                 <div id="step-token" class="wizard-step">
                   <p><strong>Step 1:</strong> Enter your invitation token.</p>
                   <label for="inviteToken">Invitation token</label>

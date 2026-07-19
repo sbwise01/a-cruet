@@ -42,7 +42,7 @@ public class SignupResource {
             if (preview.isEmpty()) {
                 return Response.status(Response.Status.BAD_REQUEST).entity(invalidInvitePage()).build();
             }
-            return Response.ok(signupFormPage(null, preview.get(), inviteToken)).build();
+            return Response.ok(invitePendingPage(preview.get())).build();
         }
         return Response.ok(signupFormPage(null, null, null)).build();
     }
@@ -68,9 +68,14 @@ public class SignupResource {
         if (result.success()) {
             return successPage(result.message());
         }
-        Optional<HouseholdInviteService.SignupInvitePreview> preview = inviteOptional.flatMap(
-                token -> householdInviteService.previewSignupInvite(token, Instant.now()));
-        return signupFormPage(result.message(), preview.orElse(null), inviteToken);
+        if (inviteOptional.isPresent()) {
+            Optional<HouseholdInviteService.SignupInvitePreview> preview = inviteOptional.flatMap(
+                    token -> householdInviteService.previewSignupInvite(token, Instant.now()));
+            if (preview.isPresent()) {
+                return invitePendingPage(preview.get(), result.message());
+            }
+        }
+        return signupFormPage(result.message(), null, null);
     }
 
     @GET
@@ -92,10 +97,7 @@ public class SignupResource {
         return request.getRemoteAddr();
     }
 
-    private static String signupFormPage(
-            String errorMessage,
-            HouseholdInviteService.SignupInvitePreview invitePreview,
-            String inviteToken) {
+    private static String signupFormPage(String errorMessage, HouseholdInviteService.SignupInvitePreview invitePreview, String inviteToken) {
         String alert = errorMessage == null
                 ? ""
                 : """
@@ -159,6 +161,33 @@ public class SignupResource {
                                 alert,
                                 hiddenInvite,
                                 emailField));
+    }
+
+    private static String invitePendingPage(HouseholdInviteService.SignupInvitePreview invitePreview) {
+        return invitePendingPage(invitePreview, null);
+    }
+
+    private static String invitePendingPage(
+            HouseholdInviteService.SignupInvitePreview invitePreview, String errorMessage) {
+        String alert = errorMessage == null
+                ? ""
+                : """
+                  <p class="error">%s</p>
+                  """.formatted(escape(errorMessage));
+        return simplePage(
+                "Household invitation",
+                "Household invitation",
+                """
+                %s
+                <p>You have been invited to join an a-cruet household using <strong>%s</strong>.</p>
+                <p>Check your email for a verification link (sent separately). After an administrator approves your request, sign in and complete your profile information on first login.</p>
+                <p class="hint">Invitation valid until %s.</p>
+                <p class="hint"><a href="/">Return to home</a></p>
+                """
+                        .formatted(
+                                alert,
+                                escape(invitePreview.email()),
+                                DISPLAY_TIME.format(invitePreview.expiresAt())));
     }
 
     private static String invalidInvitePage() {

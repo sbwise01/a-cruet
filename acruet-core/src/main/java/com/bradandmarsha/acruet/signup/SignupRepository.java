@@ -165,6 +165,12 @@ public final class SignupRepository {
     }
 
     public Optional<SignupApplication> findLatestByEmail(String email) throws SQLException {
+        try (Connection connection = Database.openConnection()) {
+            return findLatestByEmail(connection, email);
+        }
+    }
+
+    public Optional<SignupApplication> findLatestByEmail(Connection connection, String email) throws SQLException {
         String sql = """
                 SELECT id, email, full_name, reason, phone, mailing_address, status,
                        rejection_count, last_rejected_at, household_invite_id, created_at
@@ -173,8 +179,7 @@ public final class SignupRepository {
                 ORDER BY created_at DESC
                 LIMIT 1
                 """;
-        try (Connection connection = Database.openConnection();
-                PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, email);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
@@ -196,6 +201,34 @@ public final class SignupRepository {
             Instant tokenExpiresAt,
             String applicantIp,
             UUID householdInviteId) throws SQLException {
+        try (Connection connection = Database.openConnection()) {
+            insertApplication(
+                    connection,
+                    id,
+                    email,
+                    fullName,
+                    reason,
+                    phone,
+                    mailingAddress,
+                    tokenHash,
+                    tokenExpiresAt,
+                    applicantIp,
+                    householdInviteId);
+        }
+    }
+
+    public void insertApplication(
+            Connection connection,
+            UUID id,
+            String email,
+            String fullName,
+            String reason,
+            String phone,
+            String mailingAddress,
+            String tokenHash,
+            Instant tokenExpiresAt,
+            String applicantIp,
+            UUID householdInviteId) throws SQLException {
         String sql = """
                 INSERT INTO signup_application (
                     id, email, full_name, reason, phone, mailing_address, status,
@@ -203,8 +236,7 @@ public final class SignupRepository {
                     household_invite_id
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
-        try (Connection connection = Database.openConnection();
-                PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
             statement.setString(2, email.trim());
             statement.setString(3, fullName.trim());
@@ -221,9 +253,14 @@ public final class SignupRepository {
     }
 
     public void deleteApplication(UUID id) throws SQLException {
+        try (Connection connection = Database.openConnection()) {
+            deleteApplication(connection, id);
+        }
+    }
+
+    public void deleteApplication(Connection connection, UUID id) throws SQLException {
         String sql = "DELETE FROM signup_application WHERE id = ?";
-        try (Connection connection = Database.openConnection();
-                PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
             statement.executeUpdate();
         }
