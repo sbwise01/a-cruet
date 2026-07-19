@@ -52,6 +52,18 @@ public final class KeycloakAdminClient {
         return new ProvisionedUser(userId, temporaryPassword);
     }
 
+    /**
+     * Sets a new temporary Keycloak sign-in password (user must change on next login).
+     */
+    public String resetSignInPassword(String keycloakUserId) {
+        if (!settings.isConfigured()) {
+            throw new KeycloakAdminException("Keycloak Admin API is not configured");
+        }
+        String temporaryPassword = newTemporaryPassword();
+        setTemporaryPassword(keycloakUserId, temporaryPassword);
+        return temporaryPassword;
+    }
+
     public void setUserEnabled(String keycloakUserId, boolean enabled) {
         if (!settings.isConfigured()) {
             throw new KeycloakAdminException("Keycloak Admin API is not configured");

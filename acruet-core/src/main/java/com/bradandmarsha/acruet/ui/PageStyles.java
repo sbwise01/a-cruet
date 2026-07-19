@@ -111,7 +111,7 @@ public final class PageStyles {
                   border-radius: 8px;
                   background: var(--bg-card);
                 }
-                .notice.success { border-left: 3px solid #34d399; }
+                .notice.success { border-left: 3px solid #34d399; white-space: pre-wrap; }
                 .notice.error { border-left: 3px solid #f87171; }
                 """;
     }

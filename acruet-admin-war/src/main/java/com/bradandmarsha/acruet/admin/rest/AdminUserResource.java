@@ -83,6 +83,13 @@ public class AdminUserResource {
     }
 
     @POST
+    @Path("{id}/reset-signin-password")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public Response resetSignInPassword(@Context HttpServletRequest request, @PathParam("id") UUID userId) {
+        return act(request, userId, admin -> adminOpsService.resetSignInPassword(userId, admin));
+    }
+
+    @POST
     @Path("{id}/offboard")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Response offboard(@Context HttpServletRequest request, @PathParam("id") UUID userId) {
@@ -214,6 +221,13 @@ public class AdminUserResource {
                     """
                             .formatted(userId));
         }
+        forms.append(
+                """
+                <form method="post" action="/users/%s/reset-signin-password">
+                  <button type="submit" class="reject">Reset sign-in password</button>
+                </form>
+                """
+                        .formatted(userId));
         if (!offboarding) {
             forms.append(
                     """

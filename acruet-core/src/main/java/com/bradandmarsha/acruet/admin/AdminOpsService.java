@@ -209,6 +209,44 @@ public final class AdminOpsService {
         }
     }
 
+    public ApprovalService.ActionResult resetSignInPassword(UUID userId, ApprovalService.AdminActor admin) {
+        try {
+            Optional<AcruetUser> userOptional = Database.inTransactionReturning(
+                    connection -> userRepository.findById(connection, userId));
+            if (userOptional.isEmpty()) {
+                return ApprovalService.ActionResult.error("User not found.");
+            }
+            AcruetUser user = userOptional.get();
+            if (isSelf(admin, user)) {
+                return ApprovalService.ActionResult.error(
+                        "You cannot reset your own sign-in password here.");
+            }
+            String temporaryPassword = keycloakAdminClient.resetSignInPassword(user.keycloakUserId());
+            Database.inTransaction(connection -> auditRepository.insert(
+                    connection,
+                    admin.keycloakUserId(),
+                    admin.email(),
+                    ApprovalAction.RESET_SIGNIN_PASSWORD,
+                    TARGET_TYPE_USER,
+                    userId,
+                    "Temporary Keycloak sign-in password set"));
+            return ApprovalService.ActionResult.success(
+                    """
+                    Temporary sign-in password for %s: %s
+
+                    Shown once — transfer securely to the user. This resets Keycloak sign-in only, not the encryption passphrase. The user must change the password on next sign-in.
+                    """
+                            .formatted(user.email(), temporaryPassword)
+                            .trim());
+        } catch (KeycloakAdminException exception) {
+            LOGGER.log(Level.WARNING, "Sign-in password reset failed in Keycloak", exception);
+            return ApprovalService.ActionResult.error(exception.getMessage());
+        } catch (Exception exception) {
+            LOGGER.log(Level.WARNING, "Sign-in password reset failed", exception);
+            return ApprovalService.ActionResult.error("Sign-in password reset failed. Please try again.");
+        }
+    }
+
     public ApprovalService.ActionResult offboard(UUID userId, ApprovalService.AdminActor admin) {
         try {
             Optional<AcruetUser> userOptional = Database.inTransactionReturning(

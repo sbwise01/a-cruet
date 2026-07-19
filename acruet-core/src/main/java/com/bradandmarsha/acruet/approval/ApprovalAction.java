@@ -10,6 +10,7 @@ public enum ApprovalAction {
     REVOKE_ADMIN,
     SUSPEND_USER,
     UNSUSPEND_USER,
+    RESET_SIGNIN_PASSWORD,
     OFFBOARD_USER,
     PURGE_USER,
     UNBLOCK_SIGNUP,

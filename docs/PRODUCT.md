@@ -189,6 +189,7 @@ Product and technical decisions captured during requirements clarification. Each
 |---|------|----------|
 | 46 | First admin bootstrap | **Manual** — assign **`a-cruet-admin`** realm role in Keycloak console for initial admin(s) |
 | 47 | Grant/revoke admins | **Admin UI** — existing admin grants/revokes **`a-cruet-admin`** via app → **Keycloak Admin API** |
+| 47a | Reset sign-in password | **Admin UI** — for provisioned users only: set Keycloak **temporary** sign-in password via Admin API; password **shown once** to the acting admin for out-of-band transfer (not emailed); user must change on next sign-in. **Does not** reset encryption passphrase / ledger access — recovery file flow unchanged |
 
 #### User suspension
 
@@ -197,6 +198,7 @@ Product and technical decisions captured during requirements clarification. Each
 | 49 | Suspension mechanism | **Disable Keycloak login**; data untouched; **email** to user explaining suspension and **length in days** |
 | 49b | Suspension duration | **Admin sets** number of days when suspending |
 | 49c | End of suspension | **Auto-unsuspend** — app/CronJob re-enables Keycloak user when period ends |
+| 49d | Manual unsuspend | **Admin UI** on user list — re-enable Keycloak and clear suspension **before** period ends; audited (same as auto-unsuspend) |
 
 #### User offboarding
 
@@ -275,6 +277,8 @@ Product and technical decisions captured during requirements clarification. Each
 - The application will support the following administrative workflows:
   - approve new user applications
   - assign administrators
+  - reset Keycloak sign-in passwords (temporary; admin transfer)
+  - suspend and unsuspend users (including manual early unsuspend)
   - monitor usage by user
 
 Ask me questions to clarify the product requirements, the technical requirements, engineering principals, and hard constraints.
