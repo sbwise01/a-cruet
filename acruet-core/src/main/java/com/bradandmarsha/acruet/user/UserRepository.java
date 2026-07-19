@@ -1,5 +1,8 @@
 package com.bradandmarsha.acruet.user;
 
+import com.bradandmarsha.acruet.household.HouseholdMemberRole;
+import com.bradandmarsha.acruet.household.HouseholdRepository;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -16,6 +19,15 @@ import java.util.UUID;
  */
 public final class UserRepository {
 
+    private static final String USER_SELECT = """
+            SELECT u.id, u.keycloak_user_id, u.email, u.display_name, u.signup_application_id,
+                   u.phone, u.mailing_address, u.allow_negative_withdraw, u.household_id,
+                   h.ledger_account_count, h.transaction_count, h.ledger_account_limit,
+                   u.key_setup_complete, u.created_at, u.updated_at, u.last_login_at, u.last_transaction_at
+            """;
+
+    private final HouseholdRepository householdRepository = new HouseholdRepository();
+
     public void insert(
             Connection connection,
             UUID id,
@@ -25,11 +37,14 @@ public final class UserRepository {
             String phone,
             String mailingAddress,
             UUID signupApplicationId) throws SQLException {
+        UUID householdId = UUID.randomUUID();
+        householdRepository.insertOwnerHousehold(connection, householdId);
+
         String sql = """
                 INSERT INTO acruet_user (
                     id, keycloak_user_id, email, display_name, phone, mailing_address,
-                    signup_application_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    signup_application_id, household_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
@@ -39,19 +54,19 @@ public final class UserRepository {
             statement.setString(5, phone.trim());
             statement.setString(6, mailingAddress.trim());
             statement.setObject(7, signupApplicationId);
+            statement.setObject(8, householdId);
             statement.executeUpdate();
         }
+
+        householdRepository.insertMember(connection, householdId, id, HouseholdMemberRole.OWNER);
     }
 
     public Optional<AcruetUser> findByKeycloakUserId(Connection connection, String keycloakUserId)
             throws SQLException {
-        String sql = """
-                SELECT id, keycloak_user_id, email, display_name, signup_application_id,
-                       phone, mailing_address, allow_negative_withdraw,
-                       ledger_account_count, transaction_count, ledger_account_limit,
-                       key_setup_complete, created_at, updated_at, last_login_at, last_transaction_at
-                FROM acruet_user
-                WHERE keycloak_user_id = ?
+        String sql = USER_SELECT + """
+                FROM acruet_user u
+                INNER JOIN household h ON h.id = u.household_id
+                WHERE u.keycloak_user_id = ?
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, keycloakUserId);
@@ -65,13 +80,10 @@ public final class UserRepository {
     }
 
     public Optional<AcruetUser> findById(Connection connection, UUID userId) throws SQLException {
-        String sql = """
-                SELECT id, keycloak_user_id, email, display_name, signup_application_id,
-                       phone, mailing_address, allow_negative_withdraw,
-                       ledger_account_count, transaction_count, ledger_account_limit,
-                       key_setup_complete, created_at, updated_at, last_login_at, last_transaction_at
-                FROM acruet_user
-                WHERE id = ?
+        String sql = USER_SELECT + """
+                FROM acruet_user u
+                INNER JOIN household h ON h.id = u.household_id
+                WHERE u.id = ?
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, userId);
@@ -110,37 +122,20 @@ public final class UserRepository {
         }
     }
 
-    public void incrementLedgerAccountCount(Connection connection, UUID userId) throws SQLException {
-        String sql = """
-                UPDATE acruet_user
-                SET ledger_account_count = ledger_account_count + 1, updated_at = NOW()
-                WHERE id = ?
-                """;
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, userId);
-            statement.executeUpdate();
-        }
+    public void incrementLedgerAccountCount(Connection connection, UUID householdId) throws SQLException {
+        householdRepository.incrementLedgerAccountCount(connection, householdId);
     }
 
-    public void decrementLedgerAccountCount(Connection connection, UUID userId) throws SQLException {
-        String sql = """
-                UPDATE acruet_user
-                SET ledger_account_count = GREATEST(ledger_account_count - 1, 0), updated_at = NOW()
-                WHERE id = ?
-                """;
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, userId);
-            statement.executeUpdate();
-        }
+    public void decrementLedgerAccountCount(Connection connection, UUID householdId) throws SQLException {
+        householdRepository.decrementLedgerAccountCount(connection, householdId);
     }
 
-    public void incrementTransactionCount(Connection connection, UUID userId, Instant transactionAt)
+    public void incrementTransactionCount(Connection connection, UUID userId, UUID householdId, Instant transactionAt)
             throws SQLException {
+        householdRepository.incrementTransactionCount(connection, householdId);
         String sql = """
                 UPDATE acruet_user
-                SET transaction_count = transaction_count + 1,
-                    last_transaction_at = ?,
-                    updated_at = NOW()
+                SET last_transaction_at = ?, updated_at = NOW()
                 WHERE id = ?
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -177,12 +172,13 @@ public final class UserRepository {
     public List<OperationalUserRow> listOperational() throws SQLException {
         String sql = """
                 SELECT u.id, u.keycloak_user_id, u.email, u.display_name, u.signup_application_id,
-                       u.phone, u.mailing_address, u.allow_negative_withdraw,
-                       u.ledger_account_count, u.transaction_count, u.ledger_account_limit,
+                       u.phone, u.mailing_address, u.allow_negative_withdraw, u.household_id,
+                       h.ledger_account_count, h.transaction_count, h.ledger_account_limit,
                        u.key_setup_complete, u.created_at, u.updated_at, u.last_login_at,
                        u.last_transaction_at, u.suspended_until, u.suspended_at,
                        o.export_deadline, o.export_completed_at, o.purged_at
                 FROM acruet_user u
+                INNER JOIN household h ON h.id = u.household_id
                 LEFT JOIN user_offboard o ON o.user_id = u.id AND o.purged_at IS NULL
                 ORDER BY u.display_name ASC, u.email ASC
                 """;
@@ -239,14 +235,11 @@ public final class UserRepository {
     }
 
     public List<AcruetUser> listSuspendedDue(Instant now) throws SQLException {
-        String sql = """
-                SELECT id, keycloak_user_id, email, display_name, signup_application_id,
-                       phone, mailing_address, allow_negative_withdraw,
-                       ledger_account_count, transaction_count, ledger_account_limit,
-                       key_setup_complete, created_at, updated_at, last_login_at, last_transaction_at
-                FROM acruet_user
-                WHERE suspended_until IS NOT NULL AND suspended_until <= ?
-                ORDER BY suspended_until ASC
+        String sql = USER_SELECT + """
+                FROM acruet_user u
+                INNER JOIN household h ON h.id = u.household_id
+                WHERE u.suspended_until IS NOT NULL AND u.suspended_until <= ?
+                ORDER BY u.suspended_until ASC
                 """;
         List<AcruetUser> users = new ArrayList<>();
         try (Connection connection = com.bradandmarsha.acruet.db.Database.openConnection();
@@ -262,10 +255,30 @@ public final class UserRepository {
     }
 
     public void deleteById(Connection connection, UUID userId) throws SQLException {
+        Optional<UUID> householdIdOptional = findHouseholdId(connection, userId);
         String sql = "DELETE FROM acruet_user WHERE id = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, userId);
             statement.executeUpdate();
+        }
+        if (householdIdOptional.isPresent()) {
+            UUID householdId = householdIdOptional.get();
+            if (householdRepository.countMembers(connection, householdId) == 0) {
+                householdRepository.deleteById(connection, householdId);
+            }
+        }
+    }
+
+    private Optional<UUID> findHouseholdId(Connection connection, UUID userId) throws SQLException {
+        String sql = "SELECT household_id FROM acruet_user WHERE id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.ofNullable(resultSet.getObject("household_id", UUID.class));
+            }
         }
     }
 
@@ -302,6 +315,7 @@ public final class UserRepository {
                 resultSet.getString("phone"),
                 resultSet.getString("mailing_address"),
                 resultSet.getBoolean("allow_negative_withdraw"),
+                resultSet.getObject("household_id", UUID.class),
                 resultSet.getInt("ledger_account_count"),
                 resultSet.getInt("transaction_count"),
                 resultSet.getInt("ledger_account_limit"),

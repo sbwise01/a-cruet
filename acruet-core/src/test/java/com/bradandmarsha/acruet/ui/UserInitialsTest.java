@@ -21,6 +21,7 @@ class UserInitialsTest {
                 "555-0100",
                 "1 Main St",
                 false,
+                java.util.UUID.randomUUID(),
                 0,
                 0,
                 100,

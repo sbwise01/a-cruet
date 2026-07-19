@@ -35,17 +35,17 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 
 ## Scope
 
-| In scope (v1) | Out of scope (later) |
-|---------------|----------------------|
-| Maven multi-module, two WARs (user + admin) | Shared household / multi-user ledger |
-| Dedicated `acruet-cnpg` cluster | CAPTCHA on signup |
-| Public user + internal admin ingress | Keycloak SMTP (app uses Proton) |
-| Signup → verify email → admin approval → provision | Social login |
-| Client-side envelope encryption + recovery file | Mobile app |
-| Ledger: deposit, withdraw, transfer, archive | Multi-currency |
-| Client-side CSV + stacked area reports | Server-side plaintext reports |
-| Admin: approve/reject, suspend, offboard, role grant | Full per-API audit log |
-| GitHub Actions + Flux image automation | Mailpit in production |
+| In scope (v1) | v2 — Phase 12 | Out of scope (later) |
+|---------------|---------------|----------------------|
+| Maven multi-module, two WARs (user + admin) | **Shared household ledger** (up to 5 members) | CAPTCHA on signup |
+| Dedicated `acruet-cnpg` cluster | Member invite by email + household join key setup | Keycloak SMTP (app uses Proton) |
+| Public user + internal admin ingress | | Social login |
+| Signup → verify email → admin approval → provision | | Mobile app |
+| Client-side envelope encryption + recovery file | | Multi-currency |
+| Ledger: deposit, withdraw, transfer, archive | | |
+| Client-side CSV + stacked area reports | | Server-side plaintext reports |
+| Admin: approve/reject, suspend, offboard, role grant | | Full per-API audit log |
+| GitHub Actions + Flux image automation | | Mailpit in production |
 
 ---
 
@@ -87,9 +87,10 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 8 — Ledger core | ✅ Complete (2026-07-16) — deposits, withdraws, transfers, archive, ciphertext verified |
 | 9 — Ledger UI polish | ✅ Complete (2026-07-18) — items 1–9 + item 10 verified; admin alert → Phase 11 |
 | 10 — Client-side reports | ✅ Complete (2026-07-18) |
-| 11 — Admin ops (suspend, offboard, cron) | Pending |
-| 12 — CI/CD + Flux image automation | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
-| 13 — Index tiles + E2E verification | Pending |
+| 11 — Admin ops (suspend, offboard, cron) | ✅ Complete (2026-07-19) — core ops verified; some E2E skipped |
+| 12 — Shared household (v2) | In progress — **12a/12b** code complete *(2026-07-19)*; cluster verify pending |
+| 13 — Index tiles + E2E verification | Pending — after Phase 12; uses household member for most flows |
+| *(CI/CD + Flux)* | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
 | 14 — Non-technical README summary | ✅ Complete (2026-07-12) — `README.md` |
 
 ---
@@ -320,7 +321,7 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 | Successful login | Session cookie; landing page | ✅ |
 | Admin with role | Admin dashboard shell loads | ✅ |
 | Logout | Session cleared; Keycloak SSO logout | ✅ |
-| Admin host without role | 403 after OIDC | ⏳ Deferred — no non-admin test user |
+| Admin host without role | 403 after OIDC | ✅ *(2026-07-19; `sbwise@gmail.com` — provisioned user, no `a-cruet-admin`)* |
 
 **Verified 2026-07-12:** User + admin OIDC sign-in, admin role gate (with `a-cruet-admin` in client dedicated scope), logout on user host. Manual Keycloak client settings documented in `wise-k8s` README todo.
 
@@ -461,15 +462,15 @@ flux get image repository,policy,update -n flux-system | grep acruet
 
 The `acruet-admin` client authenticates via client credentials, but **cannot call the Admin API until both** (a) its **service account** has `realm-management` roles and (b) the **dedicated client scope** allows those roles into the token. The `KeycloakOIDCClient` CR cannot assign `realm-management` client roles or dedicated-scope mappings yet (see `oidc-client-acruet-admin.yaml` comment; tracked in `wise-k8s` README todo).
 
-**Symptom if incomplete:** token endpoint returns **200**, but `GET /admin/realms/wise-k8s/users` returns **403**.
+**Symptom if incomplete:** token endpoint returns **200**, but Admin API returns **403** — e.g. `GET …/users` (approve flow) or `GET …/roles/a-cruet-admin` (**Grant admin** on `/users`; missing **`view-realm`**).
 
 **Console (one-time, realm `wise-k8s`):**
 
 1. Keycloak admin → **Clients** → **`acruet-admin`**
 2. **Service account roles** tab → **Assign role** → **Filter by clients** → **`realm-management`**
-3. Assign **`manage-users`**, **`view-users`**, **`query-users`**
+3. Assign **`manage-users`**, **`view-users`**, **`query-users`**, and **`view-realm`** (`view-realm` required for Phase 11 grant/revoke `a-cruet-admin` via `GET /roles/{role-name}`)
 4. **Clients** → **`acruet-admin`** → **Client scopes** tab → open the dedicated scope (link in the row, **`acruet-admin-dedicated`**) → **Scope** tab
-5. **Recommended (verified):** leave **Full scope allowed** **OFF** → **Assign role** → **Filter by clients** → **`realm-management`** → assign **manage-users**, **view-users**, **query-users** (same three as step 3)
+5. **Recommended (verified):** leave **Full scope allowed** **OFF** → **Assign role** → **Filter by clients** → **`realm-management`** → assign **manage-users**, **view-users**, **query-users**, and **view-realm** (same four as step 3)
 6. **Homelab shortcut (also works):** turn **Full scope allowed** **ON** on that dedicated scope instead of step 5
 7. Confirm `acruet` namespace secret `acruet-admin-api` `client-secret` matches Keycloak `acruet-admin` client secret
 
@@ -486,6 +487,10 @@ curl -s -o /dev/null -w "%{http_code}\n" \
   -H "Authorization: Bearer $TOKEN" \
   "https://auth.home.bradandmarsha.com/admin/realms/wise-k8s/users?email=test@example.com&exact=true"
 # expect 200 (not 403)
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://auth.home.bradandmarsha.com/admin/realms/wise-k8s/roles/a-cruet-admin"
+# expect 200 (not 403) — required for Grant admin / Revoke admin
 ```
 
 ### Bootstrap admin backfill (link existing Keycloak user to `acruet_user`)
@@ -1065,7 +1070,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 - [x] No ledger, no `/keys/setup` redirect for unlinked state *(2026-07-18)*
 - [x] Anomaly recorded server-side (`login_anomaly`) *(2026-07-18)*
 - [x] Fresh OIDC sign-in on user hostname (multi-replica): no **`Invalid OIDC state`** *(2026-07-18; bootstrap backfill re-login)*
-- [ ] Admin alerted on anomaly — **Phase 11 task 9**
+- [ ] Admin alerted on anomaly — **skipped** (Phase 11 E2E deferred; server-side `login_anomaly` + audit `alert_login_anomaly` rows verified 2026-07-19)
 
 ### Consistency review (resolved)
 
@@ -1155,21 +1160,104 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 10. **Unlinked login anomaly** — when a Keycloak session has no matching `acruet_user` (see Phase 9 item 10): alert administrators (email and/or admin UI queue); include Keycloak subject, email, and time; dedupe repeated hits in the same session where practical
 11. **Reset Keycloak sign-in password** from `/users` — temporary password via Admin API; shown once to acting admin for secure transfer; does **not** reset encryption passphrase
 
+**Status:** ✅ Cluster verification complete for core admin ops *(2026-07-19)*. **Skipped E2E:** offboard/export/purge; blocked signup unblock; full anomaly alert walkthrough (see Verify). **Pending:** auto-unsuspend CronJob *(suspend test in progress)*.
+
 ### Verify
 
-- Suspend → user cannot log in; auto-restore after N days
-- **Manual unsuspend** → user can sign in before suspension period ends; audit entry present
-- **Reset sign-in password** → user signs in with temporary password → Keycloak prompts password change; ledger passphrase unchanged
-- Offboard → export works; data purged after trigger
-- Admin action audit entries present
-- Grant admin → only succeeds for users with `acruet_user`; granted admin can use **both** user and admin hostnames without unlinked user-app state
-- Unlinked Keycloak login (non-routine paths) → admin alerted; user app message matches Phase 9 item 10
+- [x] **Suspend** — user cannot log in *(2026-07-19; `sbwise@gmail.com`)* — auto-restore via CronJob **pending** *(suspend test; check after `suspended_until`)*
+- [x] **Manual unsuspend** — user can sign in before suspension period ends *(2026-07-19; `sbwise@gmail.com`)*
+- [x] **Reset sign-in password** — user signs in with temporary password → Keycloak prompts password change; ledger passphrase unchanged *(2026-07-19; `sbwise@gmail.com`)*
+- [~] **Offboard** → export works; data purged after trigger — **skipped** *(2026-07-19)*
+- [x] **Admin action audit** — Phase 11 ops recorded in `admin_action_audit` with correct actions, admin identity, and no secrets in `detail` *(2026-07-19; `sbwise@gmail.com` suspend/unsuspend/reset/grant/revoke verified via SQL)*
+- [x] **Grant / revoke admin** — grant via `/users` assigns `a-cruet-admin`; granted user reaches admin UI and user app without unlinked state; revoke blocks admin UI again *(2026-07-19; `sbwise@gmail.com`; Keycloak `view-realm` on `acruet-admin` service account)*
+- [~] **Unlinked login anomaly alert** (email + `/anomalies` E2E) — **skipped** *(2026-07-19; Phase 9 UX + `login_anomaly` recording already verified)*
+- [~] **Blocked signup unblock** (`/blocked-signups`) — **skipped** *(2026-07-19)*
 
 ---
 
-## Phase 12 — CI/CD + Flux image automation
+## Phase 12 — Shared household (v2)
 
-**Merged into Phase 5** (2026-07-14). Continuous integration lives in `a-cruet/.github/workflows/`; Flux image automation manifests live in `wise-k8s/iac/kustomize/acruet/overlays/image-automation.yaml`. See Phase 5 deploy and verify steps.
+**Goal:** Multiple Keycloak users share one encrypted ledger per household. Unblocks **Phase 13 E2E** with a second member on the primary household (`sbwise@gmail.com` owner) without destructive tests touching the owner account.
+
+**Product:** [`PRODUCT.md`](PRODUCT.md) **Section 7** (locked 2026-07-19). **Target release:** **2.0.0**.
+
+**Background:** v1 scoped ledger rows and encryption to a single user. v2 introduces `household`, `household_member`, and `household_invite`; migrates existing users to 1-member households; re-scopes ledger tables to `household_id`. Each member keeps their own passphrase and recovery file wrapping the **same household DEK**.
+
+**Status:** **12a + 12b** implemented in repo *(2026-07-19)* — Flyway `V10__household.sql`, `HouseholdRepository`, ledger scoped by `household_id`. **Pending:** cluster migration verify. **Next:** 12c member invite.
+
+### Sub-phases (implementation order)
+
+| Step | Focus |
+|------|--------|
+| **12a** | Flyway migration — `household`, `household_member`, backfill 1-member households; add `household_id` to ledger tables; move counts/limit to household ✅ *(2026-07-19)* |
+| **12b** | `LedgerService` + repositories — read/write by household; rate limits still per user ✅ *(2026-07-19; bundled with 12a for deploy safety)* |
+| **12c** | Member invite — user UI (email only, unlocked), store ciphertext invite payload, signup link email, `signup_application.household_invite_id` |
+| **12d** | Household join key setup — new member path instead of fresh DEK; recovery file on join |
+| **12e** | Offboard member vs purge household — member-only removal when others remain (Section 7) |
+| **12f** | Admin UI — household on user list + approval queue; cluster verify: owner invites second user → approve → join → shared ledger |
+
+### Tasks
+
+**12a — Schema + migration** ✅ *(2026-07-19)*
+
+1. [x] `household` — id, operational counts, `ledger_account_limit`, timestamps
+2. [x] `household_member` — household_id, user_id, role (`owner` \| `member`), joined_at; one household per user
+3. [x] `household_invite` — household_id, email, token, status, expiry, invited_by_user_id, encrypted invite payload (BYTEA + wrap/KDF metadata columns)
+4. [x] `ALTER signup_application ADD household_invite_id`
+5. [x] `ALTER acruet_user ADD household_id`; backfill from migration
+6. [x] Ledger tables: `household_id` FK; migrate data from `user_id`; indexes updated
+7. [x] Drop per-user ledger count columns on `acruet_user` after household backfill
+
+**12b — Ledger scoped to household** ✅ *(2026-07-19)*
+
+1. [x] Resolve member → household in `LedgerService`
+2. [x] Account limit checks against household
+3. [x] `last_transaction_at` still per acting user
+4. [x] Solo-user purge deletes empty household (ledger CASCADE) when last member removed
+
+**12c — Member invite**
+
+1. User app page or profile action: **Invite household member**
+2. Require unlocked session; client POSTs invite ciphertext + email
+3. Enforce **5-member cap** (active + pending invites)
+4. Email template with signup URL `?invite=<token>`
+5. Signup form accepts invite token; application linked to invite
+
+**12d — Join key setup**
+
+1. Gate: invited members skip “create new DEK” — **join household** flow
+2. Client fetches invite wrap, sets passphrase, stores `user_encryption_key`, downloads recovery file
+3. `key_setup_complete` when join completes
+
+**12e — Offboard**
+
+1. Member offboard: remove keys + membership; **do not** delete household ledger if other members remain
+2. Last member: existing full purge behavior
+
+**12f — Admin + verify**
+
+1. Approval queue: show target household when invite-linked
+2. User list: show household id / member count
+3. Cluster: `sbwise@gmail.com` invites second user → full join → both see same ledger
+
+### Verify
+
+- [ ] Existing solo user(s) migrated to 1-member household; ledger unchanged after deploy
+- [ ] Owner invites by email (unlocked); invitee receives signup link
+- [ ] Pending invite counts toward 5-member cap
+- [ ] Invitee signup → verify → admin approve → provisioned as **member** (not new solo ledger)
+- [ ] Join key setup + recovery file; member decrypts existing household envelopes
+- [ ] Member deposit/withdraw visible to owner (shared ledger)
+- [ ] Offboard member only — owner ledger intact; member data purged
+- [ ] Admin UI shows household membership
+
+### Out of scope (Phase 12)
+
+- Multi-currency, social login, CAPTCHA
+- Admin-initiated household link without member invite
+- More than 5 members per household
+
+*(Former rollout “Phase 12 — CI/CD + Flux image automation” was merged into Phase 5.)*
 
 ---
 
@@ -1177,27 +1265,38 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 
 **Goal:** Production-ready homelab service.
 
+**Prerequisite:** **Phase 12** complete — E2E uses a **household member** joined to the primary owner household for most flows.
+
 ### Tasks
 
 1. Ingress annotations for wise-home-index (public user tile, private admin tile)
 2. End-to-end scripted checklist (below)
 3. Document first-admin bootstrap and Proton SMTP token rotation
 
+### E2E actors
+
+| Actor | Role |
+|-------|------|
+| **Owner** | Existing primary user (`sbwise@gmail.com`) — sends household invite; cross-checks shared ledger |
+| **Member** | New invitee approved into owner household — runs most destructive / lifecycle flows |
+| **Throwaway applicant** | Separate email for **reject** flow (#9) only — not the household invitee |
+
 ### E2E checklist
 
-| # | Flow | Expected |
-|---|------|----------|
-| 1 | Public signup + verify + approve | User can sign in |
-| 2 | First login key + recovery | Ledger unlocked |
-| 3 | Deposit / withdraw / transfer | Balances correct client-side |
-| 4 | CSV + chart report | Matches ledger |
-| 5 | Admin suspend + auto-unsuspend | Access restored |
-| 6 | Admin offboard + export + purge | Data removed |
-| 7 | Flux + CNPG healthy | All Kustomizations Ready |
-| 8 | Keycloak Phase 5 clients | `keycloakoidcclient` Ready |
-| 9 | Admin reject application | Rejection email sent; 7-day re-apply cooldown / two-strike block enforced |
+| # | Flow | Actor | Expected |
+|---|------|-------|----------|
+| 0 | Household invite → signup link | Owner | Invitee receives email; application linked to household |
+| 1 | Public signup + verify + approve | Member | User can sign in |
+| 2 | Household join key + recovery | Member | Shared ledger unlocked (not fresh solo DEK) |
+| 3 | Deposit / withdraw / transfer | Member | Balances correct client-side; owner sees same data |
+| 4 | CSV + chart report | Member | Matches shared ledger |
+| 5 | Admin suspend + auto-unsuspend | Member | Access restored; owner unaffected |
+| 6 | Admin offboard + export + purge | Member | Member removed; **owner household ledger remains** |
+| 7 | Flux + CNPG healthy | — | All Kustomizations Ready |
+| 8 | Keycloak Phase 5 clients | — | `keycloakoidcclient` Ready |
+| 9 | Admin reject application | Throwaway | Rejection email; 7-day re-apply / two-strike block |
 
-**Deferred from earlier phases:** reject flow (#9); signup re-apply throttling after rejection (Phase 5); Phase 5 throttling/image-automation smoke tests. Flow #1 (signup → verify → approve → sign in) verified during Phases 5–6.
+**Deferred from earlier phases:** reject flow (#9); signup re-apply throttling after rejection (Phase 5); Phase 5 throttling/image-automation smoke tests. Flow #1 (signup → verify → approve → sign in) partially verified during Phases 5–6 on solo path; Phase 13 re-runs on **household member** path.
 
 ---
 
@@ -1242,9 +1341,10 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 9. Phase 8 ledger ✅
 10. Phase 9 ledger UI polish ✅
 11. Phase 10 reports ✅
-12. Phase 11 admin ops
-13. Phase 13 E2E
-14. Phase 14 README summary (can be drafted anytime; finalize after product stabilizes)
+12. Phase 11 admin ops ✅
+13. **Phase 12 shared household (v2)** — release **2.0.0**
+14. Phase 13 E2E + index tiles
+15. Phase 14 README summary (can be drafted anytime; finalize after product stabilizes)
 
 **Parallel work:** Keycloak Phase 6–7 (HA + observability) does not block a-cruet Phases 1–3.
 
@@ -1254,6 +1354,10 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 
 | Repo | Path | Change |
 |------|------|--------|
+| `a-cruet` | `acruet-core/.../db/migration/V10__household.sql` | Phase 12 — household schema + backfill |
+| `a-cruet` | `acruet-core/.../household/` | Phase 12 — invite, membership, ledger scope |
+| `a-cruet` | `acruet-user-war/.../` | Phase 12 — invite UI, join key setup |
+| `a-cruet` | `docs/PRODUCT.md` §7, `docs/ROLLOUT.md` Phase 12 | Shared household decisions + rollout |
 | `a-cruet` | `README.md` | Non-technical product summary (Phase 14) |
 | `a-cruet` | `pom.xml`, modules | Maven multi-module |
 | `a-cruet` | `.github/workflows/` | Build + push images |

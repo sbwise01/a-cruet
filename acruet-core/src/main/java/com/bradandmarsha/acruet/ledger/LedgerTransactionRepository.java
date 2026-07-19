@@ -13,26 +13,26 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * JDBC persistence for append-only ledger transactions (Phase 8).
+ * JDBC persistence for append-only ledger transactions (Phase 8, household-scoped Phase 12).
  */
 public final class LedgerTransactionRepository {
 
     public void insert(
             Connection connection,
             UUID id,
-            UUID userId,
+            UUID householdId,
             TransactionType transactionType,
             LocalDate transactionDate,
             byte[] encryptedPayload,
             List<UUID> accountIds) throws SQLException {
         String sql = """
                 INSERT INTO ledger_transaction (
-                    id, user_id, transaction_type, transaction_date, encrypted_payload
+                    id, household_id, transaction_type, transaction_date, encrypted_payload
                 ) VALUES (?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
-            statement.setObject(2, userId);
+            statement.setObject(2, householdId);
             statement.setString(3, transactionType.dbValue());
             statement.setObject(4, transactionDate);
             statement.setBytes(5, encryptedPayload);
@@ -41,16 +41,16 @@ public final class LedgerTransactionRepository {
         insertAccountLinks(connection, id, accountIds);
     }
 
-    public Optional<LedgerTransaction> findById(Connection connection, UUID userId, UUID transactionId)
+    public Optional<LedgerTransaction> findById(Connection connection, UUID householdId, UUID transactionId)
             throws SQLException {
         String sql = """
-                SELECT id, user_id, transaction_type, transaction_date, encrypted_payload, created_at
+                SELECT id, household_id, transaction_type, transaction_date, encrypted_payload, created_at
                 FROM ledger_transaction
-                WHERE id = ? AND user_id = ?
+                WHERE id = ? AND household_id = ?
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, transactionId);
-            statement.setObject(2, userId);
+            statement.setObject(2, householdId);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
                     return Optional.empty();
@@ -62,20 +62,20 @@ public final class LedgerTransactionRepository {
         }
     }
 
-    public List<LedgerTransaction> listByUser(
+    public List<LedgerTransaction> listByHousehold(
             Connection connection,
-            UUID userId,
+            UUID householdId,
             LocalDate fromDate,
             LocalDate toDate,
             UUID accountId) throws SQLException {
         String sql;
         if (accountId != null) {
             sql = """
-                    SELECT t.id, t.user_id, t.transaction_type, t.transaction_date,
+                    SELECT t.id, t.household_id, t.transaction_type, t.transaction_date,
                            t.encrypted_payload, t.created_at
                     FROM ledger_transaction t
                     INNER JOIN ledger_transaction_account ta ON ta.transaction_id = t.id
-                    WHERE t.user_id = ?
+                    WHERE t.household_id = ?
                       AND t.transaction_date >= ?
                       AND t.transaction_date <= ?
                       AND ta.account_id = ?
@@ -83,16 +83,16 @@ public final class LedgerTransactionRepository {
                     """;
         } else {
             sql = """
-                    SELECT id, user_id, transaction_type, transaction_date, encrypted_payload, created_at
+                    SELECT id, household_id, transaction_type, transaction_date, encrypted_payload, created_at
                     FROM ledger_transaction
-                    WHERE user_id = ?
+                    WHERE household_id = ?
                       AND transaction_date >= ?
                       AND transaction_date <= ?
                     ORDER BY transaction_date DESC, created_at DESC
                     """;
         }
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, userId);
+            statement.setObject(1, householdId);
             statement.setObject(2, fromDate);
             statement.setObject(3, toDate);
             if (accountId != null) {
@@ -172,7 +172,7 @@ public final class LedgerTransactionRepository {
     private static LedgerTransaction mapRow(ResultSet resultSet, List<UUID> accountIds) throws SQLException {
         return new LedgerTransaction(
                 resultSet.getObject("id", UUID.class),
-                resultSet.getObject("user_id", UUID.class),
+                resultSet.getObject("household_id", UUID.class),
                 TransactionType.fromDb(resultSet.getString("transaction_type")),
                 resultSet.getObject("transaction_date", LocalDate.class),
                 resultSet.getBytes("encrypted_payload"),
