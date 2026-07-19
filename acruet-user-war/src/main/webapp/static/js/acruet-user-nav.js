@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (unlocked) {
         statusText = 'Encryption key unlocked for this session.';
         actionsHtml += `
+        <a href="/household/invite">Invite household member</a>
         <button type="button" id="avatarLockKey">Lock key</button>
         <a href="/keys/rotate">Rotate key</a>`;
       } else {

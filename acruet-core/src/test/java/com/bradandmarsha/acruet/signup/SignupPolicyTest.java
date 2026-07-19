@@ -75,6 +75,7 @@ class SignupPolicyTest {
                 status,
                 rejectionCount,
                 lastRejectedAt,
+                Optional.empty(),
                 NOW.minus(1, ChronoUnit.DAYS));
     }
 }

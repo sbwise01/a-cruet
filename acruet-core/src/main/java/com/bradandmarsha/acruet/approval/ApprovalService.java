@@ -3,6 +3,9 @@ package com.bradandmarsha.acruet.approval;
 import com.bradandmarsha.acruet.config.KeycloakAdminSettings;
 import com.bradandmarsha.acruet.config.SmtpSettings;
 import com.bradandmarsha.acruet.db.Database;
+import com.bradandmarsha.acruet.household.HouseholdInvite;
+import com.bradandmarsha.acruet.household.HouseholdInviteRepository;
+import com.bradandmarsha.acruet.household.HouseholdInviteStatus;
 import com.bradandmarsha.acruet.keycloak.KeycloakAdminClient;
 import com.bradandmarsha.acruet.keycloak.KeycloakAdminException;
 import com.bradandmarsha.acruet.keycloak.ProvisionedUser;
@@ -33,6 +36,7 @@ public final class ApprovalService {
 
     private final SignupRepository signupRepository;
     private final UserRepository userRepository;
+    private final HouseholdInviteRepository householdInviteRepository;
     private final AdminAuditRepository auditRepository;
     private final KeycloakAdminClient keycloakAdminClient;
     private final MailSender mailSender;
@@ -41,12 +45,14 @@ public final class ApprovalService {
     public ApprovalService(
             SignupRepository signupRepository,
             UserRepository userRepository,
+            HouseholdInviteRepository householdInviteRepository,
             AdminAuditRepository auditRepository,
             KeycloakAdminClient keycloakAdminClient,
             MailSender mailSender,
             String userBaseUrl) {
         this.signupRepository = signupRepository;
         this.userRepository = userRepository;
+        this.householdInviteRepository = householdInviteRepository;
         this.auditRepository = auditRepository;
         this.keycloakAdminClient = keycloakAdminClient;
         this.mailSender = mailSender;
@@ -57,6 +63,7 @@ public final class ApprovalService {
         return new ApprovalService(
                 new SignupRepository(),
                 new UserRepository(),
+                new HouseholdInviteRepository(),
                 new AdminAuditRepository(),
                 new KeycloakAdminClient(KeycloakAdminSettings.fromEnvironment()),
                 new MailSender(SmtpSettings.fromEnvironment()),
@@ -92,15 +99,44 @@ public final class ApprovalService {
                 if (!signupRepository.markApproved(connection, applicationId)) {
                     throw new IllegalStateException("Application is no longer pending approval.");
                 }
-                userRepository.insert(
-                        connection,
-                        acruetUserId,
-                        provisioned.keycloakUserId(),
-                        application.email(),
-                        application.fullName(),
-                        application.phone(),
-                        application.mailingAddress(),
-                        applicationId);
+                String auditDetail;
+                if (application.householdInviteId().isPresent()) {
+                    UUID inviteId = application.householdInviteId().get();
+                    HouseholdInvite invite = householdInviteRepository
+                            .findById(connection, inviteId)
+                            .orElseThrow(() -> new IllegalStateException("Household invite not found."));
+                    if (invite.status() != HouseholdInviteStatus.PENDING) {
+                        throw new IllegalStateException("Household invite is no longer valid.");
+                    }
+                    userRepository.insertAsMember(
+                            connection,
+                            acruetUserId,
+                            provisioned.keycloakUserId(),
+                            application.email(),
+                            application.fullName(),
+                            application.phone(),
+                            application.mailingAddress(),
+                            applicationId,
+                            invite.householdId());
+                    if (!householdInviteRepository.markAccepted(connection, inviteId)) {
+                        throw new IllegalStateException("Household invite is no longer valid.");
+                    }
+                    auditDetail = "Provisioned household member "
+                            + provisioned.keycloakUserId()
+                            + " for invite "
+                            + inviteId;
+                } else {
+                    userRepository.insert(
+                            connection,
+                            acruetUserId,
+                            provisioned.keycloakUserId(),
+                            application.email(),
+                            application.fullName(),
+                            application.phone(),
+                            application.mailingAddress(),
+                            applicationId);
+                    auditDetail = "Provisioned Keycloak user " + provisioned.keycloakUserId();
+                }
                 auditRepository.insert(
                         connection,
                         admin.keycloakUserId(),
@@ -108,7 +144,7 @@ public final class ApprovalService {
                         ApprovalAction.APPROVE_SIGNUP,
                         TARGET_TYPE_SIGNUP,
                         applicationId,
-                        "Provisioned Keycloak user " + provisioned.keycloakUserId());
+                        auditDetail);
             });
 
             try {

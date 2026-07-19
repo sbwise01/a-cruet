@@ -330,6 +330,41 @@ const AcruetCrypto = (() => {
     };
   }
 
+  async function createDualWrappedDekFromHouseholdDek(dekKey, passphrase, emailHint) {
+    assertWebCrypto();
+    const saltBytes = randomSalt();
+    const kek = await deriveKek(passphrase, saltBytes, DEFAULT_ITERATIONS);
+    const wrappedDekBuffer = await wrapDek(kek, dekKey);
+    const wrappedDekBase64 = toBase64(new Uint8Array(wrappedDekBuffer));
+    const recovery = await buildRecoveryWrap(dekKey);
+    return {
+      saltBytes,
+      iterations: DEFAULT_ITERATIONS,
+      wrappedDekBase64,
+      dekKey,
+      dualPayload: {
+        kdfAlgorithm: KDF_ALGORITHM,
+        kdfHash: KDF_HASH,
+        kdfSalt: toBase64(saltBytes),
+        kdfIterations: DEFAULT_ITERATIONS,
+        wrapAlgorithm: WRAP_ALGORITHM,
+        wrappedDek: wrappedDekBase64,
+        recoveryWrapAlgorithm: WRAP_ALGORITHM,
+        recoveryWrappedDek: recovery.recoveryWrappedDekBase64,
+      },
+      recovery: buildRecoveryFile({
+        recoverySecretBytes: recovery.recoverySecretBytes,
+        recoveryWrappedDekBase64: recovery.recoveryWrappedDekBase64,
+        emailHint,
+      }),
+    };
+  }
+
+  async function joinHouseholdKeySetup(inviteToken, inviteWrap, passphrase, emailHint) {
+    const dekKey = await unwrapHouseholdInviteDek(inviteToken, inviteWrap.wrappedDek);
+    return createDualWrappedDekFromHouseholdDek(dekKey, passphrase, emailHint);
+  }
+
   async function enrollRecoveryWrap(passphrase, wrappedPayload, emailHint) {
     assertWebCrypto();
     const iterations = Number(wrappedPayload.kdfIterations);
@@ -453,6 +488,52 @@ const AcruetCrypto = (() => {
     return JSON.parse(new TextDecoder().decode(decrypted));
   }
 
+  function inviteTokenToBytes(inviteToken) {
+    const normalized = inviteToken.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    return fromBase64(padded);
+  }
+
+  function newInviteToken() {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    return toBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function buildHouseholdInviteWrap(dekKey, inviteToken) {
+    assertWebCrypto();
+    const tokenBytes = inviteTokenToBytes(inviteToken);
+    const inviteKey = await crypto.subtle.importKey(
+      'raw',
+      tokenBytes,
+      { name: WRAP_ALGORITHM },
+      false,
+      ['wrapKey', 'unwrapKey'],
+    );
+    const wrappedBuffer = await wrapDek(inviteKey, dekKey);
+    const saltBytes = randomSalt();
+    return {
+      wrappedDek: toBase64(new Uint8Array(wrappedBuffer)),
+      wrapAlgorithm: WRAP_ALGORITHM,
+      kdfAlgorithm: KDF_ALGORITHM,
+      kdfHash: KDF_HASH,
+      kdfSalt: toBase64(saltBytes),
+      kdfIterations: 0,
+    };
+  }
+
+  async function unwrapHouseholdInviteDek(inviteToken, wrappedDekBase64) {
+    assertWebCrypto();
+    const tokenBytes = inviteTokenToBytes(inviteToken);
+    const inviteKey = await crypto.subtle.importKey(
+      'raw',
+      tokenBytes,
+      { name: WRAP_ALGORITHM },
+      false,
+      ['wrapKey', 'unwrapKey'],
+    );
+    return unwrapDek(inviteKey, fromBase64(wrappedDekBase64));
+  }
+
   return {
     KDF_ALGORITHM,
     KDF_HASH,
@@ -472,9 +553,14 @@ const AcruetCrypto = (() => {
     toBase64,
     fromBase64,
     createDualWrappedDek,
+    createDualWrappedDekFromHouseholdDek,
+    joinHouseholdKeySetup,
     enrollRecoveryWrap,
     rotateDualWrappedDek,
     resetPassphraseFromRecoveryFile,
+    newInviteToken,
+    buildHouseholdInviteWrap,
+    unwrapHouseholdInviteDek,
     encryptJson,
     decryptJson,
     session,

@@ -123,6 +123,7 @@ public class ProfileResource {
                 <p id="profileSuccess" class="notice success" hidden></p>
                 <p class="actions">
                   <button type="button" id="btnSaveProfile">Save profile</button>
+                  <a href="/household/invite">Invite household member</a>
                   <a href="/">Back to home</a>
                 </p>
                 """ + UserNav.keyPageScript("acruet-profile.js");

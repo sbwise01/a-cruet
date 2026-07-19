@@ -2,6 +2,7 @@ package com.bradandmarsha.acruet.user.rest;
 
 import com.bradandmarsha.acruet.auth.OidcUser;
 import com.bradandmarsha.acruet.auth.UserSession;
+import com.bradandmarsha.acruet.household.HouseholdJoinService;
 import com.bradandmarsha.acruet.keys.KeyService;
 import com.bradandmarsha.acruet.keys.KeyServiceException;
 import com.bradandmarsha.acruet.keys.RecoveryWrapPayload;
@@ -17,11 +18,13 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,6 +35,7 @@ import java.util.Optional;
 public class KeyResource {
 
     private final KeyService keyService = new KeyService();
+    private final HouseholdJoinService householdJoinService = HouseholdJoinService.fromEnvironment();
 
     @GET
     @Path("setup")
@@ -45,7 +49,57 @@ public class KeyResource {
         if (user.get().keySetupComplete()) {
             return Response.seeOther(UriBuilder.fromPath("/").build()).build();
         }
+        if (householdJoinService.requiresHouseholdJoin(user.get())) {
+            return Response.seeOther(UriBuilder.fromPath("/keys/join-household").build()).build();
+        }
         return Response.ok(renderKeyPage(oidcUser.get(), user.get(), "Create encryption key", setupHtml())).build();
+    }
+
+    @GET
+    @Path("join-household")
+    @Produces(MediaType.TEXT_HTML)
+    public Response joinHouseholdPage(
+            @QueryParam("invite") String inviteToken, @Context HttpServletRequest request) {
+        Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
+        Optional<AcruetUser> user = requireUser(request);
+        if (oidcUser.isEmpty() || user.isEmpty()) {
+            return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
+        }
+        if (user.get().keySetupComplete()) {
+            return Response.seeOther(UriBuilder.fromPath("/").build()).build();
+        }
+        if (!householdJoinService.requiresHouseholdJoin(user.get())) {
+            return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+        }
+        return Response.ok(renderKeyPage(
+                oidcUser.get(),
+                user.get(),
+                "Join household encryption",
+                joinHouseholdHtml(inviteToken))).build();
+    }
+
+    @GET
+    @Path("household-invite-wrap")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response householdInviteWrap(
+            @QueryParam("invite") String inviteToken, @Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            Optional<HouseholdJoinService.InviteWrapResponse> wrap =
+                    householdJoinService.loadInviteWrap(user, inviteToken, Instant.now());
+            if (wrap.isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(Map.of("error", "Invalid invitation token for this account."))
+                        .build();
+            }
+            HouseholdJoinService.InviteWrapResponse payload = wrap.get();
+            return Response.ok(Map.of(
+                    "wrappedDek", payload.wrappedDek(),
+                    "wrapAlgorithm", payload.wrapAlgorithm(),
+                    "kdfAlgorithm", payload.kdfAlgorithm(),
+                    "kdfHash", payload.kdfHash(),
+                    "kdfSalt", payload.kdfSalt(),
+                    "kdfIterations", payload.kdfIterations())).build();
+        });
     }
 
     @GET
@@ -58,7 +112,7 @@ public class KeyResource {
             return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
         }
         if (!user.get().keySetupComplete()) {
-            return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+            return Response.seeOther(UriBuilder.fromPath(keySetupPath(user.get())).build()).build();
         }
         KeyService.KeyStatus status = keyService.status(user.get());
         if (status.recoveryEnrolled()) {
@@ -78,7 +132,7 @@ public class KeyResource {
             return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
         }
         if (!user.get().keySetupComplete()) {
-            return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+            return Response.seeOther(UriBuilder.fromPath(keySetupPath(user.get())).build()).build();
         }
         if (!keyService.status(user.get()).recoveryEnrolled()) {
             return Response.seeOther(UriBuilder.fromPath("/keys/enroll-recovery").build()).build();
@@ -96,7 +150,7 @@ public class KeyResource {
             return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
         }
         if (!user.get().keySetupComplete()) {
-            return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+            return Response.seeOther(UriBuilder.fromPath(keySetupPath(user.get())).build()).build();
         }
         return Response.ok(renderKeyPage(
                 oidcUser.get(), user.get(), "Reset encryption passphrase", forgotPassphraseHtml())).build();
@@ -112,7 +166,7 @@ public class KeyResource {
             return Response.seeOther(UriBuilder.fromPath("/auth/login").build()).build();
         }
         if (!user.get().keySetupComplete()) {
-            return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+            return Response.seeOther(UriBuilder.fromPath(keySetupPath(user.get())).build()).build();
         }
         if (!keyService.status(user.get()).recoveryEnrolled()) {
             return Response.seeOther(UriBuilder.fromPath("/keys/enroll-recovery").build()).build();
@@ -276,6 +330,40 @@ public class KeyResource {
         return new RecoveryWrapPayload(body.recoveryWrapAlgorithm, body.recoveryWrappedDek);
     }
 
+    private static String joinHouseholdHtml(String inviteToken) {
+        String tokenValue = inviteToken == null ? "" : escapeAttr(inviteToken);
+        return """
+                <h2>Join household encryption</h2>
+                <p class="hint">You were invited to share a household ledger. Use the <strong>same invitation token</strong> from your household invite email (the <code>?invite=</code> part of the signup link).</p>
+                <div id="step-token" class="wizard-step">
+                  <p><strong>Step 1:</strong> Enter your invitation token.</p>
+                  <label for="inviteToken">Invitation token</label>
+                  <input id="inviteToken" type="text" autocomplete="off" spellcheck="false" value="%s" required>
+                  <p id="tokenError" class="error" hidden></p>
+                  <button type="button" id="btnTokenNext">Continue</button>
+                </div>
+                <div id="step-passphrase" class="wizard-step" hidden>
+                  <p><strong>Step 2:</strong> Choose your own passphrase (12+ characters).</p>
+                  <label for="passphrase">Passphrase</label>
+                  <input id="passphrase" type="password" autocomplete="new-password" minlength="12" required>
+                  <label for="passphraseConfirm">Confirm passphrase</label>
+                  <input id="passphraseConfirm" type="password" autocomplete="new-password" minlength="12" required>
+                  <p id="passphraseError" class="error" hidden></p>
+                  <button type="button" id="btnPassphraseNext">Continue</button>
+                </div>
+                <div id="step-recovery" class="wizard-step" hidden>
+                  <p><strong>Step 3:</strong> Download your recovery file and keep it somewhere safe.</p>
+                  <button type="button" id="btnDownloadRecovery">Download recovery file</button>
+                  <p id="recoveryStatus" class="notice" hidden></p>
+                  <label><input type="checkbox" id="recoveryConfirmed"> I saved my recovery file in a safe place</label>
+                  <p id="recoveryError" class="error" hidden></p>
+                  <button type="button" id="btnFinishSetup" disabled>Finish setup</button>
+                </div>
+                <p id="setupError" class="error" hidden></p>
+                """
+                .formatted(tokenValue) + UserNav.keyPageScript("acruet-key-join-household.js");
+    }
+
     private static String setupHtml() {
         return """
                 <h2>Create your encryption key</h2>
@@ -398,5 +486,24 @@ public class KeyResource {
     public static class RecoveryWrapRequest {
         public String recoveryWrapAlgorithm;
         public String recoveryWrappedDek;
+    }
+
+    private static String keySetupPath(AcruetUser user) {
+        return HouseholdJoinService.initialKeySetupPath(user);
+    }
+
+    private static String escapeAttr(String value) {
+        return escape(value).replace("'", "&#39;");
+    }
+
+    private static String escape(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;");
     }
 }

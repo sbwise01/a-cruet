@@ -21,7 +21,7 @@ public final class SignupRepository {
     public Optional<SignupApplication> findById(UUID id) throws SQLException {
         String sql = """
                 SELECT id, email, full_name, reason, phone, mailing_address, status,
-                       rejection_count, last_rejected_at, created_at
+                       rejection_count, last_rejected_at, household_invite_id, created_at
                 FROM signup_application
                 WHERE id = ?
                 """;
@@ -39,7 +39,8 @@ public final class SignupRepository {
 
     public List<PendingApplication> listPendingApproval() throws SQLException {
         String sql = """
-                SELECT id, email, full_name, reason, phone, mailing_address, verified_at, created_at
+                SELECT id, email, full_name, reason, phone, mailing_address, verified_at,
+                       created_at, household_invite_id
                 FROM signup_application
                 WHERE status = ?
                 ORDER BY verified_at ASC NULLS LAST, created_at ASC
@@ -59,7 +60,8 @@ public final class SignupRepository {
                             resultSet.getString("phone"),
                             resultSet.getString("mailing_address"),
                             Optional.ofNullable(verifiedAt).map(Timestamp::toInstant),
-                            resultSet.getTimestamp("created_at").toInstant()));
+                            resultSet.getTimestamp("created_at").toInstant(),
+                            Optional.ofNullable(resultSet.getObject("household_invite_id", UUID.class))));
                 }
             }
         }
@@ -120,7 +122,8 @@ public final class SignupRepository {
             String phone,
             String mailingAddress,
             Optional<Instant> verifiedAt,
-            Instant createdAt) {
+            Instant createdAt,
+            Optional<UUID> householdInviteId) {
     }
 
     public record RejectionResult(int rejectionCount, ApplicationStatus status) {
@@ -129,7 +132,7 @@ public final class SignupRepository {
     public List<SignupApplication> listBlocked() throws SQLException {
         String sql = """
                 SELECT id, email, full_name, reason, phone, mailing_address, status,
-                       rejection_count, last_rejected_at, created_at
+                       rejection_count, last_rejected_at, household_invite_id, created_at
                 FROM signup_application
                 WHERE status = ?
                 ORDER BY created_at DESC
@@ -164,7 +167,7 @@ public final class SignupRepository {
     public Optional<SignupApplication> findLatestByEmail(String email) throws SQLException {
         String sql = """
                 SELECT id, email, full_name, reason, phone, mailing_address, status,
-                       rejection_count, last_rejected_at, created_at
+                       rejection_count, last_rejected_at, household_invite_id, created_at
                 FROM signup_application
                 WHERE LOWER(email) = LOWER(?)
                 ORDER BY created_at DESC
@@ -191,12 +194,14 @@ public final class SignupRepository {
             String mailingAddress,
             String tokenHash,
             Instant tokenExpiresAt,
-            String applicantIp) throws SQLException {
+            String applicantIp,
+            UUID householdInviteId) throws SQLException {
         String sql = """
                 INSERT INTO signup_application (
                     id, email, full_name, reason, phone, mailing_address, status,
-                    verification_token_hash, verification_token_expires_at, applicant_ip
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    verification_token_hash, verification_token_expires_at, applicant_ip,
+                    household_invite_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (Connection connection = Database.openConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -210,6 +215,7 @@ public final class SignupRepository {
             statement.setString(8, tokenHash);
             statement.setTimestamp(9, Timestamp.from(tokenExpiresAt));
             statement.setString(10, applicantIp);
+            statement.setObject(11, householdInviteId);
             statement.executeUpdate();
         }
     }
@@ -220,6 +226,21 @@ public final class SignupRepository {
                 PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
             statement.executeUpdate();
+        }
+    }
+
+    public boolean hasHouseholdInviteApplication(Connection connection, UUID userId) throws SQLException {
+        String sql = """
+                SELECT 1
+                FROM acruet_user u
+                INNER JOIN signup_application sa ON sa.id = u.signup_application_id
+                WHERE u.id = ? AND sa.household_invite_id IS NOT NULL
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
         }
     }
 
@@ -291,6 +312,7 @@ public final class SignupRepository {
                 ApplicationStatus.fromDb(resultSet.getString("status")),
                 resultSet.getInt("rejection_count"),
                 Optional.ofNullable(lastRejected).map(Timestamp::toInstant),
+                Optional.ofNullable(resultSet.getObject("household_invite_id", UUID.class)),
                 resultSet.getTimestamp("created_at").toInstant());
     }
 }

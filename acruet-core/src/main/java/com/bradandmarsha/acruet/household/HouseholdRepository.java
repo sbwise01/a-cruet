@@ -127,6 +127,19 @@ public final class HouseholdRepository {
         }
     }
 
+    public Optional<HouseholdMemberRole> findMemberRole(Connection connection, UUID userId) throws SQLException {
+        String sql = "SELECT role FROM household_member WHERE user_id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(HouseholdMemberRole.fromDb(resultSet.getString("role")));
+            }
+        }
+    }
+
     private static Household mapRow(ResultSet resultSet) throws SQLException {
         return new Household(
                 resultSet.getObject("id", UUID.class),

@@ -12,6 +12,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 
+import java.util.Optional;
+
 /**
  * OIDC callback and logout handlers shared by user and admin WARs.
  */
@@ -75,7 +77,11 @@ public class AuthResource {
         if (!settings.requireAdminRole()) {
             UserSession.onLogin(request, user);
             if (UserSession.acruetUser(request).isPresent() && !UserSession.isKeySetupComplete(request)) {
-                return Response.seeOther(UriBuilder.fromPath("/keys/setup").build()).build();
+                Optional<com.bradandmarsha.acruet.user.AcruetUser> acruetUser = UserSession.acruetUser(request);
+                String keySetupPath = acruetUser
+                        .map(com.bradandmarsha.acruet.household.HouseholdJoinService::initialKeySetupPath)
+                        .orElse("/keys/setup");
+                return Response.seeOther(UriBuilder.fromPath(keySetupPath).build()).build();
             }
         }
 

@@ -3,6 +3,7 @@ package com.bradandmarsha.acruet.user.rest;
 import com.bradandmarsha.acruet.admin.OffboardService;
 import com.bradandmarsha.acruet.auth.OidcUser;
 import com.bradandmarsha.acruet.auth.UserSession;
+import com.bradandmarsha.acruet.household.HouseholdJoinService;
 import com.bradandmarsha.acruet.keys.KeyService;
 import com.bradandmarsha.acruet.ui.AuthNavContext;
 import com.bradandmarsha.acruet.ui.LedgerViews;
@@ -57,14 +58,19 @@ public class LandingResource {
         }
         AcruetUser user = acruetUser.get();
         if (!user.keySetupComplete()) {
+            String keySetupPath = HouseholdJoinService.initialKeySetupPath(user);
+            boolean joinHousehold = keySetupPath.contains("join-household");
             AuthNavContext nav = UserPageLayout.navContext(oidcUser, user, false);
             return UserPageLayout.renderAuthenticated(
-                    "Create encryption key",
+                    joinHousehold ? "Join household encryption" : "Create encryption key",
                     "",
                     """
                     <p>Complete encryption key setup before using the ledger.</p>
-                    <p class="actions"><a class="nav-btn" href="/keys/setup">Create encryption key</a></p>
-                    """,
+                    <p class="actions"><a class="nav-btn" href="%s">%s</a></p>
+                    """
+                            .formatted(
+                                    keySetupPath,
+                                    joinHousehold ? "Join household encryption" : "Create encryption key"),
                     nav);
         }
         AuthNavContext nav = UserPageLayout.navContext(oidcUser, user, true);

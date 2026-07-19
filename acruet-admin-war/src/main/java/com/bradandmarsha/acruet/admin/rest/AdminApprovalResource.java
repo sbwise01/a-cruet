@@ -97,6 +97,7 @@ public class AdminApprovalResource {
                       <td>
                         <strong>%s</strong><br>
                         <span class="meta">%s</span>
+                        %s
                       </td>
                       <td>%s</td>
                       <td class="meta">%s</td>
@@ -113,6 +114,9 @@ public class AdminApprovalResource {
                             .formatted(
                                     escape(application.fullName()),
                                     escape(application.email()),
+                                    application.householdInviteId().isPresent()
+                                            ? "<br><span class=\"meta\">Joins existing household (invite)</span>"
+                                            : "",
                                     escape(application.reason()),
                                     verified,
                                     application.id(),

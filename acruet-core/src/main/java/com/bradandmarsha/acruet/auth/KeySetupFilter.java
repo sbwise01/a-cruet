@@ -50,7 +50,11 @@ public class KeySetupFilter implements Filter {
         }
 
         if (!UserSession.isKeySetupComplete(httpRequest)) {
-            httpResponse.sendRedirect(httpRequest.getContextPath() + "/keys/setup");
+            Optional<AcruetUser> acruetUserForRedirect = UserSession.acruetUser(httpRequest);
+            String keySetupPath = acruetUserForRedirect
+                    .map(com.bradandmarsha.acruet.household.HouseholdJoinService::initialKeySetupPath)
+                    .orElse("/keys/setup");
+            httpResponse.sendRedirect(httpRequest.getContextPath() + keySetupPath);
             return;
         }
 
@@ -80,6 +84,7 @@ public class KeySetupFilter implements Filter {
                 || path.startsWith("/signup/")
                 || path.startsWith("/keys/")
                 || path.startsWith("/profile")
+                || path.startsWith("/household")
                 || path.startsWith("/offboard")
                 || path.startsWith("/static/");
     }
