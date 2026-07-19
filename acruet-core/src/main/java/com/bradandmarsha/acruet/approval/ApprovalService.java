@@ -245,11 +245,11 @@ public final class ApprovalService {
     }
 
     public record ActionResult(boolean success, String message) {
-        static ActionResult success(String message) {
+        public static ActionResult success(String message) {
             return new ActionResult(true, message);
         }
 
-        static ActionResult error(String message) {
+        public static ActionResult error(String message) {
             return new ActionResult(false, message);
         }
     }

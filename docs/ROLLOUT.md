@@ -1146,16 +1146,20 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 1. User list with operational counts (accounts, transactions, last active)
 2. Grant/revoke `a-cruet-admin` via admin UI → Keycloak Admin API — **eligible users only:** must have an existing `acruet_user` row; UI selects from provisioned users (e.g. user list / email search), not arbitrary Keycloak accounts
 3. Suspend: disable Keycloak user + email with admin-set duration
-4. CronJob: auto-unsuspend when suspension ends
-5. Offboard: email 7-day export window
-6. Client-side decrypted export (CSV/JSON) during window
-7. CronJob: on export complete or 7-day expiry → disable Keycloak + purge a-cruet data
-8. Admin unblock for twice-rejected emails
-9. **Unlinked login anomaly** — when a Keycloak session has no matching `acruet_user` (see Phase 9 item 10): alert administrators (email and/or admin UI queue); include Keycloak subject, email, and time; dedupe repeated hits in the same session where practical
+4. **Manual unsuspend** from `/users` before suspension period ends (re-enable Keycloak + clear suspension; audited)
+5. CronJob: auto-unsuspend when suspension ends
+6. Offboard: email 7-day export window
+7. Client-side decrypted export (CSV/JSON) during window
+8. CronJob: on export complete or 7-day expiry → disable Keycloak + purge a-cruet data
+9. Admin unblock for twice-rejected emails
+10. **Unlinked login anomaly** — when a Keycloak session has no matching `acruet_user` (see Phase 9 item 10): alert administrators (email and/or admin UI queue); include Keycloak subject, email, and time; dedupe repeated hits in the same session where practical
+11. **Reset Keycloak sign-in password** from `/users` — temporary password via Admin API; shown once to acting admin for secure transfer; does **not** reset encryption passphrase
 
 ### Verify
 
 - Suspend → user cannot log in; auto-restore after N days
+- **Manual unsuspend** → user can sign in before suspension period ends; audit entry present
+- **Reset sign-in password** → user signs in with temporary password → Keycloak prompts password change; ledger passphrase unchanged
 - Offboard → export works; data purged after trigger
 - Admin action audit entries present
 - Grant admin → only succeeds for users with `acruet_user`; granted admin can use **both** user and admin hostnames without unlinked user-app state

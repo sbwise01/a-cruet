@@ -6,6 +6,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -170,6 +172,122 @@ public final class UserRepository {
             statement.setObject(5, userId);
             statement.executeUpdate();
         }
+    }
+
+    public List<OperationalUserRow> listOperational() throws SQLException {
+        String sql = """
+                SELECT u.id, u.keycloak_user_id, u.email, u.display_name, u.signup_application_id,
+                       u.phone, u.mailing_address, u.allow_negative_withdraw,
+                       u.ledger_account_count, u.transaction_count, u.ledger_account_limit,
+                       u.key_setup_complete, u.created_at, u.updated_at, u.last_login_at,
+                       u.last_transaction_at, u.suspended_until, u.suspended_at,
+                       o.export_deadline, o.export_completed_at, o.purged_at
+                FROM acruet_user u
+                LEFT JOIN user_offboard o ON o.user_id = u.id AND o.purged_at IS NULL
+                ORDER BY u.display_name ASC, u.email ASC
+                """;
+        List<OperationalUserRow> rows = new ArrayList<>();
+        try (Connection connection = com.bradandmarsha.acruet.db.Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                rows.add(mapOperationalRow(resultSet));
+            }
+        }
+        return rows;
+    }
+
+    public void setSuspension(Connection connection, UUID userId, Instant suspendedUntil, Instant suspendedAt)
+            throws SQLException {
+        String sql = """
+                UPDATE acruet_user
+                SET suspended_until = ?, suspended_at = ?, updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setTimestamp(1, Timestamp.from(suspendedUntil));
+            statement.setTimestamp(2, Timestamp.from(suspendedAt));
+            statement.setObject(3, userId);
+            statement.executeUpdate();
+        }
+    }
+
+    public void clearSuspension(Connection connection, UUID userId) throws SQLException {
+        String sql = """
+                UPDATE acruet_user
+                SET suspended_until = NULL, suspended_at = NULL, updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            statement.executeUpdate();
+        }
+    }
+
+    public Optional<Instant> findSuspendedUntil(Connection connection, UUID userId) throws SQLException {
+        String sql = "SELECT suspended_until FROM acruet_user WHERE id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                Timestamp suspendedUntil = resultSet.getTimestamp("suspended_until");
+                return Optional.ofNullable(suspendedUntil).map(Timestamp::toInstant);
+            }
+        }
+    }
+
+    public List<AcruetUser> listSuspendedDue(Instant now) throws SQLException {
+        String sql = """
+                SELECT id, keycloak_user_id, email, display_name, signup_application_id,
+                       phone, mailing_address, allow_negative_withdraw,
+                       ledger_account_count, transaction_count, ledger_account_limit,
+                       key_setup_complete, created_at, updated_at, last_login_at, last_transaction_at
+                FROM acruet_user
+                WHERE suspended_until IS NOT NULL AND suspended_until <= ?
+                ORDER BY suspended_until ASC
+                """;
+        List<AcruetUser> users = new ArrayList<>();
+        try (Connection connection = com.bradandmarsha.acruet.db.Database.openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setTimestamp(1, Timestamp.from(now));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    users.add(mapRow(resultSet));
+                }
+            }
+        }
+        return users;
+    }
+
+    public void deleteById(Connection connection, UUID userId) throws SQLException {
+        String sql = "DELETE FROM acruet_user WHERE id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            statement.executeUpdate();
+        }
+    }
+
+    public record OperationalUserRow(
+            AcruetUser user,
+            Instant suspendedUntil,
+            Instant suspendedAt,
+            Instant offboardDeadline,
+            Instant offboardExportCompletedAt) {
+    }
+
+    private static OperationalUserRow mapOperationalRow(ResultSet resultSet) throws SQLException {
+        Timestamp suspendedUntil = resultSet.getTimestamp("suspended_until");
+        Timestamp suspendedAt = resultSet.getTimestamp("suspended_at");
+        Timestamp offboardDeadline = resultSet.getTimestamp("export_deadline");
+        Timestamp offboardExportCompletedAt = resultSet.getTimestamp("export_completed_at");
+        return new OperationalUserRow(
+                mapRow(resultSet),
+                suspendedUntil == null ? null : suspendedUntil.toInstant(),
+                suspendedAt == null ? null : suspendedAt.toInstant(),
+                offboardDeadline == null ? null : offboardDeadline.toInstant(),
+                offboardExportCompletedAt == null ? null : offboardExportCompletedAt.toInstant());
     }
 
     private static AcruetUser mapRow(ResultSet resultSet) throws SQLException {

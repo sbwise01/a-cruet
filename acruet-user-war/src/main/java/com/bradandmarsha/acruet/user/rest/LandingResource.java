@@ -1,5 +1,6 @@
 package com.bradandmarsha.acruet.user.rest;
 
+import com.bradandmarsha.acruet.admin.OffboardService;
 import com.bradandmarsha.acruet.auth.OidcUser;
 import com.bradandmarsha.acruet.auth.UserSession;
 import com.bradandmarsha.acruet.keys.KeyService;
@@ -27,6 +28,7 @@ public class LandingResource {
 
     private final KeyService keyService = new KeyService();
     private final UnlinkedLoginService unlinkedLoginService = new UnlinkedLoginService();
+    private final OffboardService offboardService = new OffboardService();
 
     @GET
     @Produces(MediaType.TEXT_HTML)
@@ -66,10 +68,15 @@ public class LandingResource {
                     nav);
         }
         AuthNavContext nav = UserPageLayout.navContext(oidcUser, user, true);
+        String banner = offboardService.status(user)
+                .filter(status -> !status.exportComplete())
+                .map(ignored -> LedgerViews.offboardBannerHtml())
+                .orElse("");
         return UserPageLayout.renderAuthenticated(
                 UserPageLayout.APP_NAME,
                 LedgerViews.ledgerCss() + ReportViews.reportsCss(),
                 LedgerViews.ledgerMainHtml(
+                        banner,
                         UserPageLayout.lockImageUrl(),
                         UserPageLayout.transactionsImageUrl(),
                         UserPageLayout.reportGraphsImageUrl()),

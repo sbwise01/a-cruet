@@ -80,6 +80,7 @@ public class KeySetupFilter implements Filter {
                 || path.startsWith("/signup/")
                 || path.startsWith("/keys/")
                 || path.startsWith("/profile")
+                || path.startsWith("/offboard")
                 || path.startsWith("/static/");
     }
 }

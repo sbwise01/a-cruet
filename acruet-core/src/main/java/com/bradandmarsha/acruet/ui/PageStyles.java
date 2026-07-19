@@ -111,8 +111,28 @@ public final class PageStyles {
                   border-radius: 8px;
                   background: var(--bg-card);
                 }
-                .notice.success { border-left: 3px solid #34d399; }
+                .notice.success { border-left: 3px solid #34d399; white-space: pre-wrap; }
                 .notice.error { border-left: 3px solid #f87171; }
+                """;
+    }
+
+    /** Wider admin console pages (user list, anomalies). */
+    public static String adminWideCss() {
+        return """
+                .page { max-width: 72rem; }
+                .row-actions input[type=number] {
+                  width: 4rem;
+                  margin-top: 0;
+                  padding: 0.35rem 0.5rem;
+                }
+                .status-tag {
+                  display: inline-block;
+                  padding: 0.15rem 0.45rem;
+                  border-radius: 999px;
+                  font-size: 0.8rem;
+                  background: rgba(148, 163, 184, 0.15);
+                }
+                .status-tag.warn { background: rgba(251, 191, 36, 0.15); color: #fcd34d; }
                 """;
     }
 

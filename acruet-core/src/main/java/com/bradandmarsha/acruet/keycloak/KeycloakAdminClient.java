@@ -52,6 +52,147 @@ public final class KeycloakAdminClient {
         return new ProvisionedUser(userId, temporaryPassword);
     }
 
+    /**
+     * Sets a new temporary Keycloak sign-in password (user must change on next login).
+     */
+    public String resetSignInPassword(String keycloakUserId) {
+        if (!settings.isConfigured()) {
+            throw new KeycloakAdminException("Keycloak Admin API is not configured");
+        }
+        String temporaryPassword = newTemporaryPassword();
+        setTemporaryPassword(keycloakUserId, temporaryPassword);
+        return temporaryPassword;
+    }
+
+    public void setUserEnabled(String keycloakUserId, boolean enabled) {
+        if (!settings.isConfigured()) {
+            throw new KeycloakAdminException("Keycloak Admin API is not configured");
+        }
+        ObjectNode payload = JSON.createObjectNode();
+        payload.put("enabled", enabled);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(settings.adminApiBaseUrl() + "/users/" + keycloakUserId))
+                .timeout(Duration.ofSeconds(20))
+                .header("Authorization", "Bearer " + accessToken())
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(payload.toString()))
+                .build();
+        sendExpectSuccess(request, "Keycloak user enable/disable");
+    }
+
+    public void grantRealmRole(String keycloakUserId, String roleName) {
+        assignRealmRole(keycloakUserId, roleName, POST_MAPPING);
+    }
+
+    public void revokeRealmRole(String keycloakUserId, String roleName) {
+        assignRealmRole(keycloakUserId, roleName, DELETE_MAPPING);
+    }
+
+    public boolean hasRealmRole(String keycloakUserId, String roleName) {
+        if (!settings.isConfigured()) {
+            return false;
+        }
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(
+                        settings.adminApiBaseUrl() + "/users/" + keycloakUserId + "/role-mappings/realm"))
+                .timeout(Duration.ofSeconds(15))
+                .header("Authorization", "Bearer " + accessToken())
+                .GET()
+                .build();
+        try {
+            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new KeycloakAdminException(
+                        adminApiFailure("Keycloak realm role lookup", response.statusCode()));
+            }
+            JsonNode roles = JSON.readTree(response.body());
+            if (!roles.isArray()) {
+                return false;
+            }
+            for (JsonNode role : roles) {
+                JsonNode name = role.get("name");
+                if (name != null && roleName.equals(name.asText())) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (KeycloakAdminException exception) {
+            throw exception;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new KeycloakAdminException("Keycloak realm role lookup interrupted", interrupted);
+        } catch (Exception exception) {
+            throw new KeycloakAdminException("Keycloak realm role lookup failed", exception);
+        }
+    }
+
+    private void assignRealmRole(String keycloakUserId, String roleName, RoleMappingMethod method) {
+        if (!settings.isConfigured()) {
+            throw new KeycloakAdminException("Keycloak Admin API is not configured");
+        }
+        JsonNode role = fetchRealmRole(roleName);
+        String body = JSON.createArrayNode().add(role).toString();
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(settings.adminApiBaseUrl()
+                        + "/users/"
+                        + keycloakUserId
+                        + "/role-mappings/realm"))
+                .timeout(Duration.ofSeconds(20))
+                .header("Authorization", "Bearer " + accessToken())
+                .header("Content-Type", "application/json");
+        HttpRequest request = method.apply(builder, body);
+        sendExpectSuccess(request, "Keycloak realm role assignment");
+    }
+
+    private JsonNode fetchRealmRole(String roleName) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(settings.adminApiBaseUrl() + "/roles/" + encode(roleName)))
+                .timeout(Duration.ofSeconds(15))
+                .header("Authorization", "Bearer " + accessToken())
+                .GET()
+                .build();
+        try {
+            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new KeycloakAdminException(adminApiFailure("Keycloak role lookup", response.statusCode()));
+            }
+            return JSON.readTree(response.body());
+        } catch (KeycloakAdminException exception) {
+            throw exception;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new KeycloakAdminException("Keycloak role lookup interrupted", interrupted);
+        } catch (Exception exception) {
+            throw new KeycloakAdminException("Keycloak role lookup failed", exception);
+        }
+    }
+
+    private void sendExpectSuccess(HttpRequest request, String action) {
+        try {
+            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new KeycloakAdminException(adminApiFailure(action, response.statusCode()));
+            }
+        } catch (KeycloakAdminException exception) {
+            throw exception;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new KeycloakAdminException(action + " interrupted", interrupted);
+        } catch (Exception exception) {
+            throw new KeycloakAdminException(action + " failed", exception);
+        }
+    }
+
+    @FunctionalInterface
+    private interface RoleMappingMethod {
+        HttpRequest apply(HttpRequest.Builder builder, String body);
+    }
+
+    private static final RoleMappingMethod POST_MAPPING =
+            (builder, body) -> builder.POST(HttpRequest.BodyPublishers.ofString(body)).build();
+    private static final RoleMappingMethod DELETE_MAPPING =
+            (builder, body) -> builder.method("DELETE", HttpRequest.BodyPublishers.ofString(body)).build();
+
     private String createUser(String email, NameParts nameParts) {
         ObjectNode payload = JSON.createObjectNode();
         payload.put("username", email);
