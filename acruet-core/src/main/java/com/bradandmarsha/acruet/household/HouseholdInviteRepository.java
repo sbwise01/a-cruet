@@ -115,6 +115,14 @@ public final class HouseholdInviteRepository {
         }
     }
 
+    public void deleteById(Connection connection, UUID inviteId) throws SQLException {
+        String sql = "DELETE FROM household_invite WHERE id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, inviteId);
+            statement.executeUpdate();
+        }
+    }
+
     public boolean markAccepted(Connection connection, UUID inviteId) throws SQLException {
         String sql = """
                 UPDATE household_invite

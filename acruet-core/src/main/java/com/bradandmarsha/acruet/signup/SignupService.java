@@ -59,6 +59,11 @@ public final class SignupService {
 
     public SubmitResult submit(SignupRequest request, String applicantIp, Instant now, Optional<String> inviteToken) {
         try {
+            if (inviteToken.isPresent()) {
+                return SubmitResult.error(
+                        "This household invitation is handled by email. Check your inbox for a verification link.");
+            }
+
             Optional<String> validationError = validate(request);
             if (validationError.isPresent()) {
                 rateLimiter.recordAttempt(request.email(), applicantIp);

@@ -6,6 +6,8 @@ import com.bradandmarsha.acruet.crypto.EncryptedBlob;
 import com.bradandmarsha.acruet.db.Database;
 import com.bradandmarsha.acruet.keys.WrappedDekPayload;
 import com.bradandmarsha.acruet.mail.MailSender;
+import com.bradandmarsha.acruet.signup.SignupPolicy;
+import com.bradandmarsha.acruet.signup.SignupRepository;
 import com.bradandmarsha.acruet.signup.SignupTokens;
 import com.bradandmarsha.acruet.user.AcruetUser;
 import com.bradandmarsha.acruet.user.UserRepository;
@@ -31,12 +33,18 @@ public final class HouseholdInviteService {
 
     public static final int MAX_HOUSEHOLD_MEMBERS = 5;
     private static final int INVITE_VALID_DAYS = 7;
+    private static final int VERIFICATION_VALID_HOURS = 24;
+    private static final String INVITE_PLACEHOLDER_NAME = "Invited member";
+    private static final String INVITE_PLACEHOLDER_REASON = "Household member invitation";
+    private static final String INVITE_PLACEHOLDER_PHONE = "Pending";
+    private static final String INVITE_PLACEHOLDER_ADDRESS = "Pending profile completion";
 
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private final HouseholdRepository householdRepository;
     private final HouseholdInviteRepository inviteRepository;
+    private final SignupRepository signupRepository;
     private final UserRepository userRepository;
     private final MailSender mailSender;
     private final String baseUrl;
@@ -44,11 +52,13 @@ public final class HouseholdInviteService {
     public HouseholdInviteService(
             HouseholdRepository householdRepository,
             HouseholdInviteRepository inviteRepository,
+            SignupRepository signupRepository,
             UserRepository userRepository,
             MailSender mailSender,
             String baseUrl) {
         this.householdRepository = householdRepository;
         this.inviteRepository = inviteRepository;
+        this.signupRepository = signupRepository;
         this.userRepository = userRepository;
         this.mailSender = mailSender;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
@@ -58,6 +68,7 @@ public final class HouseholdInviteService {
         return new HouseholdInviteService(
                 new HouseholdRepository(),
                 new HouseholdInviteRepository(),
+                new SignupRepository(),
                 new UserRepository(),
                 new MailSender(SmtpSettings.fromEnvironment()),
                 OidcSettings.fromEnvironment().baseUrl());
@@ -76,25 +87,32 @@ public final class HouseholdInviteService {
         byte[] encryptedPayload = EncryptedBlob.decode(request.wrappedDek());
 
         try {
-            return Database.inTransactionReturning(connection -> {
+            PendingInviteMail pending = Database.inTransactionReturning(connection -> {
                 if (userRepository.findByEmail(connection, normalizedEmail).isPresent()) {
-                    return CreateResult.error("That email already belongs to an a-cruet user.");
+                    throw new InviteFailure("That email already belongs to an a-cruet user.");
+                }
+                SignupPolicy.Decision signupDecision = SignupPolicy.evaluate(
+                        signupRepository.findLatestByEmail(connection, normalizedEmail), now);
+                if (signupDecision != SignupPolicy.Decision.ALLOW) {
+                    throw new InviteFailure(signupPolicyMessage(signupDecision));
                 }
                 int members = householdRepository.countMembers(connection, inviter.householdId());
                 int pendingInvites = householdRepository.countPendingInvites(connection, inviter.householdId());
                 if (members + pendingInvites >= MAX_HOUSEHOLD_MEMBERS) {
-                    return CreateResult.error(
+                    throw new InviteFailure(
                             "This household already has the maximum of "
                                     + MAX_HOUSEHOLD_MEMBERS
                                     + " members and pending invites.");
                 }
                 if (inviteRepository.hasPendingInviteForEmail(
                         connection, inviter.householdId(), normalizedEmail)) {
-                    return CreateResult.error("A pending invite already exists for that email.");
+                    throw new InviteFailure("A pending invite already exists for that email.");
                 }
 
                 UUID inviteId = UUID.randomUUID();
-                Instant expiresAt = now.plus(INVITE_VALID_DAYS, ChronoUnit.DAYS);
+                UUID applicationId = UUID.randomUUID();
+                String verifyToken = SignupTokens.newToken();
+                Instant inviteExpiresAt = now.plus(INVITE_VALID_DAYS, ChronoUnit.DAYS);
                 inviteRepository.insert(
                         connection,
                         inviteId,
@@ -108,37 +126,125 @@ public final class HouseholdInviteService {
                         request.kdfHash(),
                         EncryptedBlob.decode(request.kdfSalt()),
                         request.kdfIterations(),
-                        expiresAt);
-
-                String signupUrl = baseUrl + "/signup?invite=" + request.inviteToken();
-                try {
-                    mailSender.send(
-                            normalizedEmail,
-                            "You are invited to join an a-cruet household",
-                            """
-                                    Hello,
-
-                                    %s invited you to join their a-cruet household ledger.
-
-                                    Apply using this link (valid for %d days):
-
-                                    %s
-
-                                    Your email must match this invitation. After applying, an administrator will review your request.
-                                    """
-                                    .formatted(inviter.displayName(), INVITE_VALID_DAYS, signupUrl));
-                } catch (MessagingException mailException) {
-                    throw new IllegalStateException("Invite email failed", mailException);
-                }
-
-                return CreateResult.sent(normalizedEmail, expiresAt);
+                        inviteExpiresAt);
+                signupRepository.insertApplication(
+                        connection,
+                        applicationId,
+                        normalizedEmail,
+                        INVITE_PLACEHOLDER_NAME,
+                        INVITE_PLACEHOLDER_REASON,
+                        INVITE_PLACEHOLDER_PHONE,
+                        INVITE_PLACEHOLDER_ADDRESS,
+                        SignupTokens.hash(verifyToken),
+                        now.plus(VERIFICATION_VALID_HOURS, ChronoUnit.HOURS),
+                        null,
+                        inviteId);
+                return new PendingInviteMail(
+                        inviteId,
+                        applicationId,
+                        normalizedEmail,
+                        verifyToken,
+                        request.inviteToken(),
+                        inviteExpiresAt,
+                        inviter.displayName());
             });
-        } catch (IllegalStateException mailFailure) {
-            LOGGER.log(Level.WARNING, "Household invite email failed for {0}", normalizedEmail);
-            return CreateResult.error("Unable to send the invitation email right now. Please try again later.");
+
+            try {
+                mailSender.send(
+                        pending.email(),
+                        "You are invited to join an a-cruet household",
+                        inviteNotificationEmailBody(
+                                pending.inviterDisplayName(),
+                                pending.inviteToken(),
+                                INVITE_VALID_DAYS));
+                mailSender.send(
+                        pending.email(),
+                        "Verify your a-cruet application",
+                        inviteVerificationEmailBody(
+                                pending.inviterDisplayName(),
+                                baseUrl + "/signup/verify?token=" + pending.verifyToken()));
+            } catch (MessagingException mailException) {
+                rollbackPendingInvite(pending);
+                LOGGER.log(Level.WARNING, "Household invite email failed for {0}", normalizedEmail);
+                LOGGER.log(Level.FINE, "Household invite mail failure detail", mailException);
+                return CreateResult.error("Unable to send the invitation email right now. Please try again later.");
+            }
+
+            return CreateResult.sent(pending.email(), pending.inviteExpiresAt());
+        } catch (InviteFailure failure) {
+            return CreateResult.error(failure.getMessage());
         } catch (Exception exception) {
             LOGGER.log(Level.WARNING, "Household invite failed", exception);
             return CreateResult.error("Unable to send the invitation right now. Please try again later.");
+        }
+    }
+
+    private void rollbackPendingInvite(PendingInviteMail pending) {
+        try {
+            Database.inTransaction(connection -> {
+                signupRepository.deleteApplication(connection, pending.applicationId());
+                inviteRepository.deleteById(connection, pending.inviteId());
+            });
+        } catch (SQLException rollbackException) {
+            LOGGER.log(Level.WARNING, "Failed to roll back household invite after mail failure", rollbackException);
+        }
+    }
+
+    private static String inviteNotificationEmailBody(
+            String inviterDisplayName, String inviteToken, int inviteValidDays) {
+        return """
+                Hello,
+
+                %s invited you to join their a-cruet household ledger.
+
+                You will receive a separate email shortly with a link to verify your email address. After an administrator approves your request, sign in and complete your profile information on first login.
+
+                Keep this invitation token safe — you will need it when setting up household encryption after approval:
+
+                %s
+
+                This invitation is valid for %d days.
+                """
+                .formatted(inviterDisplayName, inviteToken, inviteValidDays);
+    }
+
+    private static String inviteVerificationEmailBody(String inviterDisplayName, String verifyUrl) {
+        return """
+                Hello,
+
+                %s invited you to join an a-cruet household on a-cruet. Verify your email to queue your application for admin review:
+
+                %s
+
+                This link expires in 24 hours. If you did not expect this invitation, you can ignore this message.
+                """
+                .formatted(inviterDisplayName, verifyUrl);
+    }
+
+    private static String signupPolicyMessage(SignupPolicy.Decision decision) {
+        return switch (decision) {
+            case IN_PROGRESS -> "That email already has an application in progress.";
+            case COOLDOWN -> "That email must wait "
+                    + SignupPolicy.COOLDOWN_DAYS
+                    + " days after a rejection before re-applying.";
+            case BLOCKED -> "That email is blocked from re-applying. Contact an administrator.";
+            case ALLOW -> "";
+        };
+    }
+
+    private record PendingInviteMail(
+            UUID inviteId,
+            UUID applicationId,
+            String email,
+            String verifyToken,
+            String inviteToken,
+            Instant inviteExpiresAt,
+            String inviterDisplayName) {
+    }
+
+    private static final class InviteFailure extends RuntimeException {
+        private InviteFailure(String message) {
+            super(message);
         }
     }
 

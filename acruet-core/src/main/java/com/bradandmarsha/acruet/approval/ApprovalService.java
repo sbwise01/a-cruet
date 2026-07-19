@@ -148,10 +148,17 @@ public final class ApprovalService {
             });
 
             try {
-                mailSender.send(
-                        application.email(),
-                        "Your a-cruet application was approved",
-                        approvalEmailBody(application.fullName(), provisioned.temporaryPassword()));
+                if (application.householdInviteId().isPresent()) {
+                    mailSender.send(
+                            application.email(),
+                            "Your a-cruet household invitation was approved",
+                            householdApprovalEmailBody(application.fullName(), provisioned.temporaryPassword()));
+                } else {
+                    mailSender.send(
+                            application.email(),
+                            "Your a-cruet application was approved",
+                            approvalEmailBody(application.fullName(), provisioned.temporaryPassword()));
+                }
             } catch (MessagingException mailException) {
                 LOGGER.log(
                         Level.WARNING,
@@ -242,6 +249,24 @@ public final class ApprovalService {
 
                 Your temporary password is: %s
                 You will be asked to set a new password on first sign-in.
+
+                Welcome to a-cruet!
+                """
+                .formatted(fullName, userBaseUrl, temporaryPassword);
+    }
+
+    private String householdApprovalEmailBody(String fullName, String temporaryPassword) {
+        return """
+                Hello %s,
+
+                Your invitation to join an a-cruet household has been approved.
+
+                Sign in at: %s/auth/login
+
+                Your temporary password is: %s
+                You will be asked to set a new password on first sign-in.
+
+                After sign-in, complete your profile information, then set up household encryption using the invitation token from your invitation email.
 
                 Welcome to a-cruet!
                 """
