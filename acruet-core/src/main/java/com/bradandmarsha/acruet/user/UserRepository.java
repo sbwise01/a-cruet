@@ -224,6 +224,20 @@ public final class UserRepository {
         }
     }
 
+    public Optional<Instant> findSuspendedUntil(Connection connection, UUID userId) throws SQLException {
+        String sql = "SELECT suspended_until FROM acruet_user WHERE id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, userId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                Timestamp suspendedUntil = resultSet.getTimestamp("suspended_until");
+                return Optional.ofNullable(suspendedUntil).map(Timestamp::toInstant);
+            }
+        }
+    }
+
     public List<AcruetUser> listSuspendedDue(Instant now) throws SQLException {
         String sql = """
                 SELECT id, keycloak_user_id, email, display_name, signup_application_id,

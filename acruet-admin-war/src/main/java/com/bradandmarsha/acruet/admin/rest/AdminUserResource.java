@@ -76,6 +76,13 @@ public class AdminUserResource {
     }
 
     @POST
+    @Path("{id}/unsuspend")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public Response unsuspend(@Context HttpServletRequest request, @PathParam("id") UUID userId) {
+        return act(request, userId, admin -> adminOpsService.unsuspend(userId, admin));
+    }
+
+    @POST
     @Path("{id}/offboard")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Response offboard(@Context HttpServletRequest request, @PathParam("id") UUID userId) {
@@ -170,7 +177,7 @@ public class AdminUserResource {
             UserRepository.OperationalUserRow row,
             Instant now) {
         boolean offboarding = row.offboardDeadline() != null && row.offboardExportCompletedAt() == null;
-        boolean suspended = row.suspendedUntil() != null && row.suspendedUntil().isAfter(now);
+        boolean suspensionPending = row.suspendedUntil() != null;
         StringBuilder forms = new StringBuilder();
         if (adminRoleGranted) {
             forms.append(
@@ -189,7 +196,15 @@ public class AdminUserResource {
                     """
                             .formatted(userId));
         }
-        if (!suspended) {
+        if (suspensionPending) {
+            forms.append(
+                    """
+                    <form method="post" action="/users/%s/unsuspend">
+                      <button type="submit">Unsuspend</button>
+                    </form>
+                    """
+                            .formatted(userId));
+        } else {
             forms.append(
                     """
                     <form method="post" action="/users/%s/suspend">

@@ -19,6 +19,7 @@ import com.bradandmarsha.acruet.user.UserRepository;
 
 import jakarta.mail.MessagingException;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -184,6 +185,30 @@ public final class AdminOpsService {
         }
     }
 
+    public ApprovalService.ActionResult unsuspend(UUID userId, ApprovalService.AdminActor admin) {
+        try {
+            Optional<AcruetUser> userOptional = Database.inTransactionReturning(
+                    connection -> userRepository.findById(connection, userId));
+            if (userOptional.isEmpty()) {
+                return ApprovalService.ActionResult.error("User not found.");
+            }
+            AcruetUser user = userOptional.get();
+            Optional<Instant> suspendedUntil = Database.inTransactionReturning(
+                    connection -> userRepository.findSuspendedUntil(connection, userId));
+            if (suspendedUntil.isEmpty()) {
+                return ApprovalService.ActionResult.error("User is not suspended.");
+            }
+            applyUnsuspend(user, admin, "Manual unsuspend");
+            return ApprovalService.ActionResult.success("Unsuspended " + user.email() + ".");
+        } catch (KeycloakAdminException exception) {
+            LOGGER.log(Level.WARNING, "Unsuspend failed in Keycloak", exception);
+            return ApprovalService.ActionResult.error(exception.getMessage());
+        } catch (Exception exception) {
+            LOGGER.log(Level.WARNING, "Unsuspend failed", exception);
+            return ApprovalService.ActionResult.error("Unsuspend failed. Please try again.");
+        }
+    }
+
     public ApprovalService.ActionResult offboard(UUID userId, ApprovalService.AdminActor admin) {
         try {
             Optional<AcruetUser> userOptional = Database.inTransactionReturning(
@@ -264,18 +289,10 @@ public final class AdminOpsService {
         try {
             for (AcruetUser user : userRepository.listSuspendedDue(now)) {
                 try {
-                    keycloakAdminClient.setUserEnabled(user.keycloakUserId(), true);
-                    Database.inTransaction(connection -> {
-                        userRepository.clearSuspension(connection, user.id());
-                        auditRepository.insert(
-                                connection,
-                                CRON_ACTOR.keycloakUserId(),
-                                CRON_ACTOR.email(),
-                                ApprovalAction.UNSUSPEND_USER,
-                                TARGET_TYPE_USER,
-                                user.id(),
-                                "Auto-unsuspended after " + DISPLAY_TIME.format(now));
-                    });
+                    applyUnsuspend(
+                            user,
+                            CRON_ACTOR,
+                            "Auto-unsuspended after " + DISPLAY_TIME.format(now));
                     restored++;
                 } catch (Exception exception) {
                     LOGGER.log(
@@ -405,6 +422,22 @@ public final class AdminOpsService {
             LOGGER.log(Level.WARNING, "Pending anomaly alert sweep failed", exception);
         }
         return delivered;
+    }
+
+    private void applyUnsuspend(AcruetUser user, ApprovalService.AdminActor actor, String auditDetail)
+            throws SQLException {
+        keycloakAdminClient.setUserEnabled(user.keycloakUserId(), true);
+        Database.inTransaction(connection -> {
+            userRepository.clearSuspension(connection, user.id());
+            auditRepository.insert(
+                    connection,
+                    actor.keycloakUserId(),
+                    actor.email(),
+                    ApprovalAction.UNSUSPEND_USER,
+                    TARGET_TYPE_USER,
+                    user.id(),
+                    auditDetail);
+        });
     }
 
     private ApprovalService.ActionResult changeAdminRole(
