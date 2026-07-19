@@ -17,5 +17,6 @@ public record SignupApplication(
         ApplicationStatus status,
         int rejectionCount,
         Optional<Instant> lastRejectedAt,
+        Optional<UUID> householdInviteId,
         Instant createdAt) {
 }

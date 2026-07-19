@@ -2,6 +2,9 @@ package com.bradandmarsha.acruet.signup;
 
 import com.bradandmarsha.acruet.auth.OidcSettings;
 import com.bradandmarsha.acruet.config.SmtpSettings;
+import com.bradandmarsha.acruet.db.Database;
+import com.bradandmarsha.acruet.household.HouseholdInvite;
+import com.bradandmarsha.acruet.household.HouseholdInviteService;
 import com.bradandmarsha.acruet.mail.MailSender;
 
 import jakarta.mail.MessagingException;
@@ -15,7 +18,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /**
- * Public applicant signup and email verification (Phase 5).
+ * Public applicant signup and email verification (Phase 5, household invite Phase 12c).
  */
 public final class SignupService {
 
@@ -26,30 +29,35 @@ public final class SignupService {
 
     private final SignupRepository repository;
     private final SignupRateLimiter rateLimiter;
+    private final HouseholdInviteService householdInviteService;
     private final MailSender mailSender;
     private final String baseUrl;
 
     public SignupService(
             SignupRepository repository,
             SignupRateLimiter rateLimiter,
+            HouseholdInviteService householdInviteService,
             MailSender mailSender,
             String baseUrl) {
         this.repository = repository;
         this.rateLimiter = rateLimiter;
+        this.householdInviteService = householdInviteService;
         this.mailSender = mailSender;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 
     public static SignupService fromEnvironment() {
         OidcSettings oidc = OidcSettings.fromEnvironment();
+        SignupRepository repository = new SignupRepository();
         return new SignupService(
-                new SignupRepository(),
-                new SignupRateLimiter(new SignupRepository()),
+                repository,
+                new SignupRateLimiter(repository),
+                HouseholdInviteService.fromEnvironment(),
                 new MailSender(SmtpSettings.fromEnvironment()),
                 oidc.baseUrl());
     }
 
-    public SubmitResult submit(SignupRequest request, String applicantIp, Instant now) {
+    public SubmitResult submit(SignupRequest request, String applicantIp, Instant now, Optional<String> inviteToken) {
         try {
             Optional<String> validationError = validate(request);
             if (validationError.isPresent()) {
@@ -71,6 +79,20 @@ public final class SignupService {
                 return SubmitResult.error(policyMessage(decision));
             }
 
+            UUID householdInviteId = null;
+            if (inviteToken.isPresent()) {
+                householdInviteId = Database.inTransactionReturning(connection -> {
+                    Optional<HouseholdInvite> invite = householdInviteService.resolveSignupInvite(
+                            connection, inviteToken.get(), request.email(), now);
+                    return invite.map(HouseholdInvite::id).orElse(null);
+                });
+                if (householdInviteId == null) {
+                    rateLimiter.recordAttempt(request.email(), applicantIp);
+                    return SubmitResult.error(
+                            "This household invitation is invalid, expired, or does not match the email address.");
+                }
+            }
+
             String token = SignupTokens.newToken();
             UUID id = UUID.randomUUID();
             repository.insertApplication(
@@ -82,7 +104,8 @@ public final class SignupService {
                     request.mailingAddress(),
                     SignupTokens.hash(token),
                     now.plus(24, ChronoUnit.HOURS),
-                    applicantIp);
+                    applicantIp,
+                    householdInviteId);
             rateLimiter.recordAttempt(request.email(), applicantIp);
 
             String verifyUrl = baseUrl + "/signup/verify?token=" + token;

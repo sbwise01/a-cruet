@@ -61,6 +61,54 @@ public final class UserRepository {
         householdRepository.insertMember(connection, householdId, id, HouseholdMemberRole.OWNER);
     }
 
+    public Optional<AcruetUser> findByEmail(Connection connection, String email) throws SQLException {
+        String sql = USER_SELECT + """
+                FROM acruet_user u
+                INNER JOIN household h ON h.id = u.household_id
+                WHERE LOWER(u.email) = LOWER(?)
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, email.trim());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapRow(resultSet));
+            }
+        }
+    }
+
+    public void insertAsMember(
+            Connection connection,
+            UUID id,
+            String keycloakUserId,
+            String email,
+            String displayName,
+            String phone,
+            String mailingAddress,
+            UUID signupApplicationId,
+            UUID householdId) throws SQLException {
+        String sql = """
+                INSERT INTO acruet_user (
+                    id, keycloak_user_id, email, display_name, phone, mailing_address,
+                    signup_application_id, household_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, id);
+            statement.setString(2, keycloakUserId);
+            statement.setString(3, email.trim());
+            statement.setString(4, displayName.trim());
+            statement.setString(5, phone.trim());
+            statement.setString(6, mailingAddress.trim());
+            statement.setObject(7, signupApplicationId);
+            statement.setObject(8, householdId);
+            statement.executeUpdate();
+        }
+
+        householdRepository.insertMember(connection, householdId, id, HouseholdMemberRole.MEMBER);
+    }
+
     public Optional<AcruetUser> findByKeycloakUserId(Connection connection, String keycloakUserId)
             throws SQLException {
         String sql = USER_SELECT + """
