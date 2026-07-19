@@ -8,6 +8,7 @@ import com.bradandmarsha.acruet.config.AdminAlertSettings;
 import com.bradandmarsha.acruet.config.KeycloakAdminSettings;
 import com.bradandmarsha.acruet.config.SmtpSettings;
 import com.bradandmarsha.acruet.db.Database;
+import com.bradandmarsha.acruet.household.HouseholdRepository;
 import com.bradandmarsha.acruet.keycloak.KeycloakAdminClient;
 import com.bradandmarsha.acruet.keycloak.KeycloakAdminException;
 import com.bradandmarsha.acruet.mail.MailSender;
@@ -15,6 +16,7 @@ import com.bradandmarsha.acruet.signup.SignupApplication;
 import com.bradandmarsha.acruet.signup.SignupRepository;
 import com.bradandmarsha.acruet.user.AcruetUser;
 import com.bradandmarsha.acruet.user.LoginAnomalyRepository;
+import com.bradandmarsha.acruet.user.UserPurgeResult;
 import com.bradandmarsha.acruet.user.UserRepository;
 
 import jakarta.mail.MessagingException;
@@ -53,6 +55,7 @@ public final class AdminOpsService {
             new ApprovalService.AdminActor("system:cron", null);
 
     private final UserRepository userRepository;
+    private final HouseholdRepository householdRepository;
     private final UserOffboardRepository offboardRepository;
     private final SignupRepository signupRepository;
     private final LoginAnomalyRepository anomalyRepository;
@@ -66,6 +69,7 @@ public final class AdminOpsService {
 
     public AdminOpsService(
             UserRepository userRepository,
+            HouseholdRepository householdRepository,
             UserOffboardRepository offboardRepository,
             SignupRepository signupRepository,
             LoginAnomalyRepository anomalyRepository,
@@ -77,6 +81,7 @@ public final class AdminOpsService {
             String adminBaseUrl,
             List<String> alertEmails) {
         this.userRepository = userRepository;
+        this.householdRepository = householdRepository;
         this.offboardRepository = offboardRepository;
         this.signupRepository = signupRepository;
         this.anomalyRepository = anomalyRepository;
@@ -92,6 +97,7 @@ public final class AdminOpsService {
     public static AdminOpsService fromEnvironment() {
         return new AdminOpsService(
                 new UserRepository(),
+                new HouseholdRepository(),
                 new UserOffboardRepository(),
                 new SignupRepository(),
                 new LoginAnomalyRepository(),
@@ -265,6 +271,8 @@ public final class AdminOpsService {
             }
             Instant now = Instant.now();
             Instant deadline = now.plus(OFFBOARD_EXPORT_DAYS, ChronoUnit.DAYS);
+            int householdMemberCount = Database.inTransactionReturning(
+                    connection -> householdRepository.countMembers(connection, user.householdId()));
             Database.inTransaction(connection -> {
                 offboardRepository.insert(
                         connection,
@@ -279,13 +287,20 @@ public final class AdminOpsService {
                         ApprovalAction.OFFBOARD_USER,
                         TARGET_TYPE_USER,
                         userId,
-                        "Export deadline " + DISPLAY_TIME.format(deadline));
+                        "Export deadline "
+                                + DISPLAY_TIME.format(deadline)
+                                + "; household members before purge: "
+                                + householdMemberCount);
             });
-            sendOffboardEmail(user, deadline);
+            sendOffboardEmail(user, deadline, householdMemberCount);
+            String retentionNote = householdMemberCount > 1
+                    ? " Shared household ledger will remain for other members."
+                    : " Household ledger will be deleted after the export window.";
             return ApprovalService.ActionResult.success(
                     "Offboarding started for " + user.email() + ". Export window ends "
                             + DISPLAY_TIME.format(deadline)
-                            + ".");
+                            + "."
+                            + retentionNote);
         } catch (Exception exception) {
             LOGGER.log(Level.WARNING, "Offboard failed", exception);
             return ApprovalService.ActionResult.error("Offboarding failed. Please try again.");
@@ -361,6 +376,7 @@ public final class AdminOpsService {
                     AcruetUser user = userOptional.get();
                     keycloakAdminClient.setUserEnabled(user.keycloakUserId(), false);
                     Database.inTransaction(connection -> {
+                        UserPurgeResult result = userRepository.purgeProvisionedUser(connection, offboard.userId());
                         auditRepository.insert(
                                 connection,
                                 CRON_ACTOR.keycloakUserId(),
@@ -368,10 +384,7 @@ public final class AdminOpsService {
                                 ApprovalAction.PURGE_USER,
                                 TARGET_TYPE_USER,
                                 offboard.userId(),
-                                offboard.isExportComplete()
-                                        ? "Purged after export complete"
-                                        : "Purged after export deadline");
-                        userRepository.deleteById(connection, offboard.userId());
+                                result.auditDetail(offboard.isExportComplete()));
                     });
                     purged++;
                 } catch (Exception exception) {
@@ -534,8 +547,18 @@ public final class AdminOpsService {
         }
     }
 
-    private void sendOffboardEmail(AcruetUser user, Instant deadline) {
+    private void sendOffboardEmail(AcruetUser user, Instant deadline, int householdMemberCount) {
         try {
+            String retention = householdMemberCount > 1
+                    ? """
+
+                    After the export window, your personal a-cruet access and encryption keys will be removed.
+                    The shared household ledger for other members will remain unchanged.
+                    """
+                    : """
+
+                    After the export window, your household ledger and account will be permanently deleted.
+                    """;
             mailSender.send(
                     user.email(),
                     "Your a-cruet account is being offboarded",
@@ -546,7 +569,7 @@ public final class AdminOpsService {
 
                     Sign in at %s and open the data export page before %s to download a decrypted
                     copy of your ledger (CSV and JSON). After you confirm export or when the window
-                    ends, your a-cruet data will be permanently deleted and your login disabled.
+                    ends, your login will be disabled.%s
 
                     Export page: %s/offboard
                     """
@@ -554,6 +577,7 @@ public final class AdminOpsService {
                                     user.displayName(),
                                     userBaseUrl,
                                     DISPLAY_TIME.format(deadline),
+                                    retention,
                                     userBaseUrl));
         } catch (MessagingException exception) {
             LOGGER.log(Level.WARNING, "Offboard email failed for " + user.email(), exception);

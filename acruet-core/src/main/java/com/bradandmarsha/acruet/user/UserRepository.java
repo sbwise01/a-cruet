@@ -221,12 +221,20 @@ public final class UserRepository {
         String sql = """
                 SELECT u.id, u.keycloak_user_id, u.email, u.display_name, u.signup_application_id,
                        u.phone, u.mailing_address, u.allow_negative_withdraw, u.household_id,
+                       hm.role AS household_role,
+                       household_counts.member_count AS household_member_count,
                        h.ledger_account_count, h.transaction_count, h.ledger_account_limit,
                        u.key_setup_complete, u.created_at, u.updated_at, u.last_login_at,
                        u.last_transaction_at, u.suspended_until, u.suspended_at,
                        o.export_deadline, o.export_completed_at, o.purged_at
                 FROM acruet_user u
                 INNER JOIN household h ON h.id = u.household_id
+                INNER JOIN household_member hm ON hm.user_id = u.id
+                INNER JOIN (
+                    SELECT household_id, COUNT(*) AS member_count
+                    FROM household_member
+                    GROUP BY household_id
+                ) household_counts ON household_counts.household_id = u.household_id
                 LEFT JOIN user_offboard o ON o.user_id = u.id AND o.purged_at IS NULL
                 ORDER BY u.display_name ASC, u.email ASC
                 """;
@@ -303,18 +311,36 @@ public final class UserRepository {
     }
 
     public void deleteById(Connection connection, UUID userId) throws SQLException {
+        purgeProvisionedUser(connection, userId);
+    }
+
+    public UserPurgeResult purgeProvisionedUser(Connection connection, UUID userId) throws SQLException {
         Optional<UUID> householdIdOptional = findHouseholdId(connection, userId);
+        Optional<HouseholdMemberRole> role = householdRepository.findMemberRole(connection, userId);
+        int membersBeforePurge = householdIdOptional
+                .map(householdId -> {
+                    try {
+                        return householdRepository.countMembers(connection, householdId);
+                    } catch (SQLException exception) {
+                        throw new IllegalStateException("Failed to count household members", exception);
+                    }
+                })
+                .orElse(0);
+
         String sql = "DELETE FROM acruet_user WHERE id = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, userId);
             statement.executeUpdate();
         }
-        if (householdIdOptional.isPresent()) {
-            UUID householdId = householdIdOptional.get();
-            if (householdRepository.countMembers(connection, householdId) == 0) {
-                householdRepository.deleteById(connection, householdId);
-            }
+
+        boolean householdDeleted = false;
+        UUID householdId = householdIdOptional.orElse(null);
+        if (householdId != null && householdRepository.countMembers(connection, householdId) == 0) {
+            householdRepository.deleteById(connection, householdId);
+            householdDeleted = true;
         }
+
+        return new UserPurgeResult(householdId, role.orElse(null), membersBeforePurge, householdDeleted);
     }
 
     private Optional<UUID> findHouseholdId(Connection connection, UUID userId) throws SQLException {
@@ -332,6 +358,8 @@ public final class UserRepository {
 
     public record OperationalUserRow(
             AcruetUser user,
+            HouseholdMemberRole householdRole,
+            int householdMemberCount,
             Instant suspendedUntil,
             Instant suspendedAt,
             Instant offboardDeadline,
@@ -345,6 +373,8 @@ public final class UserRepository {
         Timestamp offboardExportCompletedAt = resultSet.getTimestamp("export_completed_at");
         return new OperationalUserRow(
                 mapRow(resultSet),
+                HouseholdMemberRole.fromDb(resultSet.getString("household_role")),
+                resultSet.getInt("household_member_count"),
                 suspendedUntil == null ? null : suspendedUntil.toInstant(),
                 suspendedAt == null ? null : suspendedAt.toInstant(),
                 offboardDeadline == null ? null : offboardDeadline.toInstant(),

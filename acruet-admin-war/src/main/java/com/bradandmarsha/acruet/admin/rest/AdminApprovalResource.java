@@ -2,6 +2,7 @@ package com.bradandmarsha.acruet.admin.rest;
 
 import com.bradandmarsha.acruet.approval.ApprovalService;
 import com.bradandmarsha.acruet.auth.OidcUser;
+import com.bradandmarsha.acruet.household.HouseholdDisplay;
 import com.bradandmarsha.acruet.signup.SignupRepository;
 import com.bradandmarsha.acruet.ui.AdminPageLayout;
 import com.bradandmarsha.acruet.ui.PageStyles;
@@ -91,6 +92,15 @@ public class AdminApprovalResource {
             String verified = application.verifiedAt()
                     .map(DISPLAY_TIME::format)
                     .orElse("—");
+            String householdMeta = application.targetHouseholdId()
+                    .map(householdId -> "<br><span class=\"meta\">Joins household "
+                            + escape(HouseholdDisplay.shortId(householdId))
+                            + " ("
+                            + application.targetHouseholdMemberCount()
+                            + " member"
+                            + (application.targetHouseholdMemberCount() == 1 ? "" : "s")
+                            + " now)</span>")
+                    .orElse("");
             rows.append(
                     """
                     <tr>
@@ -114,9 +124,7 @@ public class AdminApprovalResource {
                             .formatted(
                                     escape(application.fullName()),
                                     escape(application.email()),
-                                    application.householdInviteId().isPresent()
-                                            ? "<br><span class=\"meta\">Joins existing household (invite)</span>"
-                                            : "",
+                                    householdMeta,
                                     escape(application.reason()),
                                     verified,
                                     application.id(),

@@ -2,6 +2,7 @@ package com.bradandmarsha.acruet.admin.rest;
 
 import com.bradandmarsha.acruet.admin.AdminOpsService;
 import com.bradandmarsha.acruet.approval.ApprovalService;
+import com.bradandmarsha.acruet.household.HouseholdDisplay;
 import com.bradandmarsha.acruet.user.AcruetUser;
 import com.bradandmarsha.acruet.user.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -125,6 +126,7 @@ public class AdminUserResource {
                         <strong>%s</strong><br>
                         <span class="meta">%s</span>
                       </td>
+                      <td class="meta">%s</td>
                       <td>%d</td>
                       <td>%d</td>
                       <td>%s</td>
@@ -136,6 +138,10 @@ public class AdminUserResource {
                             .formatted(
                                     AdminWebSupport.escape(user.displayName()),
                                     AdminWebSupport.escape(user.email()),
+                                    AdminWebSupport.escape(HouseholdDisplay.membershipSummary(
+                                            user.householdId(),
+                                            row.householdRole(),
+                                            row.householdMemberCount())),
                                     user.ledgerAccountCount(),
                                     user.transactionCount(),
                                     formatInstant(user.lastLoginAt()),
@@ -148,6 +154,7 @@ public class AdminUserResource {
                   <thead>
                     <tr>
                       <th>User</th>
+                      <th>Household</th>
                       <th>Envelopes</th>
                       <th>Transactions</th>
                       <th>Last login</th>

@@ -39,11 +39,18 @@ public final class SignupRepository {
 
     public List<PendingApplication> listPendingApproval() throws SQLException {
         String sql = """
-                SELECT id, email, full_name, reason, phone, mailing_address, verified_at,
-                       created_at, household_invite_id
-                FROM signup_application
-                WHERE status = ?
-                ORDER BY verified_at ASC NULLS LAST, created_at ASC
+                SELECT sa.id, sa.email, sa.full_name, sa.reason, sa.phone, sa.mailing_address, sa.verified_at,
+                       sa.created_at, sa.household_invite_id, hi.household_id,
+                       household_counts.member_count AS household_member_count
+                FROM signup_application sa
+                LEFT JOIN household_invite hi ON hi.id = sa.household_invite_id
+                LEFT JOIN (
+                    SELECT household_id, COUNT(*) AS member_count
+                    FROM household_member
+                    GROUP BY household_id
+                ) household_counts ON household_counts.household_id = hi.household_id
+                WHERE sa.status = ?
+                ORDER BY sa.verified_at ASC NULLS LAST, sa.created_at ASC
                 """;
         List<PendingApplication> pending = new ArrayList<>();
         try (Connection connection = Database.openConnection();
@@ -61,7 +68,9 @@ public final class SignupRepository {
                             resultSet.getString("mailing_address"),
                             Optional.ofNullable(verifiedAt).map(Timestamp::toInstant),
                             resultSet.getTimestamp("created_at").toInstant(),
-                            Optional.ofNullable(resultSet.getObject("household_invite_id", UUID.class))));
+                            Optional.ofNullable(resultSet.getObject("household_invite_id", UUID.class)),
+                            Optional.ofNullable(resultSet.getObject("household_id", UUID.class)),
+                            resultSet.getInt("household_member_count")));
                 }
             }
         }
@@ -123,7 +132,9 @@ public final class SignupRepository {
             String mailingAddress,
             Optional<Instant> verifiedAt,
             Instant createdAt,
-            Optional<UUID> householdInviteId) {
+            Optional<UUID> householdInviteId,
+            Optional<UUID> targetHouseholdId,
+            int targetHouseholdMemberCount) {
     }
 
     public record RejectionResult(int rejectionCount, ApplicationStatus status) {
