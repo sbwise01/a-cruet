@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     transactions: [],
     balances: new Map(),
     formMode: null,
+    allowNegativeWithdraw: false,
   };
 
   const ALLOCATION_MISMATCH_MESSAGE =
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   let formErrorTimeout = null;
+  let renamingAccountId = null;
 
   window.AcruetLedger = {
     showInlineUnlock: () => showInlineUnlockForm(),
@@ -76,9 +78,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (els.btnInlineUnlock) {
     els.btnInlineUnlock.addEventListener('click', submitInlineUnlock);
   }
+  if (els.inlinePassphrase) {
+    els.inlinePassphrase.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submitInlineUnlock();
+      }
+    });
+  }
   if (els.btnInlineUnlockCancel) {
     els.btnInlineUnlockCancel.addEventListener('click', hideInlineUnlockForm);
   }
+  els.accountsList.addEventListener('click', (event) => {
+    const nameButton = event.target.closest('.envelope-name');
+    if (!nameButton || renamingAccountId) {
+      return;
+    }
+    startRename(nameButton.dataset.id);
+  });
 
   els.ledgerBrowse.addEventListener('click', (event) => {
     const button = event.target.closest('.ledger-action-btn');
@@ -188,13 +205,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function refresh() {
     hideError();
     hideWarning();
-    const [accountsResponse, transactionsResponse] = await Promise.all([
+    const [accountsResponse, transactionsResponse, profileResponse] = await Promise.all([
       fetch('/ledger/accounts'),
       fetch('/ledger/transactions'),
+      fetch('/profile/api'),
     ]);
     if (!accountsResponse.ok || !transactionsResponse.ok) {
       showError('Failed to load ledger data.');
       return;
+    }
+    if (profileResponse.ok) {
+      const profile = await profileResponse.json();
+      state.allowNegativeWithdraw = Boolean(profile.allowNegativeWithdraw);
     }
     const accountsBody = await accountsResponse.json();
     const transactionsBody = await transactionsResponse.json();
@@ -248,8 +270,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const balance = state.balances.get(account.id) || 0;
         const negativeClass = balance < 0 ? ' balance-negative' : '';
         return `
-          <div class="account-row">
-            <span class="name">${escapeHtml(account.name)}</span>
+          <div class="account-row" data-account-id="${account.id}">
+            <span class="name">
+              <button type="button" class="envelope-name" data-id="${account.id}" title="Click to rename">${escapeHtml(account.name)}</button>
+            </span>
             <span>
               <span class="balance${negativeClass}">${formatCents(balance)}</span>
               ${balance === 0 ? `<button type="button" class="archive-btn secondary" data-id="${account.id}">Archive</button>` : ''}
@@ -277,6 +301,83 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
     });
+  }
+
+  function startRename(accountId) {
+    const account = state.accounts.find((item) => item.id === accountId);
+    if (!account) {
+      return;
+    }
+    renamingAccountId = accountId;
+    const row = els.accountsList.querySelector(`[data-account-id="${accountId}"]`);
+    if (!row) {
+      renamingAccountId = null;
+      return;
+    }
+    const nameWrap = row.querySelector('.name');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'envelope-name-input';
+    input.value = account.name;
+    input.maxLength = 120;
+    input.setAttribute('aria-label', 'Envelope name');
+    nameWrap.innerHTML = '';
+    nameWrap.appendChild(input);
+    input.focus();
+    input.select();
+
+    let finished = false;
+    const finish = async (save) => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      renamingAccountId = null;
+      if (save) {
+        const newName = input.value.trim();
+        if (!newName) {
+          showError('Envelope name is required.');
+          renderAccounts();
+          return;
+        }
+        if (newName !== account.name) {
+          try {
+            await renameAccount(accountId, newName);
+            account.name = newName;
+          } catch (error) {
+            showError(error.message || 'Failed to rename envelope.');
+          }
+        }
+      }
+      renderAccounts();
+    };
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener('blur', () => {
+      finish(false);
+    });
+  }
+
+  async function renameAccount(accountId, name) {
+    const dek = AcruetCrypto.session.getDek();
+    const encryptedName = await AcruetCrypto.encryptJson(dek, { name });
+    const response = await fetch(`/ledger/accounts/${accountId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ encryptedName }),
+    });
+    if (!response.ok) {
+      const body = await response.json();
+      throw new Error(body.error || 'Failed to rename envelope.');
+    }
   }
 
   async function archiveAccount(accountId) {
@@ -675,6 +776,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const warnings = overspendWarnings(lines);
+    if (type === 'WITHDRAW' && warnings.length > 0 && !state.allowNegativeWithdraw) {
+      showFormError(
+        'Withdrawal would bring an envelope below zero. Reduce amounts or enable this in Profile.',
+      );
+      return false;
+    }
     if (warnings.length > 0) {
       showWarning(warnings.join(' '));
     }
