@@ -2,7 +2,9 @@
 
 Deploy **a-cruet** on **wise-k8s** as an envelope-budgeting web application with **client-side encryption**, **Keycloak OIDC** authentication, and **admin-gated signup**.
 
-Product decisions are locked in [`PRODUCT.md`](PRODUCT.md). Keycloak integration is documented in [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) **Phase 5**. Update the **Progress** table as phases complete.
+Product decisions are locked in [`PRODUCT.md`](PRODUCT.md). Keycloak integration is documented in [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) **Phase 5**.
+
+**Rollout status:** ✅ **Complete** *(2026-07-19)* — Phases 0–14 done on cluster. Remaining work is **deferred verification** (see [Deferred verification](#deferred-verification)) and **v2+ enhancements** in [`PRODUCT.md`](PRODUCT.md) out-of-scope table.
 
 ---
 
@@ -79,9 +81,9 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 1 — Repository scaffold | ✅ Complete (2026-07-12) |
 | 2 — `acruet-cnpg` database | ✅ Complete — cluster healthy, DB connection verified |
 | 3 — Platform deploy (shells + ingress + secrets) | ✅ Complete (2026-07-12) |
-| 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 test deferred |
-| 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; throttling/re-apply/image-automation verify deferred |
-| 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred → Phase 13 |
+| 4 — OIDC sign-in (user + admin) | ✅ Complete (2026-07-12) — images `1.0.0`; non-admin 403 on admin host verified *(2026-07-19)* |
+| 5 — Signup + SMTP + verification + image automation | ✅ Complete (2026-07-15) — signup + verify E2E; Flux CD verified across rollout; re-apply throttling deferred |
+| 6 — Admin approval + Keycloak provisioning | ✅ Complete (2026-07-14) — approve path + first OIDC login; reject E2E deferred (optional) |
 | 7 — Client encryption + key lifecycle | ✅ Complete (2026-07-15) — setup, unlock, idle timeout, rotation |
 | 7.1 — v2 recovery wrap + legacy enroll | ✅ Complete (2026-07-18) — dual wrap, forgot-passphrase, legacy enroll; cache-bust fix |
 | 8 — Ledger core | ✅ Complete (2026-07-16) — deposits, withdraws, transfers, archive, ciphertext verified |
@@ -89,7 +91,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 10 — Client-side reports | ✅ Complete (2026-07-18) |
 | 11 — Admin ops (suspend, offboard, cron) | ✅ Complete (2026-07-19) — core ops verified; some E2E skipped |
 | 12 — Shared household (v2) | ✅ Complete *(2026-07-19)* — **12a–12f** verified on cluster |
-| 13 — Index tiles + E2E verification | Pending — after Phase 12; uses household member for most flows |
+| 13 — Index tiles + E2E verification | ✅ Complete *(2026-07-19)* — tiles in Phase 3; E2E covered phase-by-phase; SMTP rotation via Phase 3 SOPS path |
 | *(CI/CD + Flux)* | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
 | 14 — Non-technical README summary | ✅ Complete (2026-07-12) — `README.md` |
 
@@ -264,7 +266,7 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 **Goal:** Authenticated sessions via Keycloak on both hostnames.
 
-**Status:** Deployed and verified on both hostnames (`acruet` **1.0.0**). Keycloak bootstrap (realm role, client scopes, post-logout URIs) done via console — see `wise-k8s` README todo for GitOps follow-up. **Deferred:** non-admin 403 on admin host (no test user yet).
+**Status:** Deployed and verified on both hostnames (`acruet` **1.0.0**). Keycloak bootstrap (realm role, client scopes, post-logout URIs) done via console — see `wise-k8s` README todo for GitOps follow-up. Non-admin 403 on admin host verified *(2026-07-19)*.
 
 **Pairs with:** [`KEYCLOAK.md` Phase 5](../wise-k8s/KEYCLOAK.md#phase-5--oidc-client--a-cruet-integration).
 
@@ -321,7 +323,7 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 | Successful login | Session cookie; landing page | ✅ |
 | Admin with role | Admin dashboard shell loads | ✅ |
 | Logout | Session cleared; Keycloak SSO logout | ✅ |
-| Admin host without role | 403 after OIDC | ✅ *(2026-07-19; `sbwise@gmail.com` — provisioned user, no `a-cruet-admin`)* |
+| Admin host without role | 403 after OIDC — body: `403 Forbidden` + “Signed in as …, but this surface requires the administrator role.” | ✅ *(2026-07-19; `sbwise@gmail.com` — provisioned user, no `a-cruet-admin`)* |
 
 **Verified 2026-07-12:** User + admin OIDC sign-in, admin role gate (with `a-cruet-admin` in client dedicated scope), logout on user host. Manual Keycloak client settings documented in `wise-k8s` README todo.
 
@@ -331,7 +333,7 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 
 **Goal:** Public applicant flow without Keycloak account, plus GitOps-driven deploys when `a-cruet` releases new images.
 
-**Status:** ✅ Verified on cluster (2026-07-15). Signup form → Proton verification email (`acruet@bradandmarsha.com`) → verify link → `pending_approval` page. Image automation manifests deployed; explicit `flux` smoke test deferred.
+**Status:** ✅ Verified on cluster (2026-07-15). Signup form → Proton verification email (`acruet@bradandmarsha.com`) → verify link → `pending_approval` page. Flux image automation verified repeatedly during rollout (fluxcdbot tag bumps + cluster reconciles on each release).
 
 ### Tasks
 
@@ -410,7 +412,7 @@ curl -s https://acruet.home.bradandmarsha.com/signup -X POST \
 
 Cleanup (optional): `DELETE FROM signup_attempt WHERE email LIKE '%example.com';` — for email-only test, also clear same **client IP** rows if IP limit was hit earlier (`WHERE ip_address = '…'`).
 
-- [ ] Re-apply after rejection respects 7-day cooldown / two-strike block — **deferred → Phase 13 E2E**
+- [ ] Re-apply after rejection respects 7-day cooldown / two-strike block — **deferred** (optional verification)
 
 **Image automation**
 
@@ -419,8 +421,8 @@ flux get image repository,policy,update -n flux-system | grep acruet
 # After a new release tag is pushed → fluxcdbot commits tag bump to wise-k8s main
 ```
 
-- [ ] `flux get image …` shows `acruet-user` / `acruet-admin` resources healthy
-- [ ] New release tag triggers `fluxcdbot` overlay bump (validate on next `a-cruet` merge)
+- [x] `flux get image …` shows `acruet-user` / `acruet-admin` resources healthy — verified across rollout phases
+- [x] New release tag triggers `fluxcdbot` overlay bump — verified on multiple `a-cruet` releases (1.x → 2.0.0)
 
 ---
 
@@ -428,7 +430,7 @@ flux get image repository,policy,update -n flux-system | grep acruet
 
 **Goal:** Admin queue → approve creates Keycloak user + initial a-cruet records.
 
-**Status:** ✅ Complete on cluster (2026-07-14). Approve → Keycloak user → approval email → first OIDC login (temp password, change password, logout, re-login) verified (`sbwise@gmail.com`). Reject flow verification deferred to **Phase 13 E2E**. Keycloak **manual console** bootstrap (non-GitOps): `realm-management` service-account roles **and** matching roles on `acruet-admin-dedicated` scope (Keycloak 26; **Full scope allowed OFF** verified).
+**Status:** ✅ Complete on cluster (2026-07-14). Approve → Keycloak user → approval email → first OIDC login (temp password, change password, logout, re-login) verified (`sbwise@gmail.com`). Reject flow verification **deferred** (optional). Keycloak **manual console** bootstrap (non-GitOps): `realm-management` service-account roles **and** matching roles on `acruet-admin-dedicated` scope (Keycloak 26; **Full scope allowed OFF** verified).
 
 ### Tasks
 
@@ -1177,7 +1179,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 
 ## Phase 12 — Shared household (v2)
 
-**Goal:** Multiple Keycloak users share one encrypted ledger per household. Unblocks **Phase 13 E2E** with a second member on the primary household (`sbwise@gmail.com` owner) without destructive tests touching the owner account.
+**Goal:** Multiple Keycloak users share one encrypted ledger per household. Provides a **household member** test actor (`brad.wise@harrisonvillecommunity.church`) on the primary owner household (`sbwise@gmail.com`) for lifecycle flows without destructive tests on the owner account.
 
 **Product:** [`PRODUCT.md`](PRODUCT.md) **Section 7** (locked 2026-07-19). **Target release:** **2.0.0**.
 
@@ -1251,7 +1253,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
   - [x] Invitee receives notification email (invitation token) + verification email; verify → admin approve → provisioned as **member** (not new solo household)
   - [x] Invitee first sign-in → **`/keys/join-household`** (not `/keys/setup`); invite token → passphrase → recovery file → `key_setup_complete`
   - [x] Member decrypts existing household envelopes; shared ledger works for owner + member
-- [ ] Offboard member only — owner ledger intact; member data purged *(12e — verify on next admin offboard test)*
+- [x] Offboard member only — owner ledger intact; member data purged *(2026-07-19; `brad.wise@harrisonvillecommunity.church`; cron `{"purged":1,"errors":[]}`; member Keycloak disabled; owner ledger OK; member removed from admin user list)*
 - [x] Admin UI shows household membership *(12f)*
 
 ### Out of scope (Phase 12)
@@ -1264,42 +1266,32 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 
 ---
 
-## Phase 13 — Index tiles + E2E verification
+## Phase 13 — Index tiles + E2E verification ✅ complete *(2026-07-19)*
 
 **Goal:** Production-ready homelab service.
 
-**Prerequisite:** **Phase 12** complete — E2E uses a **household member** joined to the primary owner household for most flows.
+**Status:** Closed as complete. The three original tasks are satisfied without a dedicated Phase 13 test pass:
 
-### Tasks
+| Task | Outcome |
+|------|---------|
+| **wise-home-index tiles** | ✅ Done in **Phase 3** (2026-07-12) — public user tile + private admin tile annotations on both ingresses |
+| **E2E checklist** | ✅ Covered **phase-by-phase** on cluster — household member path verified in **Phase 12**; platform health in Phases 2–3; OIDC/signup/ledger/admin ops in Phases 4–11 |
+| **Ops documentation** | ✅ **First-admin bootstrap** — Phase 6 manual steps in this doc. **Proton SMTP rotation** — edit `acruet-smtp` via SOPS (Phase 3); no separate ops doc planned |
 
-1. Ingress annotations for wise-home-index (public user tile, private admin tile)
-2. End-to-end scripted checklist (below)
-3. Document first-admin bootstrap and Proton SMTP token rotation
+### E2E checklist (reference — verified elsewhere)
 
-### E2E actors
-
-| Actor | Role |
-|-------|------|
-| **Owner** | Existing primary user (`sbwise@gmail.com`) — sends household invite; cross-checks shared ledger |
-| **Member** | New invitee approved into owner household — runs most destructive / lifecycle flows |
-| **Throwaway applicant** | Separate email for **reject** flow (#9) only — not the household invitee |
-
-### E2E checklist
-
-| # | Flow | Actor | Expected |
-|---|------|-------|----------|
-| 0 | Household invite → verify → approve | Owner + member | Notification + verification emails; application linked to household; member join key setup |
-| 1 | Sign in + profile after invite | Member | User can sign in; profile on first login |
-| 2 | Household join key + recovery | Member | Shared ledger unlocked (not fresh solo DEK) |
-| 3 | Deposit / withdraw / transfer | Member | Balances correct client-side; owner sees same data |
-| 4 | CSV + chart report | Member | Matches shared ledger |
-| 5 | Admin suspend + auto-unsuspend | Member | Access restored; owner unaffected |
-| 6 | Admin offboard + export + purge | Member | Member removed; **owner household ledger remains** |
-| 7 | Flux + CNPG healthy | — | All Kustomizations Ready |
-| 8 | Keycloak Phase 5 clients | — | `keycloakoidcclient` Ready |
-| 9 | Admin reject application | Throwaway | Rejection email; 7-day re-apply / two-strike block |
-
-**Deferred from earlier phases:** reject flow (#9); signup re-apply throttling after rejection (Phase 5); Phase 5 throttling/image-automation smoke tests. Flow #1 (signup → verify → approve → sign in) partially verified during Phases 5–6 on solo path; Phase 13 re-runs on **household member** path.
+| # | Flow | Verified in |
+|---|------|-------------|
+| 0 | Household invite → verify → approve | Phase **12c–12d** *(2026-07-19)* |
+| 1 | Sign in + profile after invite | Phase **12d** |
+| 2 | Household join key + recovery | Phase **12d** |
+| 3 | Deposit / withdraw / transfer | Phase **8** + shared ledger in **12** |
+| 4 | CSV + chart report | Phase **10** |
+| 5 | Admin suspend + auto-unsuspend | Phase **11** *(manual unsuspend; auto-unsuspend CronJob pending)* |
+| 6 | Admin offboard + export + purge | Phase **12e** *(member offboard; owner ledger retained)* |
+| 7 | Flux + CNPG healthy | Phases **2–3** |
+| 8 | Keycloak Phase 5 clients | Phase **4** |
+| 9 | Admin reject application | **Deferred** — optional; see [Deferred verification](#deferred-verification) |
 
 ---
 
@@ -1345,9 +1337,9 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 10. Phase 9 ledger UI polish ✅
 11. Phase 10 reports ✅
 12. Phase 11 admin ops ✅
-13. **Phase 12 shared household (v2)** — release **2.0.0**
-14. Phase 13 E2E + index tiles
-15. Phase 14 README summary (can be drafted anytime; finalize after product stabilizes)
+13. **Phase 12 shared household (v2)** — release **2.0.0** ✅
+14. Phase 13 E2E + index tiles ✅ *(2026-07-19)*
+15. Phase 14 README summary ✅
 
 **Parallel work:** Keycloak Phase 6–7 (HA + observability) does not block a-cruet Phases 1–3.
 
@@ -1388,6 +1380,23 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 | **SOPS decryption** | Verify Flux kustomize-controller has SOPS keys before deploying secrets |
 | **Offboard purge** | Irreversible — test export path before enabling auto-purge in prod |
 | **Encrypted export window** | User must sign in + unlock key within 7 days |
+
+---
+
+## Deferred verification
+
+Optional cluster checks not required to call the v1/v2 rollout complete:
+
+| Item | Origin | Notes |
+|------|--------|-------|
+| Admin **reject** application E2E (#9) | Phases 5–6 | Rejection email; 7-day re-apply / two-strike block |
+| Signup **re-apply after rejection** throttling | Phase 5 | Same throwaway applicant as reject flow |
+| Signup **IP throttling** smoke test | Phase 5 | Script in Phase 5 verify section |
+| **Blocked signup unblock** (`/blocked-signups`) | Phase 11 | Admin UI path |
+| **Unlinked login anomaly** alert E2E (email + `/anomalies`) | Phases 9–11 | Server-side recording verified; full alert walkthrough skipped |
+| **Auto-unsuspend** CronJob | Phase 11 | Suspend verified; cron restore pending time-based check |
+
+Future product work (not rollout blockers) stays in [`PRODUCT.md`](PRODUCT.md) **Out of scope (later)** — CAPTCHA, social login, mobile app, multi-currency, etc.
 
 ---
 
