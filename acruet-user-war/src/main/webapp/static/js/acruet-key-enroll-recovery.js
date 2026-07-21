@@ -22,6 +22,14 @@ document.addEventListener('DOMContentLoaded', () => {
     element.textContent = '';
   }
 
+  passphraseInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      btnGenerateRecovery.click();
+    }
+  });
+  passphraseInput.focus();
+
   btnGenerateRecovery.addEventListener('click', async () => {
     hideError(passphraseError);
     hideError(enrollError);

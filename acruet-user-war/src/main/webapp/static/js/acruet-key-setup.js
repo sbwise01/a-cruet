@@ -25,6 +25,24 @@ document.addEventListener('DOMContentLoaded', () => {
     element.textContent = '';
   }
 
+  function bindPassphraseEnter(primary, confirm, onSubmit) {
+    primary.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        confirm.focus();
+      }
+    });
+    confirm.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        onSubmit();
+      }
+    });
+  }
+
+  bindPassphraseEnter(passphraseInput, passphraseConfirmInput, () => btnPassphraseNext.click());
+  passphraseInput.focus();
+
   btnPassphraseNext.addEventListener('click', async () => {
     hideError(passphraseError);
     hideError(setupError);

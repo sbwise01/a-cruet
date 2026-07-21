@@ -101,14 +101,16 @@ public class HouseholdInviteResource {
                   Unlock your encryption key before sending an invitation.
                   <a href="/keys/unlock?next=/household/invite">Unlock key</a>
                 </div>
-                <label for="inviteEmail">Invitee email</label>
-                <input id="inviteEmail" type="email" autocomplete="email" required>
-                <p id="inviteError" class="error" hidden></p>
-                <p id="inviteSuccess" class="notice success" hidden></p>
-                <p class="actions">
-                  <button type="button" id="btnSendInvite">Send invitation</button>
-                  <a href="/profile">Back to profile</a>
-                </p>
+                <form id="inviteForm">
+                  <label for="inviteEmail">Invitee email</label>
+                  <input id="inviteEmail" type="email" autocomplete="email" required>
+                  <p id="inviteError" class="error" hidden></p>
+                  <p id="inviteSuccess" class="notice success" hidden></p>
+                  <p class="actions">
+                    <button type="submit" id="btnSendInvite">Send invitation</button>
+                    <a href="/profile">Back to profile</a>
+                  </p>
+                </form>
                 """
                 + UserNav.keyPageScript("acruet-household-invite.js");
     }

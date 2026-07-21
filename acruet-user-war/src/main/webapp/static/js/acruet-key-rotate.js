@@ -12,7 +12,23 @@ document.addEventListener('DOMContentLoaded', () => {
     rotateSuccess.hidden = true;
   }
 
-  btnRotate.addEventListener('click', async () => {
+  function bindEnterChain(fields, onSubmit) {
+    fields.forEach((field, index) => {
+      field.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') {
+          return;
+        }
+        event.preventDefault();
+        if (index < fields.length - 1) {
+          fields[index + 1].focus();
+        } else {
+          onSubmit();
+        }
+      });
+    });
+  }
+
+  async function submitRotate() {
     rotateError.hidden = true;
     rotateSuccess.hidden = true;
 
@@ -60,5 +76,12 @@ document.addEventListener('DOMContentLoaded', () => {
       showError(error.message || 'Rotation failed. Check your current passphrase.');
       console.error(error);
     }
-  });
+  }
+
+  bindEnterChain(
+    [currentPassphraseInput, newPassphraseInput, newPassphraseConfirmInput],
+    submitRotate,
+  );
+  btnRotate.addEventListener('click', submitRotate);
+  currentPassphraseInput.focus();
 });

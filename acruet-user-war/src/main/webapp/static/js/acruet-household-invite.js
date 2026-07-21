@@ -2,22 +2,29 @@
  * Household member invite (Phase 12c).
  */
 document.addEventListener('DOMContentLoaded', async () => {
+  const inviteForm = document.getElementById('inviteForm');
   const emailInput = document.getElementById('inviteEmail');
   const sendBtn = document.getElementById('btnSendInvite');
   const errorEl = document.getElementById('inviteError');
   const successEl = document.getElementById('inviteSuccess');
   const lockedNotice = document.getElementById('inviteLockedNotice');
 
-  if (!emailInput || !sendBtn) {
+  if (!inviteForm || !emailInput || !sendBtn) {
     return;
   }
 
   await AcruetCrypto.session.ensureReady();
   updateLockedState();
+  emailInput.focus();
 
   document.addEventListener('acruet:crypto-changed', updateLockedState);
 
-  sendBtn.addEventListener('click', async () => {
+  inviteForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await sendInvite();
+  });
+
+  async function sendInvite() {
     hide(errorEl);
     hide(successEl);
 
@@ -65,13 +72,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       show(successEl, body.message || 'Invitation sent.');
       emailInput.value = '';
+      emailInput.focus();
     } catch (error) {
       console.error(error);
       show(errorEl, 'Unable to send invitation.');
     } finally {
-      sendBtn.disabled = false;
+      updateLockedState();
     }
-  });
+  }
 
   function updateLockedState() {
     const unlocked = AcruetCrypto.session.isUnlocked();
