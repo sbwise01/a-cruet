@@ -44,4 +44,5 @@ document.addEventListener('DOMContentLoaded', () => {
       submitUnlock();
     }
   });
+  passphraseInput.focus();
 });

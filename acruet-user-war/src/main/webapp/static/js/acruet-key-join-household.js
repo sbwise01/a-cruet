@@ -29,6 +29,34 @@ document.addEventListener('DOMContentLoaded', () => {
     element.textContent = '';
   }
 
+  function bindPassphraseEnter(primary, confirm, onSubmit) {
+    primary.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        confirm.focus();
+      }
+    });
+    confirm.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        onSubmit();
+      }
+    });
+  }
+
+  inviteTokenInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      btnTokenNext.click();
+    }
+  });
+  inviteTokenInput.focus();
+  if (inviteTokenInput.value) {
+    inviteTokenInput.select();
+  }
+
+  bindPassphraseEnter(passphraseInput, passphraseConfirmInput, () => btnPassphraseNext.click());
+
   btnTokenNext.addEventListener('click', async () => {
     hideError(tokenError);
     hideError(setupError);
@@ -48,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
       inviteWrap = body;
       stepToken.hidden = true;
       stepPassphrase.hidden = false;
+      passphraseInput.focus();
     } catch (error) {
       showError(tokenError, error.message || 'Invalid invitation token.');
     } finally {

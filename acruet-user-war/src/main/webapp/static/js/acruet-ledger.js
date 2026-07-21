@@ -411,11 +411,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.formMode = 'CREATE';
     els.formTitle.textContent = 'New envelope';
     els.formBody.innerHTML = `
-      <label for="accountName">Envelope name</label>
-      <input id="accountName" type="text" required maxlength="120">
+      <form id="createEnvelopeForm">
+        <label for="accountName">Envelope name</label>
+        <input id="accountName" type="text" required maxlength="120">
+      </form>
     `;
+    document.getElementById('createEnvelopeForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitForm();
+    });
     hideFormError();
     openForm();
+    document.getElementById('accountName').focus();
   }
 
   function showTransactionForm(type) {
@@ -431,15 +438,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     els.formTitle.textContent = titles[type];
     els.formBody.innerHTML = `
-      <label for="txDate">Date</label>
-      <input id="txDate" type="date" value="${todayIso()}" required>
-      <label for="txMemo">Memo</label>
-      <input id="txMemo" type="text" maxlength="200" placeholder="Optional">
-      <label for="txTotal">Total amount (USD)</label>
-      <input id="txTotal" type="number" min="0.01" step="0.01" required>
-      <div id="lineContainer" class="form-grid"></div>
-      <p class="hint" id="allocationHint"></p>
+      <form id="transactionForm">
+        <label for="txDate">Date</label>
+        <input id="txDate" type="date" value="${todayIso()}" required>
+        <label for="txMemo">Memo</label>
+        <input id="txMemo" type="text" maxlength="200" placeholder="Optional">
+        <label for="txTotal">Total amount (USD)</label>
+        <input id="txTotal" type="number" min="0.01" step="0.01" required>
+        <div id="lineContainer" class="form-grid"></div>
+        <p class="hint" id="allocationHint"></p>
+      </form>
     `;
+    document.getElementById('transactionForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitForm();
+    });
     if (type === 'DEPOSIT') {
       addDepositLines();
       document.getElementById('txTotal').addEventListener('input', autoFillDepositFromTotal);
@@ -452,6 +465,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     hideFormError();
     openForm();
+    document.getElementById('txTotal').focus();
   }
 
   function addDepositLines() {

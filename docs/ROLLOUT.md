@@ -89,7 +89,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | 8 — Ledger core | ✅ Complete (2026-07-16) — deposits, withdraws, transfers, archive, ciphertext verified |
 | 9 — Ledger UI polish | ✅ Complete (2026-07-18) — items 1–9 + item 10 verified; admin alert → Phase 11 |
 | 10 — Client-side reports | ✅ Complete (2026-07-18) |
-| 11 — Admin ops (suspend, offboard, cron) | ✅ Complete (2026-07-19) — core ops verified; some E2E skipped |
+| 11 — Admin ops (suspend, offboard, cron) | ✅ Complete (2026-07-19) — core ops verified; auto-unsuspend verified *(2026-07-20)*; some E2E skipped |
 | 12 — Shared household (v2) | ✅ Complete *(2026-07-19)* — **12a–12f** verified on cluster |
 | 13 — Index tiles + E2E verification | ✅ Complete *(2026-07-19)* — tiles in Phase 3; E2E covered phase-by-phase; SMTP rotation via Phase 3 SOPS path |
 | *(CI/CD + Flux)* | ✅ Merged into Phase 5 — CI in `a-cruet`; CD manifests in `wise-k8s` |
@@ -1162,11 +1162,11 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 10. **Unlinked login anomaly** — when a Keycloak session has no matching `acruet_user` (see Phase 9 item 10): alert administrators (email and/or admin UI queue); include Keycloak subject, email, and time; dedupe repeated hits in the same session where practical
 11. **Reset Keycloak sign-in password** from `/users` — temporary password via Admin API; shown once to acting admin for secure transfer; does **not** reset encryption passphrase
 
-**Status:** ✅ Cluster verification complete for core admin ops *(2026-07-19)*. **Skipped E2E:** offboard/export/purge; blocked signup unblock; full anomaly alert walkthrough (see Verify). **Pending:** auto-unsuspend CronJob *(suspend test in progress)*.
+**Status:** ✅ Cluster verification complete for core admin ops *(2026-07-19)*. **Auto-unsuspend** CronJob verified *(2026-07-20; `sbwise@gmail.com` suspended 2026-07-19 evening, restored by cron, admin UI + login OK)*. **Skipped E2E:** offboard/export/purge on owner *(member offboard verified Phase 12e)*; blocked signup unblock; full anomaly alert walkthrough (see Verify).
 
 ### Verify
 
-- [x] **Suspend** — user cannot log in *(2026-07-19; `sbwise@gmail.com`)* — auto-restore via CronJob **pending** *(suspend test; check after `suspended_until`)*
+- [x] **Suspend** — user cannot log in *(2026-07-19; `sbwise@gmail.com`)* — auto-restore via CronJob verified *(2026-07-20)*
 - [x] **Manual unsuspend** — user can sign in before suspension period ends *(2026-07-19; `sbwise@gmail.com`)*
 - [x] **Reset sign-in password** — user signs in with temporary password → Keycloak prompts password change; ledger passphrase unchanged *(2026-07-19; `sbwise@gmail.com`)*
 - [~] **Offboard** → export works; data purged after trigger — **skipped** *(2026-07-19)*
@@ -1287,7 +1287,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 | 2 | Household join key + recovery | Phase **12d** |
 | 3 | Deposit / withdraw / transfer | Phase **8** + shared ledger in **12** |
 | 4 | CSV + chart report | Phase **10** |
-| 5 | Admin suspend + auto-unsuspend | Phase **11** *(manual unsuspend; auto-unsuspend CronJob pending)* |
+| 5 | Admin suspend + auto-unsuspend | Phase **11** *(2026-07-20; cron restore after timed suspension)* |
 | 6 | Admin offboard + export + purge | Phase **12e** *(member offboard; owner ledger retained)* |
 | 7 | Flux + CNPG healthy | Phases **2–3** |
 | 8 | Keycloak Phase 5 clients | Phase **4** |
@@ -1394,7 +1394,6 @@ Optional cluster checks not required to call the v1/v2 rollout complete:
 | Signup **IP throttling** smoke test | Phase 5 | Script in Phase 5 verify section |
 | **Blocked signup unblock** (`/blocked-signups`) | Phase 11 | Admin UI path |
 | **Unlinked login anomaly** alert E2E (email + `/anomalies`) | Phases 9–11 | Server-side recording verified; full alert walkthrough skipped |
-| **Auto-unsuspend** CronJob | Phase 11 | Suspend verified; cron restore pending time-based check |
 
 Future product work (not rollout blockers) stays in [`PRODUCT.md`](PRODUCT.md) **Out of scope (later)** — CAPTCHA, social login, mobile app, multi-currency, etc.
 

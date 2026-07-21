@@ -13,7 +13,22 @@ document.addEventListener('DOMContentLoaded', () => {
     resetSuccess.hidden = true;
   }
 
-  btnResetPassphrase.addEventListener('click', async () => {
+  function bindPassphraseEnter(primary, confirm, onSubmit) {
+    primary.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        confirm.focus();
+      }
+    });
+    confirm.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        onSubmit();
+      }
+    });
+  }
+
+  async function submitReset() {
     fileError.hidden = true;
     resetError.hidden = true;
     resetSuccess.hidden = true;
@@ -61,5 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
       btnResetPassphrase.disabled = false;
       btnResetPassphrase.textContent = 'Reset passphrase';
     }
-  });
+  }
+
+  bindPassphraseEnter(newPassphraseInput, newPassphraseConfirmInput, submitReset);
+  btnResetPassphrase.addEventListener('click', submitReset);
+  newPassphraseInput.focus();
 });
