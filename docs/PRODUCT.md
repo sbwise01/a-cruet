@@ -27,7 +27,7 @@ Product and technical decisions captured during requirements clarification. Each
 
 | Item | Decision |
 |------|----------|
-| Hostname | **Separate ingress hostname** for admin vs users |
+| Hostname | **Separate hostname** for admin vs users |
 | OIDC | **Same** `wise-k8s` realm and **same OIDC client** on both hosts |
 | Authorization | **Keycloak realm role** (e.g. `a-cruet-admin`) checked server-side on admin hostname; non-admins blocked |
 
@@ -52,8 +52,8 @@ Product and technical decisions captured during requirements clarification. Each
 | Redirect URIs | `https://acruet.home.bradandmarsha.com/auth/callback`, `https://acruet-admin.home.bradandmarsha.com/auth/callback` |
 | Admin API client | **Separate service account** — client ID **`acruet-admin`**, client credentials grant for user provisioning on approval |
 | Deployment | **Two Tomcat deployments** — separate user and admin instances |
-| User ingress | **Public** — `ingressClassName: nginx` (same LB as Plex, Keycloak, etc.) |
-| Admin ingress | **Internal** — `ingressClassName: nginx-internal` (LAN / homelab network only) |
+| User edge | **Public** — HTTPRoute `parentRefs` → `gateway-public` (same VIP as Plex, Keycloak, etc.; **`192.168.40.217`**, WAN TCP 443) |
+| Admin edge | **Internal** — HTTPRoute `parentRefs` → `gateway-internal` (LAN VIP **`192.168.40.236`**) |
 | wise-home-index | **Tiles for both** hostnames — user tile **public**; admin tile **private** (visible on index only from trusted/private network per wise-home-index rules) |
 | Keycloak realm | **`wise-k8s`** @ `auth.home.bradandmarsha.com` |
 
@@ -169,7 +169,7 @@ Product and technical decisions captured during requirements clarification. Each
 #### wise-k8s implications
 
 - **`acruet-cnpg/`** — CNPG `Cluster` `acruet-db`, Postgres 17 image, 3 instances, 20Gi, `csi-rbd-sc`
-- **`acruet/`** — two Tomcat Deployments (user + admin), Ingresses (public user / internal admin per Section 2), cert-manager Certificates, SOPS secrets for SMTP + OIDC
+- **`acruet/`** — two Tomcat Deployments (user + admin), HTTPRoutes (public user / internal admin per Section 2), cert-manager Certificates, SOPS secrets for SMTP + OIDC
 - **Flux** — `ImageRepository` / `ImagePolicy` / `ImageUpdateAutomation` per image (user WAR + admin WAR)
 - **Egress** — pods must reach `smtp.protonmail.ch:587` (STARTTLS)
 
@@ -307,7 +307,7 @@ Extends Section 4 (ledger ownership) and Section 3 (encryption). **Release:** ap
     - usage and abuse monitoring
     - user offboarding
     - assignment of administrative users
-- The application may implement different ingress sub-domains for users vs administrators
+- The application may implement different sub-domains for users vs administrators
 - The application will support the following user workflows:
   - sign up
     - apply to use a-cruet
