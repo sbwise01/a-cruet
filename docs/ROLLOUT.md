@@ -61,7 +61,7 @@ Outbound SMTP  ──►  smtp.protonmail.ch:587  (verification + approval + sus
 | Admin hostname | `acruet-admin.home.bradandmarsha.com` |
 | User edge | HTTPRoute → `gateway-public` (VIP **`192.168.40.217`**; WAN TCP 443) |
 | Admin edge | HTTPRoute → `gateway-internal` (VIP **`192.168.40.236`**) |
-| TLS | cert-manager + `letsencrypt-prod` |
+| TLS | Platform Secret `gateway-home-tls` (`https-wildcard`) |
 | DNS | external-dns `gateway-httproute` (public CNAME→apex; admin A→`.236`) |
 | Storage class | `csi-rbd-sc` |
 | Java / Tomcat | Java 17, Tomcat 10.1 (`tomcat:10.1-jre17-temurin`) |
@@ -216,12 +216,12 @@ kubectl -n acruet-cnpg get secret acruet-db-app -o jsonpath='{.data.uri}' | base
 | Namespace | `acruet` |
 | Deployments | `acruet-user` (2 replicas), `acruet-admin` (1 replica) |
 | Services | ClusterIP :8080 |
-| Certificates | user + admin hostnames |
-| HTTPRoute (user) | `parentRefs` → `gateway-public` (`https-acruet`); public VIP **`192.168.40.217`** |
-| HTTPRoute (admin) | `parentRefs` → `gateway-internal` (`https-acruet-admin`); LAN VIP **`192.168.40.236`** |
+| TLS | Platform Secret `gateway-home-tls` on frozen `https-wildcard` (no app Certificates) |
+| HTTPRoute (user) | `parentRefs` → `gateway-public` (`https-wildcard`); public VIP **`192.168.40.217`** |
+| HTTPRoute (admin) | `parentRefs` → `gateway-internal` (`https-wildcard`); LAN VIP **`192.168.40.236`** |
 | Secrets (SOPS) | OIDC + SMTP placeholders (`base/secrets/`); DB via cross-namespace sync |
 | DB credential sync | CronJob + bootstrap Job (mirror keycloak pattern) |
-| Flux | `iac/kustomize/fluxcd/kustomizations/acruet.yaml`, depends on `acruet-cnpg` + `kgateway` + cert-manager |
+| Flux | `iac/kustomize/fluxcd/kustomizations/acruet.yaml`, depends on `acruet-cnpg` + `kgateway` |
 | Images (v1) | `sbwise/acruet-user:0.1.2`, `sbwise/acruet-admin:0.1.2` |
 
 ### wise-home-index annotations
@@ -253,8 +253,8 @@ curl -sI https://acruet-admin.home.bradandmarsha.com/health   # from LAN
 |-------|--------|
 | `flux get kustomizations acruet` | Ready |
 | Pods | `acruet-user` 2/2, `acruet-admin` 1/1 Running |
-| Certificates | `acruet-user-certificate`, `acruet-admin-certificate` Ready |
-| Edge (2026-08-16) | HTTPRoutes on `gateway-public` / `gateway-internal` (nginx Ingress retired) |
+| Certificates | `acruet-user-certificate`, `acruet-admin-certificate` Ready (removed Gateway Phase 8; TLS is platform `gateway-home-tls`) |
+| Edge (2026-08-16) | HTTPRoutes on `gateway-public` / `gateway-internal` (`https-wildcard`; nginx Ingress retired) |
 | SOPS secrets | `acruet-oidc`, `acruet-smtp` decrypted and applied |
 | DB sync | Bootstrap Job + CronJob; `acruet-db-app` present |
 | `https://acruet.home.bradandmarsha.com/health` | HTTP 200 `{"status":"UP"}` |
@@ -1363,7 +1363,7 @@ After step 6, the bootstrap admin can use **both** hostnames without routine unl
 | `a-cruet` | `pom.xml`, modules | Maven multi-module |
 | `a-cruet` | `.github/workflows/` | Build + push images |
 | `wise-k8s` | `iac/kustomize/acruet-cnpg/` | CNPG cluster |
-| `wise-k8s` | `iac/kustomize/acruet/` | Deployments, HTTPRoutes, certs, SOPS |
+| `wise-k8s` | `iac/kustomize/acruet/` | Deployments, HTTPRoutes, SOPS |
 | `wise-k8s` | `iac/kustomize/keycloak/base/oidc-client-acruet*.yaml` | Keycloak clients |
 | `wise-k8s` | `iac/kustomize/acruet/overlays/image-automation.yaml` | Flux image automation (Phase 5) |
 | `wise-k8s` | `iac/kustomize/fluxcd/kustomizations/acruet*.yaml` | Flux wiring |

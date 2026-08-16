@@ -169,7 +169,7 @@ Product and technical decisions captured during requirements clarification. Each
 #### wise-k8s implications
 
 - **`acruet-cnpg/`** — CNPG `Cluster` `acruet-db`, Postgres 17 image, 3 instances, 20Gi, `csi-rbd-sc`
-- **`acruet/`** — two Tomcat Deployments (user + admin), HTTPRoutes (public user / internal admin per Section 2), cert-manager Certificates, SOPS secrets for SMTP + OIDC
+- **`acruet/`** — two Tomcat Deployments (user + admin), HTTPRoutes (public user / internal admin per Section 2; TLS is platform `gateway-home-tls`), SOPS secrets for SMTP + OIDC
 - **Flux** — `ImageRepository` / `ImagePolicy` / `ImageUpdateAutomation` per image (user WAR + admin WAR)
 - **Egress** — pods must reach `smtp.protonmail.ch:587` (STARTTLS)
 
