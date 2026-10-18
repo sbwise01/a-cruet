@@ -58,8 +58,6 @@ Technical requirements, architecture decisions, and rollout phases live in:
 ## To Do list
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
-2. Fix sorting issue with envelopes
-3. Fix hairpin issue
-4. New feature, Envelope bundles
-5. New feature, Investments and Assets tracking
-6. New feature, Net Worth auto calculation
+2. New feature, Envelope bundles
+3. New feature, Investments and Assets tracking
+4. New feature, Net Worth auto calculation

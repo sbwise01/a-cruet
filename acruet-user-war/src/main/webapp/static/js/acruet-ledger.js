@@ -235,7 +235,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const payload = await AcruetCrypto.decryptJson(dek, account.encryptedName);
       decrypted.push({ ...account, name: payload.name });
     }
-    return decrypted.filter((account) => account.status === 'ACTIVE');
+    return decrypted
+      .filter((account) => account.status === 'ACTIVE')
+      .sort((left, right) =>
+        String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
   }
 
   async function decryptTransactions(transactions) {
