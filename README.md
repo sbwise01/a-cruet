@@ -59,5 +59,6 @@ Technical requirements, architecture decisions, and rollout phases live in:
 ## To Do list
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
-2. New feature, Investments and Assets tracking
-3. New feature, Net Worth auto calculation
+2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
+3. New feature, Investments and Assets tracking
+4. New feature, Net Worth auto calculation
