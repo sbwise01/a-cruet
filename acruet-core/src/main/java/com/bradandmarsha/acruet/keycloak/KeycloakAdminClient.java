@@ -1,10 +1,12 @@
 package com.bradandmarsha.acruet.keycloak;
 
+import com.bradandmarsha.acruet.auth.OidcService;
 import com.bradandmarsha.acruet.config.KeycloakAdminSettings;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -19,9 +21,13 @@ import java.util.stream.Collectors;
 
 /**
  * Keycloak Admin REST API via {@code acruet-admin} client credentials (Phase 6).
+ *
+ * <p>Same HTTP/1.1 + transient I/O retry as {@link OidcService}: Envoy often RSTs
+ * reused HTTP/2 sockets on the hairpin path to Keycloak.</p>
  */
 public final class KeycloakAdminClient {
 
+    private static final int MAX_ATTEMPTS = 3;
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
@@ -101,7 +107,7 @@ public final class KeycloakAdminClient {
                 .GET()
                 .build();
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(
                         adminApiFailure("Keycloak realm role lookup", response.statusCode()));
@@ -153,7 +159,7 @@ public final class KeycloakAdminClient {
                 .GET()
                 .build();
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(adminApiFailure("Keycloak role lookup", response.statusCode()));
             }
@@ -170,7 +176,7 @@ public final class KeycloakAdminClient {
 
     private void sendExpectSuccess(HttpRequest request, String action) {
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(adminApiFailure(action, response.statusCode()));
             }
@@ -211,7 +217,7 @@ public final class KeycloakAdminClient {
                 .POST(HttpRequest.BodyPublishers.ofString(payload.toString()))
                 .build();
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() == 201) {
                 return userIdFromLocation(response.headers().firstValue("Location").orElse(null));
             }
@@ -243,7 +249,7 @@ public final class KeycloakAdminClient {
                 .PUT(HttpRequest.BodyPublishers.ofString(payload.toString()))
                 .build();
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(
                         adminApiFailure("Keycloak password reset", response.statusCode()));
@@ -267,7 +273,7 @@ public final class KeycloakAdminClient {
                 .GET()
                 .build();
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(
                         adminApiFailure("Keycloak user lookup", response.statusCode()));
@@ -309,7 +315,7 @@ public final class KeycloakAdminClient {
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new KeycloakAdminException(
                         adminApiFailure("Keycloak token endpoint", response.statusCode()));
@@ -367,6 +373,22 @@ public final class KeycloakAdminClient {
             throw new KeycloakAdminException("Keycloak user creation returned invalid Location");
         }
         return location.substring(slash + 1);
+    }
+
+    private static HttpResponse<String> sendWithRetry(HttpRequest request)
+            throws IOException, InterruptedException {
+        IOException last = null;
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                return HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            } catch (IOException exception) {
+                last = exception;
+                if (attempt == MAX_ATTEMPTS || !OidcService.isTransientIo(exception)) {
+                    throw exception;
+                }
+            }
+        }
+        throw last;
     }
 
     private static String encode(String value) {
