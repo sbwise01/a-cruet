@@ -49,27 +49,61 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loadLedgerData() {
-    const [accountsResponse, transactionsResponse] = await Promise.all([
-      fetch('/ledger/accounts?includeArchived=true'),
-      fetch('/ledger/transactions'),
-    ]);
-    if (!accountsResponse.ok || !transactionsResponse.ok) {
+    const bundlesResponse = await fetch('/ledger/bundles?includeArchived=true');
+    if (!bundlesResponse.ok) {
       throw new Error('Failed to load ledger data for export.');
     }
-    const accountsBody = await accountsResponse.json();
-    const transactionsBody = await transactionsResponse.json();
-    const accounts = await decryptAccounts(accountsBody.accounts || []);
-    const transactions = await decryptTransactions(transactionsBody.transactions || []);
-    return { accounts, transactions };
+    const bundlesBody = await bundlesResponse.json();
+    const rawBundles = Array.isArray(bundlesBody.bundles) ? bundlesBody.bundles : [];
+    const bundles = [];
+    for (const rawBundle of rawBundles) {
+      const bundleQuery = `bundleId=${encodeURIComponent(rawBundle.id)}`;
+      const [accountsResponse, transactionsResponse] = await Promise.all([
+        fetch(`/ledger/accounts?includeArchived=true&${bundleQuery}`),
+        fetch(`/ledger/transactions?${bundleQuery}`),
+      ]);
+      if (!accountsResponse.ok || !transactionsResponse.ok) {
+        throw new Error('Failed to load ledger data for export.');
+      }
+      const accountsBody = await accountsResponse.json();
+      const transactionsBody = await transactionsResponse.json();
+      const name = await decryptBundleName(rawBundle);
+      const accounts = await decryptAccounts(accountsBody.accounts || [], rawBundle.id, name);
+      const transactions = await decryptTransactions(
+          transactionsBody.transactions || [],
+          rawBundle.id,
+          name);
+      bundles.push({
+        id: rawBundle.id,
+        name,
+        status: rawBundle.status,
+        defaultBundle: Boolean(rawBundle.defaultBundle),
+        accounts,
+        transactions,
+      });
+    }
+    bundles.sort((left, right) =>
+      String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
+    return { exportedAt: isoDate(new Date()), bundles };
   }
 
-  async function decryptAccounts(accounts) {
+  async function decryptBundleName(bundle) {
+    if (!bundle.encryptedName) {
+      return bundle.defaultBundle ? 'Default' : 'Untitled';
+    }
+    const payload = await AcruetCrypto.decryptJson(AcruetCrypto.session.getDek(), bundle.encryptedName);
+    return payload.name || (bundle.defaultBundle ? 'Default' : 'Untitled');
+  }
+
+  async function decryptAccounts(accounts, bundleId, bundleName) {
     const dek = AcruetCrypto.session.getDek();
     const decrypted = [];
     for (const account of accounts) {
       const payload = await AcruetCrypto.decryptJson(dek, account.encryptedName);
       decrypted.push({
         id: account.id,
+        bundleId,
+        bundleName,
         status: account.status,
         name: payload.name,
         createdAt: account.createdAt,
@@ -79,13 +113,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     return decrypted;
   }
 
-  async function decryptTransactions(transactions) {
+  async function decryptTransactions(transactions, bundleId, bundleName) {
     const dek = AcruetCrypto.session.getDek();
     const decrypted = [];
     for (const transaction of transactions) {
       const payload = await AcruetCrypto.decryptJson(dek, transaction.encryptedPayload);
       decrypted.push({
         id: transaction.id,
+        bundleId,
+        bundleName,
         transactionType: transaction.transactionType,
         transactionDate: transaction.transactionDate,
         createdAt: transaction.createdAt,
@@ -115,9 +151,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       requireUnlocked();
       const data = await loadLedgerData();
-      const accountNames = new Map(data.accounts.map((account) => [account.id, account.name]));
-      const rows = [['Date', 'Type', 'Memo', 'Envelope', 'Amount']];
-      data.transactions
+      const accountNames = new Map();
+      data.bundles.forEach((bundle) => {
+        bundle.accounts.forEach((account) => {
+          accountNames.set(account.id, account.name);
+        });
+      });
+      const rows = [['Date', 'Type', 'Memo', 'Bundle', 'Envelope', 'Amount']];
+      data.bundles
+        .flatMap((bundle) => bundle.transactions)
         .slice()
         .sort((left, right) => String(left.transactionDate).localeCompare(String(right.transactionDate)))
         .forEach((transaction) => {
@@ -126,6 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               transaction.transactionDate,
               transaction.transactionType,
               transaction.memo,
+              transaction.bundleName || '',
               accountNames.get(line.accountId) || '',
               formatCents(line.amountCents),
             ]);

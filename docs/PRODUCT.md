@@ -123,7 +123,7 @@ Product and technical decisions captured during requirements clarification. Each
 
 | Item | Decision |
 |------|----------|
-| Limit | **100 accounts default** per **household** — admin can raise per household (v2); v1 per-user limit migrated to household on deploy |
+| Limit | **100 accounts default** per **bundle** (Section 8). Household still has a rolled-up envelope count for admin monitoring; v1 per-user limit migrated to household on deploy |
 | Removal | **Archive only** — account must be **zero balance** to archive; hidden from active list |
 
 #### Transactions
@@ -221,10 +221,11 @@ Product and technical decisions captured during requirements clarification. Each
 
 | Topic | Section |
 |-------|---------|
-| 100 account default limit; admin can raise | Section 4 |
+| 100 account default limit per bundle; admin can raise | Section 4, Section 8 |
 | Plaintext operational counts for abuse monitoring | Section 3 |
 | Admins never see decrypted ledger content | Section 3 |
 | Shared household ledger | Section 7 |
+| Envelope bundles (isolated groups) | Section 8 |
 
 ### 7. Shared household ✅ locked (2026-07-19)
 
@@ -234,7 +235,7 @@ Extends Section 4 (ledger ownership) and Section 3 (encryption). **Release:** ap
 
 | Item | Decision |
 |------|----------|
-| Scope | **One ledger per household** — all members see the same envelopes and transactions |
+| Scope | **One household ledger** — all members see the same bundles, envelopes, and transactions (Section 8) |
 | Size cap | **5 members maximum** per household — **active members + pending invites** both count toward the cap |
 | Solo users | Every provisioned user belongs to exactly **one** household; existing v1 users migrate to a **1-member** household (owner role) |
 | Roles (v2) | **`owner`** (first member / migration default) and **`member`** — invite and offboard rules below |
@@ -265,7 +266,7 @@ Extends Section 4 (ledger ownership) and Section 3 (encryption). **Release:** ap
 | Item | Decision |
 |------|----------|
 | Ledger rows | Scoped by **`household_id`** (not per-user isolation) |
-| Operational counts | **`ledger_account_count`**, **`transaction_count`**, **`ledger_account_limit`** on **household** |
+| Operational counts | **`ledger_account_count`**, **`transaction_count`**, **`ledger_account_limit`**, **`bundle_count`** on **household** |
 | Write rate limits | Still **per Keycloak user** (abuse monitoring) |
 | Activity timestamps | Still **per user** (`last_login_at`, `last_transaction_at`) |
 | Admin UI | Show **household membership** on user list; approval queue shows when applicant **joins an existing household** |
@@ -286,6 +287,46 @@ Extends Section 4 (ledger ownership) and Section 3 (encryption). **Release:** ap
 | Envelope semantics, append-only ledger | Section 4 |
 | Recovery file / forgot-passphrase | Section 3 |
 | Offboard email + export window | Section 6 (#48) |
+| Envelope bundles | Section 8 |
+
+### 8. Envelope bundles ✅ locked (2026-10-18)
+
+Extends Section 4 (ledger model) and Section 7 (household). **Release:** schema/API in app **3.0.0**; ledger UI and remaining surfaces follow on that major line.
+
+#### Model
+
+| Item | Decision |
+|------|----------|
+| Isolation | Each bundle is a **closed ledger** — deposits, withdrawals, and transfers stay **inside** the selected bundle. No cross-bundle transfer |
+| Visibility | **All household members** see **all** bundles (same household DEK) |
+| Default | Every household has one **default** bundle. Existing envelopes and transactions were backfilled onto it (`V11`). Omitted `bundleId` on the API still resolves to this bundle |
+| Naming | Bundle names are **ciphertext**, same as envelope names. Flyway **cannot** write “Default”; the client names the default bundle **Default** on first unlock after migration |
+| Rename | Names are **editable** (active bundles) |
+
+#### Limits
+
+| Item | Decision |
+|------|----------|
+| Active bundles | **10** per household. Archived bundles do not count |
+| Envelopes | **100** per bundle (not 100 household-wide) |
+| Archive | Archive **all active envelopes** in the bundle first. Cannot archive the **last** active bundle |
+
+#### Reports, export, admin
+
+| Item | Decision |
+|------|----------|
+| Reports | Transaction list and balance chart are scoped to the **currently selected** bundle |
+| Offboard export | Client-side CSV/JSON includes **every** bundle (active and archived) |
+| Admin | Operational **`bundle_count`** (active) on the user list — never decrypted names |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Envelope semantics, append-only txs | Section 4 |
+| Household DEK / shared visibility | Section 7 |
+| Offboard export window | Section 6 (#48a) |
+| Abuse counts | Section 3, Section 6 (#52) |
 
 ## Product requirements
 
@@ -319,7 +360,8 @@ Extends Section 4 (ledger ownership) and Section 3 (encryption). **Release:** ap
   - create or rotate encryption key
   - create ledger account
     - a user may have 1 to N ledger accounts
-    - we may limit to 100 total ledger accounts to prevent abuse
+    - we may limit to 100 ledger accounts per envelope bundle to prevent abuse
+    - a household may have up to 10 active envelope bundles (isolated ledgers; no cross-bundle transfer)
   - deposit funds
     - page will allow user to credit portions of the deposit to 1 or more ledger accounts
   - withdraw funds
@@ -328,11 +370,11 @@ Extends Section 4 (ledger ownership) and Section 3 (encryption). **Release:** ap
     - page will allow user to transfer funds from 1 ledger account to 1 or more other ledger accounts
   - create transaction report
     - user will specify date range
-    - user will specify 1 or more or all ledger accounts for scope of report
+    - user will specify 1 or more or all ledger accounts for scope of report (within the selected bundle)
     - report will be CSV like
   - create balance over time report
     - user will specify date range
-    - user will specify 1 or more or all ledger accounts for scope of report
+    - user will specify 1 or more or all ledger accounts for scope of report (within the selected bundle)
     - report will be a stacked area graph
   - rotate encryption key
   - update user credentials

@@ -17,8 +17,9 @@ With a-cruet you can:
 - **Apply for access** — submit a short application; an administrator reviews and approves new users
 - **Sign in** securely and manage your own envelopes
 - **Record deposits**, **withdrawals**, and **transfers** between envelopes
-- **View reports** — a spreadsheet-style history and a chart of balances over time
-- **Share a household ledger** — an existing member can invite family by email so you use the same envelopes together (each person has their own sign-in and encryption passphrase; up to five members per household)
+- **Group envelopes into bundles** — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle
+- **View reports** — a spreadsheet-style history and a chart of balances over time for the bundle you have selected
+- **Share a household ledger** — an existing member can invite family by email so you use the same bundles and envelopes together (each person has their own sign-in and encryption passphrase; up to five members per household)
 - **Protect your data** with a personal encryption passphrase that only you know
 
 The app is built for people who want a simple, intentional way to **allocate and track savings by purpose**, not a full double-entry accounting system or a bank connection.
@@ -58,6 +59,5 @@ Technical requirements, architecture decisions, and rollout phases live in:
 ## To Do list
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
-2. New feature, Envelope bundles
-3. New feature, Investments and Assets tracking
-4. New feature, Net Worth auto calculation
+2. New feature, Investments and Assets tracking
+3. New feature, Net Worth auto calculation

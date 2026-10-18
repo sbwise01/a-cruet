@@ -22,8 +22,9 @@ public final class MarketingContent {
                     <li><strong>Apply for access</strong> — submit a short application; an administrator reviews and approves new users</li>
                     <li><strong>Sign in</strong> securely and manage your own envelopes</li>
                     <li><strong>Record deposits</strong>, <strong>withdrawals</strong>, and <strong>transfers</strong> between envelopes</li>
-                    <li><strong>View reports</strong> — a spreadsheet-style history and a chart of balances over time</li>
-                    <li><strong>Share a household ledger</strong> — an existing member can invite family by email so you use the same envelopes together (each person has their own sign-in and encryption passphrase; up to five members per household)</li>
+                    <li><strong>Group envelopes into bundles</strong> — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle</li>
+                    <li><strong>View reports</strong> — a spreadsheet-style history and a chart of balances over time for the bundle you have selected</li>
+                    <li><strong>Share a household ledger</strong> — an existing member can invite family by email so you use the same bundles and envelopes together (each person has their own sign-in and encryption passphrase; up to five members per household)</li>
                     <li><strong>Protect your data</strong> with a personal encryption passphrase that only you know</li>
                   </ul>
                   <p>The app is built for people who want a simple, intentional way to <strong>allocate and track savings by purpose</strong>, not a full double-entry accounting system or a bank connection.</p>
