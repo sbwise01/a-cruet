@@ -116,6 +116,7 @@ public final class ReportViews {
                   <div id="reportsHub">
                     <h2>Reports</h2>
                     <p class="hint">Choose a report. Data is decrypted in your browser only.</p>
+                    <p class="hint reports-bundle-hint"></p>
                     <div class="report-tile-grid">
                       <button type="button" class="report-tile" data-report="transactions">
                         <img src="%s" alt="Transactions">
@@ -133,6 +134,7 @@ public final class ReportViews {
                   <div id="reportTransactionsPanel" hidden>
                     <h2>Transaction report</h2>
                     <p class="hint">View ledger lines on screen or download CSV for the same filters.</p>
+                    <p class="hint reports-bundle-hint"></p>
                     <label for="txReportFrom">From</label>
                     <input id="txReportFrom" type="date" required>
                     <label for="txReportTo">To</label>
@@ -153,6 +155,7 @@ public final class ReportViews {
                   <div id="reportChartPanel" hidden>
                     <h2>Balance over time</h2>
                     <p class="hint">Stacked area chart of envelope balances across the selected date range.</p>
+                    <p class="hint reports-bundle-hint"></p>
                     <label for="chartReportFrom">From</label>
                     <input id="chartReportFrom" type="date" required>
                     <label for="chartReportTo">To</label>

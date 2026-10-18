@@ -23,6 +23,7 @@ public final class UserRepository {
             SELECT u.id, u.keycloak_user_id, u.email, u.display_name, u.signup_application_id,
                    u.phone, u.mailing_address, u.allow_negative_withdraw, u.household_id,
                    h.ledger_account_count, h.transaction_count, h.ledger_account_limit,
+                   h.bundle_count,
                    u.key_setup_complete, u.created_at, u.updated_at, u.last_login_at, u.last_transaction_at
             """;
 
@@ -224,6 +225,7 @@ public final class UserRepository {
                        hm.role AS household_role,
                        household_counts.member_count AS household_member_count,
                        h.ledger_account_count, h.transaction_count, h.ledger_account_limit,
+                       h.bundle_count,
                        u.key_setup_complete, u.created_at, u.updated_at, u.last_login_at,
                        u.last_transaction_at, u.suspended_until, u.suspended_at,
                        o.export_deadline, o.export_completed_at, o.purged_at
@@ -397,6 +399,7 @@ public final class UserRepository {
                 resultSet.getInt("ledger_account_count"),
                 resultSet.getInt("transaction_count"),
                 resultSet.getInt("ledger_account_limit"),
+                resultSet.getInt("bundle_count"),
                 resultSet.getBoolean("key_setup_complete"),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant(),

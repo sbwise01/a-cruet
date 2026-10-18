@@ -58,6 +58,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.AcruetReports.init({
       getAccounts: () => state.accounts,
       getBundleId: () => state.selectedBundleId,
+      getBundleName: () => {
+        const bundle = state.bundles.find((item) => item.id === state.selectedBundleId);
+        return bundle ? bundle.name : '';
+      },
       decryptTransactions,
       escapeHtml,
       requireUnlocked: () => {

@@ -109,10 +109,21 @@ window.AcruetReports = (() => {
     hideError();
     hideTxError();
     setChartLayoutActive(false);
+    applyBundleScopeHints();
     els.hub.hidden = false;
     els.transactionsPanel.hidden = true;
     els.chartPanel.hidden = true;
     destroyChart();
+  }
+
+  function applyBundleScopeHints() {
+    const name = api && typeof api.getBundleName === 'function' ? api.getBundleName() : '';
+    const text = name
+      ? `Reporting on bundle “${name}”. Switch bundles on the ledger to report on another.`
+      : 'Reporting on the selected bundle.';
+    document.querySelectorAll('.reports-bundle-hint').forEach((hint) => {
+      hint.textContent = text;
+    });
   }
 
   function openReport(kind) {
@@ -143,6 +154,7 @@ window.AcruetReports = (() => {
     }
     api.beforeReportsOpen();
     els.panel.hidden = false;
+    applyBundleScopeHints();
     showHub();
   }
 
