@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const state = {
+    bundles: [],
+    selectedBundleId: null,
     accounts: [],
     transactions: [],
     balances: new Map(),
@@ -17,6 +19,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const ALLOCATION_MISMATCH_MESSAGE =
     'Your total amount must match the sum of all of the allocated amounts.';
+  const SELECTED_BUNDLE_STORAGE_KEY = 'acruet.selectedBundleId';
+  const DEFAULT_BUNDLE_NAME = 'Default';
+  const MAX_ACTIVE_BUNDLES = 10;
 
   const els = {
     ledgerLocked: document.getElementById('ledgerLocked'),
@@ -30,6 +35,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     error: document.getElementById('ledgerError'),
     warning: document.getElementById('ledgerWarning'),
     formError: document.getElementById('formError'),
+    bundlesHeading: document.getElementById('bundlesHeading'),
+    bundleSelect: document.getElementById('bundleSelect'),
+    btnNewBundle: document.getElementById('btnNewBundle'),
+    btnArchiveBundle: document.getElementById('btnArchiveBundle'),
     accountsList: document.getElementById('accountsList'),
     envelopesHeading: document.getElementById('envelopesHeading'),
     formPanel: document.getElementById('formPanel'),
@@ -48,6 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (window.AcruetReports) {
     window.AcruetReports.init({
       getAccounts: () => state.accounts,
+      getBundleId: () => state.selectedBundleId,
       decryptTransactions,
       escapeHtml,
       requireUnlocked: () => {
@@ -99,11 +109,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   els.ledgerBrowse.addEventListener('click', (event) => {
     const button = event.target.closest('.ledger-action-btn');
-    if (!button) {
+    if (!button || button.disabled) {
       return;
     }
     handleAction(button.dataset.action);
   });
+
+  if (els.bundleSelect) {
+    els.bundleSelect.addEventListener('change', () => {
+      state.selectedBundleId = els.bundleSelect.value || null;
+      persistSelectedBundle();
+      refresh();
+    });
+  }
 
   document.getElementById('btnCancelForm').addEventListener('click', closeForm);
   document.getElementById('btnSubmitForm').addEventListener('click', submitForm);
@@ -191,7 +209,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.AcruetReports) {
       window.AcruetReports.closeAll();
     }
-    if (action === 'create') {
+    if (action === 'create-bundle') {
+      showCreateBundleForm();
+    } else if (action === 'rename-bundle') {
+      showRenameBundleForm();
+    } else if (action === 'archive-bundle') {
+      archiveSelectedBundle();
+    } else if (action === 'create') {
       showCreateForm();
     } else if (action === 'deposit') {
       showTransactionForm('DEPOSIT');
@@ -205,9 +229,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function refresh() {
     hideError();
     hideWarning();
+    try {
+      await loadBundles();
+    } catch (error) {
+      showError(error.message || 'Failed to load bundles.');
+      return;
+    }
+    if (!state.selectedBundleId) {
+      showError('No envelope bundle is available.');
+      return;
+    }
+    const bundleQuery = `bundleId=${encodeURIComponent(state.selectedBundleId)}`;
     const [accountsResponse, transactionsResponse, profileResponse] = await Promise.all([
-      fetch('/ledger/accounts'),
-      fetch('/ledger/transactions'),
+      fetch(`/ledger/accounts?${bundleQuery}`),
+      fetch(`/ledger/transactions?${bundleQuery}`),
       fetch('/profile/api'),
     ]);
     if (!accountsResponse.ok || !transactionsResponse.ok) {
@@ -226,6 +261,112 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.envelopesHeading.innerHTML =
       `Envelopes <span class="heading-meta">(${accountsBody.accountCount} of ${accountsBody.accountLimit})</span>`;
     renderAccounts();
+  }
+
+  async function loadBundles() {
+    const response = await fetch('/ledger/bundles');
+    if (!response.ok) {
+      throw new Error('Failed to load bundles.');
+    }
+    const body = await response.json();
+    const bundles = await decryptBundles(Array.isArray(body.bundles) ? body.bundles : []);
+    await ensureDefaultBundleNamed(bundles);
+    state.bundles = bundles.sort((left, right) =>
+      String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
+    pickSelectedBundle();
+    renderBundleSwitcher();
+  }
+
+  async function decryptBundles(bundles) {
+    const dek = AcruetCrypto.session.getDek();
+    const decrypted = [];
+    for (const bundle of bundles) {
+      if (!bundle.encryptedName) {
+        decrypted.push({ ...bundle, name: '' });
+        continue;
+      }
+      const payload = await AcruetCrypto.decryptJson(dek, bundle.encryptedName);
+      decrypted.push({ ...bundle, name: payload.name });
+    }
+    return decrypted;
+  }
+
+  async function ensureDefaultBundleNamed(bundles) {
+    const dek = AcruetCrypto.session.getDek();
+    for (const bundle of bundles) {
+      if (bundle.defaultBundle && !bundle.encryptedName) {
+        const encryptedName = await AcruetCrypto.encryptJson(dek, { name: DEFAULT_BUNDLE_NAME });
+        const response = await fetch(`/ledger/bundles/${bundle.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ encryptedName }),
+        });
+        if (response.ok) {
+          bundle.encryptedName = encryptedName;
+          bundle.name = DEFAULT_BUNDLE_NAME;
+        }
+      }
+      if (!bundle.name) {
+        bundle.name = bundle.defaultBundle ? DEFAULT_BUNDLE_NAME : 'Untitled';
+      }
+    }
+  }
+
+  function pickSelectedBundle() {
+    const preferred = state.selectedBundleId || window.localStorage.getItem(SELECTED_BUNDLE_STORAGE_KEY);
+    if (preferred && state.bundles.some((bundle) => bundle.id === preferred)) {
+      state.selectedBundleId = preferred;
+      persistSelectedBundle();
+      return;
+    }
+    const fallback = state.bundles.find((bundle) => bundle.defaultBundle) || state.bundles[0];
+    state.selectedBundleId = fallback ? fallback.id : null;
+    persistSelectedBundle();
+  }
+
+  function persistSelectedBundle() {
+    if (!state.selectedBundleId) {
+      window.localStorage.removeItem(SELECTED_BUNDLE_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(SELECTED_BUNDLE_STORAGE_KEY, state.selectedBundleId);
+  }
+
+  function selectedBundle() {
+    return state.bundles.find((bundle) => bundle.id === state.selectedBundleId) || null;
+  }
+
+  function renderBundleSwitcher() {
+    if (!els.bundleSelect) {
+      return;
+    }
+    els.bundlesHeading.innerHTML =
+      `Bundles <span class="heading-meta">(${state.bundles.length} of ${MAX_ACTIVE_BUNDLES})</span>`;
+    els.bundleSelect.innerHTML = state.bundles
+      .map((bundle) => {
+        const selected = bundle.id === state.selectedBundleId ? ' selected' : '';
+        return `<option value="${bundle.id}"${selected}>${escapeHtml(bundle.name)}</option>`;
+      })
+      .join('');
+    const selected = selectedBundle();
+    const atLimit = state.bundles.length >= MAX_ACTIVE_BUNDLES;
+    if (els.btnNewBundle) {
+      els.btnNewBundle.disabled = atLimit;
+      els.btnNewBundle.title = atLimit
+        ? `Bundle limit reached (${MAX_ACTIVE_BUNDLES}).`
+        : 'Create a new envelope bundle';
+    }
+    const canArchive = Boolean(selected) && state.bundles.length > 1 && selected.accountCount === 0;
+    if (els.btnArchiveBundle) {
+      els.btnArchiveBundle.disabled = !canArchive;
+      if (state.bundles.length <= 1) {
+        els.btnArchiveBundle.title = 'Cannot archive the last active bundle.';
+      } else if (selected && selected.accountCount > 0) {
+        els.btnArchiveBundle.title = 'Archive all envelopes in this bundle first.';
+      } else {
+        els.btnArchiveBundle.title = 'Archive this bundle';
+      }
+    }
   }
 
   async function decryptAccounts(accounts) {
@@ -407,6 +548,88 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.formBody.innerHTML = '';
     if (restoreBrowse && AcruetCrypto.session.isUnlocked()) {
       els.ledgerBrowse.hidden = false;
+    }
+  }
+
+  function showCreateBundleForm() {
+    if (state.bundles.length >= MAX_ACTIVE_BUNDLES) {
+      showError(`Bundle limit reached (${MAX_ACTIVE_BUNDLES}).`);
+      return;
+    }
+    state.formMode = 'CREATE_BUNDLE';
+    els.formTitle.textContent = 'New bundle';
+    els.formBody.innerHTML = `
+      <form id="createBundleForm">
+        <label for="bundleName">Bundle name</label>
+        <input id="bundleName" type="text" required maxlength="120">
+        <p class="hint">A bundle is its own set of envelopes. Transfers stay inside the bundle.</p>
+      </form>
+    `;
+    document.getElementById('createBundleForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitForm();
+    });
+    hideFormError();
+    openForm();
+    document.getElementById('bundleName').focus();
+  }
+
+  function showRenameBundleForm() {
+    const bundle = selectedBundle();
+    if (!bundle) {
+      showError('Select a bundle first.');
+      return;
+    }
+    state.formMode = 'RENAME_BUNDLE';
+    els.formTitle.textContent = 'Rename bundle';
+    els.formBody.innerHTML = `
+      <form id="renameBundleForm">
+        <label for="bundleName">Bundle name</label>
+        <input id="bundleName" type="text" required maxlength="120" value="${escapeHtml(bundle.name)}">
+      </form>
+    `;
+    document.getElementById('renameBundleForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitForm();
+    });
+    hideFormError();
+    openForm();
+    const input = document.getElementById('bundleName');
+    input.focus();
+    input.select();
+  }
+
+  async function archiveSelectedBundle() {
+    const bundle = selectedBundle();
+    if (!bundle) {
+      showError('Select a bundle first.');
+      return;
+    }
+    if (state.bundles.length <= 1) {
+      showError('Cannot archive the last active bundle.');
+      return;
+    }
+    if (bundle.accountCount > 0) {
+      showError('Archive all envelopes in this bundle first.');
+      return;
+    }
+    if (!window.confirm(`Archive “${bundle.name}”? You can keep using your other bundles.`)) {
+      return;
+    }
+    hideError();
+    try {
+      const response = await fetch(`/ledger/bundles/${bundle.id}/archive`, { method: 'POST' });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        showError(body.error || 'Failed to archive bundle.');
+        return;
+      }
+      if (state.selectedBundleId === bundle.id) {
+        state.selectedBundleId = null;
+      }
+      await refresh();
+    } catch (error) {
+      showError(error.message || 'Failed to archive bundle.');
     }
   }
 
@@ -667,7 +890,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     hideWarning();
     hideFormError();
     try {
-      if (state.formMode === 'CREATE') {
+      if (state.formMode === 'CREATE_BUNDLE') {
+        await submitCreateBundle();
+      } else if (state.formMode === 'RENAME_BUNDLE') {
+        await submitRenameBundle();
+      } else if (state.formMode === 'CREATE') {
         await submitCreate();
       } else {
         const saved = await submitTransaction();
@@ -683,6 +910,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  async function submitCreateBundle() {
+    const name = document.getElementById('bundleName').value.trim();
+    if (!name) throw new Error('Bundle name is required.');
+    const dek = AcruetCrypto.session.getDek();
+    const encryptedName = await AcruetCrypto.encryptJson(dek, { name });
+    const response = await fetch('/ledger/bundles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ encryptedName }),
+    });
+    if (!response.ok) {
+      const body = await response.json();
+      throw new Error(body.error || 'Failed to create bundle.');
+    }
+    const created = await response.json();
+    state.selectedBundleId = created.id;
+    persistSelectedBundle();
+  }
+
+  async function submitRenameBundle() {
+    const bundle = selectedBundle();
+    if (!bundle) {
+      throw new Error('Select a bundle first.');
+    }
+    const name = document.getElementById('bundleName').value.trim();
+    if (!name) throw new Error('Bundle name is required.');
+    const dek = AcruetCrypto.session.getDek();
+    const encryptedName = await AcruetCrypto.encryptJson(dek, { name });
+    const response = await fetch(`/ledger/bundles/${bundle.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ encryptedName }),
+    });
+    if (!response.ok) {
+      const body = await response.json();
+      throw new Error(body.error || 'Failed to rename bundle.');
+    }
+  }
+
   async function submitCreate() {
     const name = document.getElementById('accountName').value.trim();
     if (!name) throw new Error('Envelope name is required.');
@@ -691,7 +957,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const response = await fetch('/ledger/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ encryptedName }),
+      body: JSON.stringify({ encryptedName, bundleId: state.selectedBundleId }),
     });
     if (!response.ok) {
       const body = await response.json();
@@ -814,6 +1080,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         transactionDate: date,
         encryptedPayload,
         accountIds,
+        bundleId: state.selectedBundleId,
       }),
     });
     if (!response.ok) {
