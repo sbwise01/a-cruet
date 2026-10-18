@@ -200,9 +200,12 @@ window.AcruetReports = (() => {
   }
 
   async function loadTransactions(from, to) {
-    const response = await fetch(
-      `/ledger/transactions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-    );
+    const params = new URLSearchParams({ from, to });
+    const bundleId = api && typeof api.getBundleId === 'function' ? api.getBundleId() : null;
+    if (bundleId) {
+      params.set('bundleId', bundleId);
+    }
+    const response = await fetch(`/ledger/transactions?${params.toString()}`);
     if (!response.ok) {
       throw new Error('Failed to load transactions for report.');
     }

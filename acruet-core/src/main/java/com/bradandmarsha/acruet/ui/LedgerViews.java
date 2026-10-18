@@ -61,6 +61,40 @@ public final class LedgerViews {
                   color: #f87171;
                 }
                 h2 .heading-meta { color: var(--muted); font-weight: 600; font-size: 1rem; }
+                select {
+                  width: 100%;
+                  margin-top: 0.25rem;
+                  padding: 0.6rem 0.75rem;
+                  font: inherit;
+                  color: var(--text);
+                  background: var(--bg-card);
+                  border: 1px solid rgba(148, 163, 184, 0.2);
+                  border-radius: 8px;
+                }
+                select:focus {
+                  outline: 2px solid rgba(56, 189, 248, 0.35);
+                  border-color: var(--accent);
+                }
+                #bundlePanel { margin-bottom: 1.75rem; }
+                .bundle-bar {
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 0.5rem;
+                  align-items: center;
+                  margin: 0.75rem 0 0;
+                }
+                .bundle-bar select {
+                  flex: 1 1 12rem;
+                  width: auto;
+                  min-width: 10rem;
+                  margin-top: 0;
+                }
+                .bundle-bar button { margin-top: 0; }
+                .bundle-bar button:disabled {
+                  opacity: 0.45;
+                  cursor: not-allowed;
+                  filter: none;
+                }
                 .ledger-actions {
                   display: flex;
                   flex-wrap: wrap;
@@ -136,6 +170,15 @@ public final class LedgerViews {
                   <div id="ledgerBrowse">
                     <div id="ledgerError" class="error" hidden></div>
                     <div id="ledgerWarning" class="notice" hidden></div>
+                    <section id="bundlePanel">
+                      <h2 id="bundlesHeading">Bundles <span class="heading-meta">(…)</span></h2>
+                      <div class="bundle-bar">
+                        <select id="bundleSelect" aria-label="Current bundle"></select>
+                        <button type="button" class="ledger-action-btn" id="btnNewBundle" data-action="create-bundle">New bundle</button>
+                        <button type="button" class="ledger-action-btn secondary" id="btnRenameBundle" data-action="rename-bundle">Rename</button>
+                        <button type="button" class="ledger-action-btn secondary" id="btnArchiveBundle" data-action="archive-bundle">Archive</button>
+                      </div>
+                    </section>
                     <section id="accountsPanel">
                       <h2 id="envelopesHeading">Envelopes <span class="heading-meta">(…)</span></h2>
                       %s
