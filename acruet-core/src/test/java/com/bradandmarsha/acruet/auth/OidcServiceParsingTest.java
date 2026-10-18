@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OidcServiceParsingTest {
@@ -35,5 +36,21 @@ class OidcServiceParsingTest {
         assertEquals("Example", user.familyName());
         assertEquals(Set.of("a-cruet-admin", "offline_access"), user.realmRoles());
         assertTrue(user.hasRealmRole("a-cruet-admin"));
+    }
+
+    @Test
+    void isTransientIoTreatsConnectionResetAsRetryable() {
+        assertTrue(OidcService.isTransientIo(new java.net.SocketException("Connection reset")));
+        assertTrue(OidcService.isTransientIo(
+                new java.io.IOException("wrapped", new java.net.SocketException("Connection reset"))));
+        assertFalse(OidcService.isTransientIo(new java.io.IOException("parse error")));
+    }
+
+    @Test
+    void forSettingsReusesInstance() {
+        OidcSettings settings = new OidcSettings(
+                "acruet", "secret", "https://auth.example.com/realms/wise-k8s",
+                "https://acruet.example.com", "a-cruet-admin", false);
+        assertEquals(OidcService.forSettings(settings), OidcService.forSettings(settings));
     }
 }
