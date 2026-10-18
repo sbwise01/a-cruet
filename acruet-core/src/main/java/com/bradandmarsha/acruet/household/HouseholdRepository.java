@@ -1,5 +1,7 @@
 package com.bradandmarsha.acruet.household;
 
+import com.bradandmarsha.acruet.ledger.EnvelopeBundleRepository;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -14,13 +16,14 @@ public final class HouseholdRepository {
 
     public void insertOwnerHousehold(Connection connection, UUID householdId) throws SQLException {
         String householdSql = """
-                INSERT INTO household (id)
-                VALUES (?)
+                INSERT INTO household (id, bundle_count)
+                VALUES (?, 1)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(householdSql)) {
             statement.setObject(1, householdId);
             statement.executeUpdate();
         }
+        new EnvelopeBundleRepository().insertDefault(connection, UUID.randomUUID(), householdId);
     }
 
     public void insertMember(
@@ -43,7 +46,7 @@ public final class HouseholdRepository {
     public Optional<Household> findById(Connection connection, UUID householdId) throws SQLException {
         String sql = """
                 SELECT id, ledger_account_count, transaction_count, ledger_account_limit,
-                       created_at, updated_at
+                       bundle_count, created_at, updated_at
                 FROM household
                 WHERE id = ?
                 """;
@@ -107,6 +110,30 @@ public final class HouseholdRepository {
         }
     }
 
+    public void incrementBundleCount(Connection connection, UUID householdId) throws SQLException {
+        String sql = """
+                UPDATE household
+                SET bundle_count = bundle_count + 1, updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, householdId);
+            statement.executeUpdate();
+        }
+    }
+
+    public void decrementBundleCount(Connection connection, UUID householdId) throws SQLException {
+        String sql = """
+                UPDATE household
+                SET bundle_count = GREATEST(bundle_count - 1, 0), updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, householdId);
+            statement.executeUpdate();
+        }
+    }
+
     public void incrementTransactionCount(Connection connection, UUID householdId) throws SQLException {
         String sql = """
                 UPDATE household
@@ -146,6 +173,7 @@ public final class HouseholdRepository {
                 resultSet.getInt("ledger_account_count"),
                 resultSet.getInt("transaction_count"),
                 resultSet.getInt("ledger_account_limit"),
+                resultSet.getInt("bundle_count"),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant());
     }

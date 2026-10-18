@@ -11,6 +11,7 @@ import java.util.UUID;
 public record LedgerTransaction(
         UUID id,
         UUID householdId,
+        UUID bundleId,
         TransactionType transactionType,
         LocalDate transactionDate,
         byte[] encryptedPayload,
