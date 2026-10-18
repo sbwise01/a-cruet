@@ -41,7 +41,7 @@ public class OidcAuthFilter implements Filter {
                     settings.adminRole(),
                     true);
         }
-        service = new OidcService(settings);
+        service = OidcService.forSettings(settings);
     }
 
     @Override

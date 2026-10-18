@@ -32,7 +32,7 @@ public class AuthResource {
         HttpSession session = request.getSession(true);
         String state = OidcService.newState();
         OidcStateSupport.save(request, response, session, state);
-        OidcService service = new OidcService(settings);
+        OidcService service = OidcService.forSettings(settings);
         return Response.seeOther(UriBuilder.fromUri(service.beginAuthorizationUri(state)).build())
                 .build();
     }
@@ -64,7 +64,7 @@ public class AuthResource {
         }
         OidcStateSupport.clear(request, response, session);
 
-        OidcService service = new OidcService(settings);
+        OidcService service = OidcService.forSettings(settings);
         OidcUser user = service.completeAuthorization(code);
         session.setAttribute(OidcUser.SESSION_ATTRIBUTE, user);
 
@@ -99,7 +99,7 @@ public class AuthResource {
         if (!settings.isConfigured()) {
             return Response.seeOther(UriBuilder.fromPath("/").build()).build();
         }
-        OidcService service = new OidcService(settings);
+        OidcService service = OidcService.forSettings(settings);
         return Response.seeOther(UriBuilder.fromUri(service.logoutRedirectUri()).build()).build();
     }
 

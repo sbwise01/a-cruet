@@ -4,11 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jwt.JWTParser;
 
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashSet;
@@ -20,19 +24,36 @@ import java.util.stream.Collectors;
 
 /**
  * Discovers Keycloak endpoints and performs authorization-code token exchange.
+ *
+ * <p>Java {@link HttpClient} defaults to HTTP/2 and connection reuse. Envoy often
+ * RSTs those sockets while {@code curl} (HTTP/1.1, new connection) succeeds. This
+ * client stays on HTTP/1.1 and retries transient I/O.</p>
  */
 public final class OidcService {
 
+    private static final int MAX_ATTEMPTS = 3;
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final HttpClient HTTP = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(10))
             .build();
+    private static final ConcurrentHashMap<String, OidcService> INSTANCES = new ConcurrentHashMap<>();
 
     private final OidcSettings settings;
     private final Map<String, OidcDiscovery> discoveryCache = new ConcurrentHashMap<>();
 
     public OidcService(OidcSettings settings) {
         this.settings = settings;
+    }
+
+    /**
+     * Process-wide instance so {@code /auth/login} and callback share discovery
+     * cache instead of fetching Keycloak on every request.
+     */
+    public static OidcService forSettings(OidcSettings settings) {
+        String key = settings.issuer() + "|" + settings.baseUrl() + "|" + settings.clientId()
+                + "|" + settings.requireAdminRole();
+        return INSTANCES.computeIfAbsent(key, ignored -> new OidcService(settings));
     }
 
     public String beginAuthorizationUri(String state) {
@@ -71,7 +92,7 @@ public final class OidcService {
                 .build();
 
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("Token endpoint returned HTTP " + response.statusCode());
             }
@@ -139,7 +160,7 @@ public final class OidcService {
                 .GET()
                 .build();
         try {
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("Discovery returned HTTP " + response.statusCode());
             }
@@ -154,6 +175,35 @@ public final class OidcService {
         } catch (Exception exception) {
             throw new IllegalStateException("OIDC discovery failed", exception);
         }
+    }
+
+    private static HttpResponse<String> sendWithRetry(HttpRequest request)
+            throws IOException, InterruptedException {
+        IOException last = null;
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                return HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            } catch (IOException exception) {
+                last = exception;
+                if (attempt == MAX_ATTEMPTS || !isTransientIo(exception)) {
+                    throw exception;
+                }
+            }
+        }
+        throw last;
+    }
+
+    static boolean isTransientIo(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof HttpTimeoutException
+                    || current instanceof ConnectException
+                    || current instanceof SocketException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private static String requiredText(JsonNode node, String field) {

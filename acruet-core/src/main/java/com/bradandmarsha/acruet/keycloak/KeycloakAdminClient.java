@@ -24,6 +24,7 @@ public final class KeycloakAdminClient {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final HttpClient HTTP = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(10))
             .build();
     private static final SecureRandom RANDOM = new SecureRandom();
