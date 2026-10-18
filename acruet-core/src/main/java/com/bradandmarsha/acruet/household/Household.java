@@ -11,6 +11,7 @@ public record Household(
         int ledgerAccountCount,
         int transactionCount,
         int ledgerAccountLimit,
+        int bundleCount,
         Instant createdAt,
         Instant updatedAt) {
 }

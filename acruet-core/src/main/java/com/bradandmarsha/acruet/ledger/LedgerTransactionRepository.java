@@ -21,21 +21,23 @@ public final class LedgerTransactionRepository {
             Connection connection,
             UUID id,
             UUID householdId,
+            UUID bundleId,
             TransactionType transactionType,
             LocalDate transactionDate,
             byte[] encryptedPayload,
             List<UUID> accountIds) throws SQLException {
         String sql = """
                 INSERT INTO ledger_transaction (
-                    id, household_id, transaction_type, transaction_date, encrypted_payload
-                ) VALUES (?, ?, ?, ?, ?)
+                    id, household_id, bundle_id, transaction_type, transaction_date, encrypted_payload
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
             statement.setObject(2, householdId);
-            statement.setString(3, transactionType.dbValue());
-            statement.setObject(4, transactionDate);
-            statement.setBytes(5, encryptedPayload);
+            statement.setObject(3, bundleId);
+            statement.setString(4, transactionType.dbValue());
+            statement.setObject(5, transactionDate);
+            statement.setBytes(6, encryptedPayload);
             statement.executeUpdate();
         }
         insertAccountLinks(connection, id, accountIds);
@@ -44,7 +46,7 @@ public final class LedgerTransactionRepository {
     public Optional<LedgerTransaction> findById(Connection connection, UUID householdId, UUID transactionId)
             throws SQLException {
         String sql = """
-                SELECT id, household_id, transaction_type, transaction_date, encrypted_payload, created_at
+                SELECT id, household_id, bundle_id, transaction_type, transaction_date, encrypted_payload, created_at
                 FROM ledger_transaction
                 WHERE id = ? AND household_id = ?
                 """;
@@ -68,10 +70,33 @@ public final class LedgerTransactionRepository {
             LocalDate fromDate,
             LocalDate toDate,
             UUID accountId) throws SQLException {
+        return listByHousehold(connection, householdId, null, fromDate, toDate, accountId);
+    }
+
+    public List<LedgerTransaction> listByHousehold(
+            Connection connection,
+            UUID householdId,
+            UUID bundleId,
+            LocalDate fromDate,
+            LocalDate toDate,
+            UUID accountId) throws SQLException {
         String sql;
-        if (accountId != null) {
+        if (accountId != null && bundleId != null) {
             sql = """
-                    SELECT t.id, t.household_id, t.transaction_type, t.transaction_date,
+                    SELECT t.id, t.household_id, t.bundle_id, t.transaction_type, t.transaction_date,
+                           t.encrypted_payload, t.created_at
+                    FROM ledger_transaction t
+                    INNER JOIN ledger_transaction_account ta ON ta.transaction_id = t.id
+                    WHERE t.household_id = ?
+                      AND t.bundle_id = ?
+                      AND t.transaction_date >= ?
+                      AND t.transaction_date <= ?
+                      AND ta.account_id = ?
+                    ORDER BY t.transaction_date DESC, t.created_at DESC
+                    """;
+        } else if (accountId != null) {
+            sql = """
+                    SELECT t.id, t.household_id, t.bundle_id, t.transaction_type, t.transaction_date,
                            t.encrypted_payload, t.created_at
                     FROM ledger_transaction t
                     INNER JOIN ledger_transaction_account ta ON ta.transaction_id = t.id
@@ -81,9 +106,21 @@ public final class LedgerTransactionRepository {
                       AND ta.account_id = ?
                     ORDER BY t.transaction_date DESC, t.created_at DESC
                     """;
+        } else if (bundleId != null) {
+            sql = """
+                    SELECT id, household_id, bundle_id, transaction_type, transaction_date,
+                           encrypted_payload, created_at
+                    FROM ledger_transaction
+                    WHERE household_id = ?
+                      AND bundle_id = ?
+                      AND transaction_date >= ?
+                      AND transaction_date <= ?
+                    ORDER BY transaction_date DESC, created_at DESC
+                    """;
         } else {
             sql = """
-                    SELECT id, household_id, transaction_type, transaction_date, encrypted_payload, created_at
+                    SELECT id, household_id, bundle_id, transaction_type, transaction_date,
+                           encrypted_payload, created_at
                     FROM ledger_transaction
                     WHERE household_id = ?
                       AND transaction_date >= ?
@@ -92,11 +129,15 @@ public final class LedgerTransactionRepository {
                     """;
         }
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, householdId);
-            statement.setObject(2, fromDate);
-            statement.setObject(3, toDate);
+            int index = 1;
+            statement.setObject(index++, householdId);
+            if (bundleId != null) {
+                statement.setObject(index++, bundleId);
+            }
+            statement.setObject(index++, fromDate);
+            statement.setObject(index++, toDate);
             if (accountId != null) {
-                statement.setObject(4, accountId);
+                statement.setObject(index, accountId);
             }
             try (ResultSet resultSet = statement.executeQuery()) {
                 List<LedgerTransaction> transactions = new ArrayList<>();
@@ -173,6 +214,7 @@ public final class LedgerTransactionRepository {
         return new LedgerTransaction(
                 resultSet.getObject("id", UUID.class),
                 resultSet.getObject("household_id", UUID.class),
+                resultSet.getObject("bundle_id", UUID.class),
                 TransactionType.fromDb(resultSet.getString("transaction_type")),
                 resultSet.getObject("transaction_date", LocalDate.class),
                 resultSet.getBytes("encrypted_payload"),
