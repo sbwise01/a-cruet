@@ -226,6 +226,7 @@ Product and technical decisions captured during requirements clarification. Each
 | Admins never see decrypted ledger content | Section 3 |
 | Shared household ledger | Section 7 |
 | Envelope bundles (isolated groups) | Section 8 |
+| Snapshot assets and liabilities | Section 9 |
 
 ### 7. Shared household ✅ locked (2026-07-19)
 
@@ -288,6 +289,7 @@ Extends Section 4 (ledger ownership) and Section 3 (encryption). **Release:** ap
 | Recovery file / forgot-passphrase | Section 3 |
 | Offboard email + export window | Section 6 (#48) |
 | Envelope bundles | Section 8 |
+| Snapshot assets and liabilities | Section 9 |
 
 ### 8. Envelope bundles ✅ locked (2026-10-18)
 
@@ -327,6 +329,50 @@ Extends Section 4 (ledger model) and Section 7 (household). **Release:** schema/
 | Household DEK / shared visibility | Section 7 |
 | Offboard export window | Section 6 (#48a) |
 | Abuse counts | Section 3, Section 6 (#52) |
+| Snapshot assets and liabilities | Section 9 |
+
+### 9. Assets and liabilities ✅ locked (2026-10-18)
+
+Extends Section 4 (ledger is one asset class) and Section 7 (household). **Not started.** Implementation plan: [`ASSETS.md`](ASSETS.md).
+
+Envelopes remain a **transaction ledger**. This feature is a **snapshot register** for other assets and for liabilities (cars, 401k totals, auto loans, mortgages). It begins to turn a-cruet toward personal financial management without copying the envelope engine.
+
+#### Model
+
+| Item | Decision |
+|------|----------|
+| Valuation | **Snapshot only** — create an item, set a value and date, update infrequently. Keep a **history** of updates. No deposits, withdrawals, or transfers on the item. **No** link to envelope transactions in v1 |
+| One value | Each item has a **single** current total. Investment accounts are one number (no holdings, tickers, or price feeds) |
+| Kind | Plaintext enum **`ASSET`** or **`LIABILITY`** (same class of metadata as transaction type) |
+| Sections | **Assets** and **Liabilities**. Enter liability amounts as **positive** balances owed |
+| Envelope lines | Each **active** envelope bundle’s current total appears on the assets page as a **read-only** computed line (not a snapshot row). Archived bundles omitted |
+| Current Net | Page may show Assets − Liabilities. That arithmetic is **part of this register**, not To Do #4 (Net Worth) |
+| Scope | **Household-wide** — all members see all items (same household DEK). **Not** nested under an envelope bundle |
+| Naming / amounts | Ciphertext (name + USD cents in the snapshot payload) |
+| Current value | Latest snapshot by user **as-of date**, then `created_at` |
+| Updates | **Append** a snapshot — no edit or delete of past values |
+| Archive | Hide an item (sold car, paid-off loan). No zero-balance rule. Snapshots remain for export |
+| Active cap | **50** snapshot items per household (assets + liabilities). Envelope lines do not count |
+| Currency / connections | **USD only**. No bank or brokerage connections |
+
+#### Reports, export, admin, follow-ons
+
+| Item | Decision |
+|------|----------|
+| Offboard export | Client-side CSV/JSON includes all positions and snapshots |
+| Admin | Operational **`position_count`** (active) — never decrypted names or values |
+| README To Do #4 | **Stays** after this feature ships. Reserved for additional net worth requirements (dedicated view, history/charts, other rollups). Do not treat the assets-page Net line as completing #4 |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Envelope semantics, append-only txs | Section 4 |
+| Envelope bundles (read-only cash lines) | Section 8 |
+| Household DEK / shared visibility | Section 7 |
+| Offboard export window | Section 6 (#48a) |
+| Abuse counts | Section 3, Section 6 (#52) |
+| Implementation plan (not started) | [`ASSETS.md`](ASSETS.md) |
 
 ## Product requirements
 
@@ -380,6 +426,11 @@ Extends Section 4 (ledger model) and Section 7 (household). **Release:** schema/
   - update user credentials
   - invite a household member (existing member, unlocked session; email-only UI)
   - join a household on first login after invite (passphrase + recovery file; shared ledger)
+  - track snapshot assets and liabilities (household-wide; infrequent value updates; history of snapshots; no envelope linkage)
+    - assets page shows read-only envelope-bundle totals plus snapshot assets
+    - liabilities are positive amounts owed
+    - page may show current Assets − Liabilities; additional net worth work is a later To Do
+    - limit 50 active snapshot items per household
 - The application will support the following administrative workflows:
   - approve new user applications
   - assign administrators
