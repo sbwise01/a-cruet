@@ -193,7 +193,7 @@ public final class OidcService {
         throw last;
     }
 
-    static boolean isTransientIo(Throwable throwable) {
+    public static boolean isTransientIo(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
             if (current instanceof HttpTimeoutException
