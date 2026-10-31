@@ -17,19 +17,43 @@ public final class AssetViews {
                   cursor: pointer;
                 }
                 a.account-row:hover { background: rgba(148, 163, 184, 0.08); }
-                .account-row .as-of {
-                  color: var(--muted);
-                  font-size: 0.85rem;
-                  margin-right: 0.65rem;
+                #assetsList .account-row,
+                #liabilitiesList .account-row,
+                #registerTotals .account-row {
+                  display: grid;
+                  grid-template-columns: minmax(0, 1fr) 4.75rem 7.75rem;
+                  column-gap: 0.5rem;
+                  align-items: center;
+                  justify-content: stretch;
+                }
+                #assetsList .row-archive,
+                #liabilitiesList .row-archive,
+                #registerTotals .row-archive {
+                  display: flex;
+                  justify-content: center;
+                }
+                #assetsList .archive-btn,
+                #liabilitiesList .archive-btn {
+                  margin-left: 0;
+                  margin-top: 0;
+                }
+                #assetsList .balance,
+                #liabilitiesList .balance,
+                #registerTotals .balance {
+                  width: 100%;
+                  text-align: right;
                   font-variant-numeric: tabular-nums;
                 }
                 .position-amount {
+                  display: block;
+                  width: 100%;
                   font: inherit;
                   font-variant-numeric: tabular-nums;
+                  text-align: right;
                   color: inherit;
                   background: transparent;
                   border: none;
-                  padding: 0.1rem 0.35rem;
+                  padding: 0.1rem 0;
                   margin: 0;
                   border-radius: 4px;
                   cursor: pointer;
