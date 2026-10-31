@@ -8,6 +8,7 @@ window.AcruetReports = (() => {
 
   const els = {};
   let panelWired = false;
+  let controlsWired = false;
 
   function refreshElementRefs() {
     els.panel = document.getElementById('reportsPanel');
@@ -25,8 +26,12 @@ window.AcruetReports = (() => {
     if (!els.panel) {
       return;
     }
+    if (controlsWired) {
+      applyBundleScopeHints();
+      return;
+    }
+    controlsWired = true;
 
-    bindButton('btnReportsBack', closeAll);
     bindButton('btnTxReportBack', showHub);
     bindButton('btnChartReportBack', showHub);
     bindButton('btnRenderChart', renderBalanceChart);
@@ -119,7 +124,7 @@ window.AcruetReports = (() => {
   function applyBundleScopeHints() {
     const name = api && typeof api.getBundleName === 'function' ? api.getBundleName() : '';
     const text = name
-      ? `Reporting on bundle “${name}”. Switch bundles on the ledger to report on another.`
+      ? `Reporting on bundle “${name}”. Switch bundles above to report on another.`
       : 'Reporting on the selected bundle.';
     document.querySelectorAll('.reports-bundle-hint').forEach((hint) => {
       hint.textContent = text;
@@ -300,7 +305,7 @@ window.AcruetReports = (() => {
     hideTxError();
     try {
       if (!api) {
-        throw new Error('Reports are still loading. Wait for the ledger to finish loading, then try again.');
+        throw new Error('Reports are still loading. Wait a moment, then try again.');
       }
       const { accounts, selectedIds, from, to } = readTxReportInputs();
       const rows = await buildTransactionRows(accounts, selectedIds, from, to);
@@ -359,7 +364,7 @@ window.AcruetReports = (() => {
     hideTxError();
     try {
       if (!api) {
-        throw new Error('Reports are still loading. Wait for the ledger to finish loading, then try again.');
+        throw new Error('Reports are still loading. Wait a moment, then try again.');
       }
       const { accounts, selectedIds, from, to } = readTxReportInputs();
       const rows = await buildTransactionRows(accounts, selectedIds, from, to);

@@ -6,9 +6,9 @@ import com.bradandmarsha.acruet.auth.UserSession;
 import com.bradandmarsha.acruet.household.HouseholdJoinService;
 import com.bradandmarsha.acruet.keys.KeyService;
 import com.bradandmarsha.acruet.ui.AuthNavContext;
+import com.bradandmarsha.acruet.ui.HomeViews;
 import com.bradandmarsha.acruet.ui.LedgerViews;
 import com.bradandmarsha.acruet.ui.MarketingContent;
-import com.bradandmarsha.acruet.ui.ReportViews;
 import com.bradandmarsha.acruet.ui.UserPageLayout;
 import com.bradandmarsha.acruet.user.AcruetUser;
 import com.bradandmarsha.acruet.user.UnlinkedLoginService;
@@ -22,7 +22,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.Optional;
 
 /**
- * User landing page — public marketing for anonymous visitors; ledger home when signed in.
+ * User landing page — public marketing for anonymous visitors; app launcher when signed in.
  */
 @Path("/")
 public class LandingResource {
@@ -54,7 +54,8 @@ public class LandingResource {
                     <p>Your sign-in is not linked to an a-cruet account.</p>
                     <p class="hint">Administrators have been alerted. If you believe this is an error, sign out and contact support.</p>
                     """,
-                    nav);
+                    nav,
+                    false);
         }
         AcruetUser user = acruetUser.get();
         if (!user.keySetupComplete()) {
@@ -71,21 +72,23 @@ public class LandingResource {
                             .formatted(
                                     keySetupPath,
                                     joinHousehold ? "Join household encryption" : "Create encryption key"),
-                    nav);
+                    nav,
+                    false);
         }
-        AuthNavContext nav = UserPageLayout.navContext(oidcUser, user, true);
+        AuthNavContext nav = UserPageLayout.navContext(oidcUser, user, false);
         String banner = offboardService.status(user)
                 .filter(status -> !status.exportComplete())
                 .map(ignored -> LedgerViews.offboardBannerHtml())
                 .orElse("");
         return UserPageLayout.renderAuthenticated(
                 UserPageLayout.APP_NAME,
-                LedgerViews.ledgerCss() + ReportViews.reportsCss(),
-                LedgerViews.ledgerMainHtml(
+                HomeViews.homeCss(),
+                HomeViews.homeMainHtml(
                         banner,
-                        UserPageLayout.lockImageUrl(),
-                        UserPageLayout.transactionsImageUrl(),
+                        UserPageLayout.envelopeImageUrl(),
+                        UserPageLayout.assetsImageUrl(),
                         UserPageLayout.reportGraphsImageUrl()),
-                nav);
+                nav,
+                false);
     }
 }

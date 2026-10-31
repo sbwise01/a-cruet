@@ -153,10 +153,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function handleAction(action) {
-    if (action === 'envelopes') {
-      window.location.href = '/';
-      return;
-    }
     if (action === 'create-asset') {
       showCreateForm('ASSET');
     } else if (action === 'create-liability') {
@@ -268,8 +264,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function render() {
-    const snapshotAssets = state.positions.filter((position) => position.kind === 'ASSET');
-    const liabilities = state.positions.filter((position) => position.kind === 'LIABILITY');
+    const snapshotAssets = sortByAmountDesc(
+      state.positions.filter((position) => position.kind === 'ASSET'),
+      (position) => position.cents,
+    );
+    const liabilities = sortByAmountDesc(
+      state.positions.filter((position) => position.kind === 'LIABILITY'),
+      (position) => position.cents,
+    );
     const envelopeTotal = state.bundles.reduce((sum, bundle) => sum + bundle.totalCents, 0);
     const snapshotAssetTotal = snapshotAssets.reduce((sum, position) => sum + position.cents, 0);
     const assetsTotal = envelopeTotal + snapshotAssetTotal;
@@ -304,46 +306,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.registerTotals.innerHTML = `
       <div class="account-row total-row">
         <span class="name">Assets</span>
+        <span class="row-archive"></span>
         <span class="balance">${formatCents(assetsTotal)}</span>
       </div>
       <div class="account-row">
         <span class="name">Liabilities</span>
+        <span class="row-archive"></span>
         <span class="balance">${formatCents(liabilitiesTotal)}</span>
       </div>
       <div class="account-row total-row">
         <span class="name">Net</span>
+        <span class="row-archive"></span>
         <span class="balance${netClass}">${formatCents(net)}</span>
       </div>`;
   }
 
   function renderAssetRows(snapshotAssets) {
-    const bundleRows = state.bundles
-      .map((bundle) => {
-        const negativeClass = bundle.totalCents < 0 ? ' balance-negative' : '';
-        return `
-          <a class="account-row bundle-row" href="/" data-bundle-id="${bundle.id}">
-            <span class="name">${escapeHtml(bundle.name)} · envelopes</span>
-            <span class="balance${negativeClass}">${formatCents(bundle.totalCents)}</span>
-          </a>`;
-      })
-      .join('');
-    return bundleRows + renderPositionRows(snapshotAssets);
+    const rows = [
+      ...state.bundles.map((bundle) => ({
+        amount: bundle.totalCents,
+        html: renderBundleRow(bundle),
+      })),
+      ...snapshotAssets.map((position) => ({
+        amount: position.cents,
+        html: renderPositionRow(position),
+      })),
+    ];
+    rows.sort((left, right) => right.amount - left.amount);
+    return rows.map((row) => row.html).join('');
   }
 
   function renderPositionRows(positions) {
-    return positions
-      .map((position) => `
+    return positions.map((position) => renderPositionRow(position)).join('');
+  }
+
+  function renderBundleRow(bundle) {
+    const negativeClass = bundle.totalCents < 0 ? ' balance-negative' : '';
+    return `
+          <a class="account-row bundle-row" href="/envelopes" data-bundle-id="${bundle.id}">
+            <span class="name">${escapeHtml(bundle.name)} · envelopes</span>
+            <span class="row-archive"></span>
+            <span class="balance${negativeClass}">${formatCents(bundle.totalCents)}</span>
+          </a>`;
+  }
+
+  function renderPositionRow(position) {
+    return `
         <div class="account-row" data-position-id="${position.id}">
           <span class="name">
             <button type="button" class="envelope-name" data-id="${position.id}" title="Click to rename">${escapeHtml(position.name)}</button>
           </span>
-          <span>
-            ${position.asOfDate ? `<span class="as-of">${escapeHtml(position.asOfDate)}</span>` : ''}
-            <button type="button" class="position-amount" data-id="${position.id}" title="Click to update value">${formatCents(position.cents)}</button>
+          <span class="row-archive">
             <button type="button" class="archive-btn secondary" data-id="${position.id}">Archive</button>
           </span>
-        </div>`)
-      .join('');
+          <button type="button" class="position-amount" data-id="${position.id}" title="Click to update value">${formatCents(position.cents)}</button>
+        </div>`;
+  }
+
+  function sortByAmountDesc(items, amountOf) {
+    return items.slice().sort((left, right) => amountOf(right) - amountOf(left));
   }
 
   function emptyHint(text) {

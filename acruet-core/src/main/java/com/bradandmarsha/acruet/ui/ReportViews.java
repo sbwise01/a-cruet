@@ -112,7 +112,7 @@ public final class ReportViews {
 
     public static String reportsPanelHtml(String transactionsImageUrl, String chartImageUrl) {
         return """
-                <section id="reportsPanel" hidden>
+                <section id="reportsPanel">
                   <div id="reportsHub">
                     <h2>Reports</h2>
                     <p class="hint">Choose a report. Data is decrypted in your browser only.</p>
@@ -127,9 +127,6 @@ public final class ReportViews {
                         <span class="report-tile-label">Balance chart</span>
                       </button>
                     </div>
-                    <p class="report-panel-actions">
-                      <button type="button" id="btnReportsBack" class="secondary">Back to envelopes</button>
-                    </p>
                   </div>
                   <div id="reportTransactionsPanel" hidden>
                     <h2>Transaction report</h2>
@@ -173,6 +170,49 @@ public final class ReportViews {
                 </section>
                 """
                 .formatted(escapeAttr(transactionsImageUrl), escapeAttr(chartImageUrl));
+    }
+
+    public static String reportsPageHtml(
+            String bannerHtml, String lockImageUrl, String transactionsImageUrl, String chartImageUrl) {
+        return (bannerHtml == null ? "" : bannerHtml)
+                + """
+                <div id="reportsRoot">
+                  <div id="reportsLocked" hidden>
+                    <div class="unlock-tile-wrap">
+                      <button type="button" id="unlockTile" class="unlock-tile">
+                        <img src="%s" alt="Locked">
+                        <span class="unlock-tile-label">Unlock reports</span>
+                      </button>
+                    </div>
+                    <div id="inlineUnlockForm" hidden>
+                      <h2>Unlock your ledger</h2>
+                      <p class="hint">Enter your passphrase to decrypt data for this session.</p>
+                      <label for="inlinePassphrase">Passphrase</label>
+                      <input id="inlinePassphrase" type="password" autocomplete="current-password">
+                      <p id="inlineUnlockError" class="error" hidden></p>
+                      <button type="button" id="btnInlineUnlock">Unlock</button>
+                      <button type="button" id="btnInlineUnlockCancel" class="secondary">Cancel</button>
+                      <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a></p>
+                    </div>
+                  </div>
+                  <div id="reportsBrowse">
+                    <div id="reportsPageError" class="error" hidden></div>
+                    <section id="bundlePanel">
+                      <h2>Bundle</h2>
+                      <div class="bundle-bar">
+                        <select id="bundleSelect" aria-label="Current bundle"></select>
+                      </div>
+                    </section>
+                    %s
+                  </div>
+                </div>
+                """.formatted(
+                        escapeAttr(lockImageUrl),
+                        reportsPanelHtml(transactionsImageUrl, chartImageUrl)
+                                .strip())
+                + UserNav.keyPageScript("chart.umd.min.js")
+                + UserNav.keyPageScript("acruet-reports.js")
+                + UserNav.keyPageScript("acruet-reports-page.js");
     }
 
     private static String escapeAttr(String value) {
