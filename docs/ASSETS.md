@@ -1,6 +1,6 @@
 # Assets and liabilities (snapshot register)
 
-**Status:** Product decisions locked (2026-10-18). **Release 2 complete** — `/assets` UI. Export / admin / docs are Release 3.
+**Status:** Product decisions locked (2026-10-18). **Release 3 complete** — schema, `/assets` UI, offboard export, admin Positions count, README / marketing. README To Do **#3** is done. To Do **#6** (Net Worth) stays.
 
 Locked rules live in [`PRODUCT.md`](PRODUCT.md) §9. This file is the decided implementation plan. Additional net worth work stays on the README To Do as item **#4**.
 
@@ -53,7 +53,7 @@ Reuse session + key-setup gates and per-user write rate limits.
 
 New unlocked page **`/assets`**, same chrome/unlock pattern as the ledger. Reached from the signed-in home launcher. Header icon and avatar **Home** return to `/`.
 
-1. **Assets** — read-only row per **active** envelope bundle (`{bundle name} · envelopes`, computed total); then snapshot assets (name, current value, as-of date). Add / rename / update value / archive.
+1. **Assets** — envelope bundle totals and snapshot assets, sorted by amount. Add / rename / update value / archive.
 2. **Liabilities** — snapshot liabilities only (positive owed).
 3. Footer: Assets, Liabilities, **Net**.
 
@@ -63,9 +63,9 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 
 ## Releases
 
-1. **Schema + API** — V12, repositories, resource. Envelope UI unchanged.
-2. **`/assets` UI** — sections, snapshot CRUD, read-only bundle lines, current Net. Cache-bust.
-3. **Export, admin, docs** — offboard includes positions; admin `/users` Positions count; README / marketing. Mark To Do **#3** done. **Leave To Do #4**.
+1. **Schema + API** — V12, repositories, resource. Envelope UI unchanged. ✅
+2. **`/assets` UI** — sections, snapshot CRUD, read-only bundle lines, current Net. Cache-bust. ✅
+3. **Export, admin, docs** — offboard includes positions; admin `/users` Positions count; README / marketing. Mark To Do **#3** done. **Leave Net Worth To Do (#6).** ✅
 
 Verify with `docker build --target build`. Brad owns commit/PR unless asked that turn.
 

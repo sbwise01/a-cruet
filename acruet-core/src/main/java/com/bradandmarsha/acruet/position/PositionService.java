@@ -36,6 +36,20 @@ public final class PositionService {
         }
     }
 
+    public List<FinancialPositionSnapshot> listSnapshots(AcruetUser user, UUID positionId) {
+        try {
+            return Database.inTransactionReturning(connection -> {
+                positionRepository.findById(connection, user.householdId(), positionId)
+                        .orElseThrow(() -> new PositionException("Position not found"));
+                return positionRepository.listSnapshots(connection, positionId);
+            });
+        } catch (PositionException exception) {
+            throw exception;
+        } catch (SQLException exception) {
+            throw new PositionException("Failed to list valuations", exception);
+        }
+    }
+
     public FinancialPosition createPosition(
             AcruetUser user,
             PositionKind kind,

@@ -159,6 +159,31 @@ public final class FinancialPositionRepository {
         }
     }
 
+    public List<FinancialPositionSnapshot> listSnapshots(Connection connection, UUID positionId)
+            throws SQLException {
+        String sql = """
+                SELECT id, position_id, as_of_date, encrypted_payload, created_at
+                FROM financial_position_snapshot
+                WHERE position_id = ?
+                ORDER BY as_of_date ASC, created_at ASC
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, positionId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                List<FinancialPositionSnapshot> snapshots = new ArrayList<>();
+                while (resultSet.next()) {
+                    snapshots.add(new FinancialPositionSnapshot(
+                            resultSet.getObject("id", UUID.class),
+                            resultSet.getObject("position_id", UUID.class),
+                            resultSet.getDate("as_of_date").toLocalDate(),
+                            resultSet.getBytes("encrypted_payload"),
+                            resultSet.getTimestamp("created_at").toInstant()));
+                }
+                return snapshots;
+            }
+        }
+    }
+
     public void archive(Connection connection, UUID householdId, UUID positionId) throws SQLException {
         String sql = """
                 UPDATE financial_position

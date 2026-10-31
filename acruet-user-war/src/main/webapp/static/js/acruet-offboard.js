@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   document.getElementById('btnDownloadJson').addEventListener('click', () => void downloadJson());
   document.getElementById('btnDownloadCsv').addEventListener('click', () => void downloadCsv());
+  document.getElementById('btnDownloadPositionsCsv').addEventListener('click', () => void downloadPositionsCsv());
   document.getElementById('btnMarkComplete').addEventListener('click', () => void markComplete());
 
   async function unlock() {
@@ -84,7 +85,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     bundles.sort((left, right) =>
       String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
-    return { exportedAt: isoDate(new Date()), bundles };
+    return { exportedAt: isoDate(new Date()), bundles, positions: await loadPositions() };
+  }
+
+  async function loadPositions() {
+    const response = await fetch('/positions?includeArchived=true');
+    if (!response.ok) {
+      throw new Error('Failed to load snapshot items for export.');
+    }
+    const body = await response.json();
+    const dek = AcruetCrypto.session.getDek();
+    const positions = [];
+    for (const raw of body.positions || []) {
+      const namePayload = await AcruetCrypto.decryptJson(dek, raw.encryptedName);
+      const snapshotsResponse = await fetch(`/positions/${raw.id}/snapshots`);
+      if (!snapshotsResponse.ok) {
+        throw new Error('Failed to load snapshot history for export.');
+      }
+      const snapshotsBody = await snapshotsResponse.json();
+      const snapshots = [];
+      for (const rawSnapshot of snapshotsBody.snapshots || []) {
+        const payload = await AcruetCrypto.decryptJson(dek, rawSnapshot.encryptedPayload);
+        snapshots.push({
+          id: rawSnapshot.id,
+          asOfDate: rawSnapshot.asOfDate,
+          cents: Number(payload.cents ?? payload.totalCents ?? 0),
+          createdAt: rawSnapshot.createdAt,
+        });
+      }
+      positions.push({
+        id: raw.id,
+        kind: raw.kind,
+        status: raw.status,
+        name: namePayload.name,
+        createdAt: raw.createdAt,
+        archivedAt: raw.archivedAt || null,
+        snapshots,
+      });
+    }
+    positions.sort((left, right) =>
+      String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
+    return positions;
   }
 
   async function decryptBundleName(bundle) {
@@ -179,6 +220,43 @@ document.addEventListener('DOMContentLoaded', async () => {
       triggerDownload(blob, `acruet-transactions-${isoDate(new Date())}.csv`);
     } catch (error) {
       showError(els.exportError, error.message || 'CSV export failed.');
+    }
+  }
+
+  async function downloadPositionsCsv() {
+    hideError(els.exportError);
+    try {
+      requireUnlocked();
+      const data = await loadLedgerData();
+      const rows = [['Kind', 'Name', 'Status', 'As of', 'Amount', 'Recorded at']];
+      data.positions.forEach((position) => {
+        if (!position.snapshots.length) {
+          rows.push([
+            position.kind,
+            position.name,
+            position.status,
+            '',
+            '',
+            '',
+          ]);
+          return;
+        }
+        position.snapshots.forEach((snapshot) => {
+          rows.push([
+            position.kind,
+            position.name,
+            position.status,
+            snapshot.asOfDate,
+            formatCents(snapshot.cents),
+            snapshot.createdAt || '',
+          ]);
+        });
+      });
+      const csv = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      triggerDownload(blob, `acruet-positions-${isoDate(new Date())}.csv`);
+    } catch (error) {
+      showError(els.exportError, error.message || 'Positions CSV export failed.');
     }
   }
 
