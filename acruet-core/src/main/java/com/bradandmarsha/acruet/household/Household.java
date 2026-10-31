@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Shared ledger household — operational counts and envelope limit (Phase 12).
+ * Shared ledger household — operational counts, envelope limit, and snapshot items.
  */
 public record Household(
         UUID id,
@@ -12,6 +12,7 @@ public record Household(
         int transactionCount,
         int ledgerAccountLimit,
         int bundleCount,
+        int positionCount,
         Instant createdAt,
         Instant updatedAt) {
 }
