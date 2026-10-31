@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!accountLinked) {
       statusText = 'No a-cruet account linked.';
     } else {
-      actionsHtml = '<a href="/profile">Profile</a>';
+      actionsHtml = '<a href="/profile">Profile</a><a href="/">Envelopes</a><a href="/assets">Assets</a>';
       if (!keySetup) {
         statusText = 'Encryption key not set up.';
         actionsHtml += '<a href="/keys/setup">Set up encryption key</a>';
@@ -85,6 +85,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (window.AcruetLedger && window.AcruetLedger.onKeyLocked) {
           window.AcruetLedger.onKeyLocked();
         }
+        if (window.AcruetAssets && window.AcruetAssets.onKeyLocked) {
+          window.AcruetAssets.onKeyLocked();
+        }
         renderMenu();
       });
     }
@@ -96,6 +99,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         avatarBtn.setAttribute('aria-expanded', 'false');
         if (window.AcruetLedger && window.AcruetLedger.showInlineUnlock) {
           window.AcruetLedger.showInlineUnlock();
+        } else if (window.AcruetAssets && window.AcruetAssets.showInlineUnlock) {
+          window.AcruetAssets.showInlineUnlock();
         }
       });
     }

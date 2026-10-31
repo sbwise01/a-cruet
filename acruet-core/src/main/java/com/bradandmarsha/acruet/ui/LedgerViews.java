@@ -217,6 +217,7 @@ public final class LedgerViews {
                   <button type="button" class="ledger-action-btn" data-action="withdraw">Withdraw</button>
                   <button type="button" class="ledger-action-btn" data-action="transfer">Transfer</button>
                   <button type="button" class="ledger-action-btn" data-action="reports">Reports</button>
+                  <button type="button" class="ledger-action-btn" data-action="assets">Assets</button>
                 </div>
                 """
                 .formatted(bottomClass);

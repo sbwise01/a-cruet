@@ -1,6 +1,6 @@
 # Assets and liabilities (snapshot register)
 
-**Status:** Product decisions locked (2026-10-18). **Release 1 complete** — V12 + `/positions` API. Envelope UI unchanged. `/assets` is Release 2.
+**Status:** Product decisions locked (2026-10-18). **Release 2 complete** — `/assets` UI. Export / admin / docs are Release 3.
 
 Locked rules live in [`PRODUCT.md`](PRODUCT.md) §9. This file is the decided implementation plan. Additional net worth work stays on the README To Do as item **#4**.
 

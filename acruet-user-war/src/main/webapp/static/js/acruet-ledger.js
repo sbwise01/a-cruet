@@ -204,6 +204,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function handleAction(action) {
+    if (action === 'assets') {
+      window.location.href = '/assets';
+      return;
+    }
     if (action === 'reports') {
       if (window.AcruetReports) {
         window.AcruetReports.showReportsEntry();
