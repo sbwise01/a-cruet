@@ -72,7 +72,6 @@ public final class AssetViews {
                     <div id="assetsError" class="error" hidden></div>
                     <p id="registerMeta" class="hint register-meta" hidden></p>
                     <div class="ledger-actions">
-                      <button type="button" class="ledger-action-btn" data-action="envelopes">Envelopes</button>
                       <button type="button" class="ledger-action-btn" data-action="create-asset">Add asset</button>
                       <button type="button" class="ledger-action-btn" data-action="create-liability">Add liability</button>
                     </div>

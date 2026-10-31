@@ -54,34 +54,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     onKeyLocked: () => syncLockState(),
   };
 
-  if (window.AcruetReports) {
-    window.AcruetReports.init({
-      getAccounts: () => state.accounts,
-      getBundleId: () => state.selectedBundleId,
-      getBundleName: () => {
-        const bundle = state.bundles.find((item) => item.id === state.selectedBundleId);
-        return bundle ? bundle.name : '';
-      },
-      decryptTransactions,
-      escapeHtml,
-      requireUnlocked: () => {
-        if (!AcruetCrypto.session.isUnlocked()) {
-          throw new Error('Unlock your ledger before running reports.');
-        }
-      },
-      beforeReportsOpen: () => {
-        closeForm(false);
-        els.ledgerBrowse.hidden = true;
-        els.formPanel.hidden = true;
-      },
-      afterReportsClose: () => {
-        if (AcruetCrypto.session.isUnlocked()) {
-          els.ledgerBrowse.hidden = false;
-        }
-      },
-    });
-  }
-
   await AcruetCrypto.session.ensureReady();
   syncLockState();
   document.addEventListener('acruet:crypto-changed', syncLockState);
@@ -141,9 +113,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.ledgerLocked.hidden = false;
     els.ledgerBrowse.hidden = true;
     closeForm(false);
-    if (window.AcruetReports) {
-      window.AcruetReports.closeAll();
-    }
     hideInlineUnlockForm();
   }
 
@@ -204,19 +173,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function handleAction(action) {
-    if (action === 'assets') {
-      window.location.href = '/assets';
-      return;
-    }
-    if (action === 'reports') {
-      if (window.AcruetReports) {
-        window.AcruetReports.showReportsEntry();
-      }
-      return;
-    }
-    if (window.AcruetReports) {
-      window.AcruetReports.closeAll();
-    }
     if (action === 'create-bundle') {
       showCreateBundleForm();
     } else if (action === 'rename-bundle') {

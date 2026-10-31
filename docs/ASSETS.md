@@ -51,7 +51,7 @@ Reuse session + key-setup gates and per-user write rate limits.
 
 ## UI
 
-New unlocked page **`/assets`**, same chrome/unlock pattern as the ledger. Link from the avatar menu and a control on the ledger home.
+New unlocked page **`/assets`**, same chrome/unlock pattern as the ledger. Reached from the signed-in home launcher. Header icon and avatar **Home** return to `/`.
 
 1. **Assets** — read-only row per **active** envelope bundle (`{bundle name} · envelopes`, computed total); then snapshot assets (name, current value, as-of date). Add / rename / update value / archive.
 2. **Liabilities** — snapshot liabilities only (positive owed).

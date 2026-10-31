@@ -30,6 +30,18 @@ final class PageLayout {
             String extraCss,
             String topNavHtml,
             String mainHtml) {
+        return render(appName, tileImage, tileDescription, title, extraCss, topNavHtml, mainHtml, null);
+    }
+
+    static String render(
+            String appName,
+            String tileImage,
+            String tileDescription,
+            String title,
+            String extraCss,
+            String topNavHtml,
+            String mainHtml,
+            String headerHomeHref) {
         return """
                 <!DOCTYPE html>
                 <html lang="en">
@@ -61,24 +73,31 @@ final class PageLayout {
                         layoutCss(),
                         extraCss == null ? "" : extraCss,
                         topNavHtml == null ? "" : topNavHtml,
-                        headerHtml(appName, tileImage, tileDescription),
+                        headerHtml(appName, tileImage, tileDescription, headerHomeHref),
                         mainHtml,
                         footerHtml());
     }
 
-    private static String headerHtml(String appName, String tileImage, String tileDescription) {
+    private static String headerHtml(
+            String appName, String tileImage, String tileDescription, String headerHomeHref) {
+        String image = """
+                    <img class="tile-image" src="%s" alt="%s logo">
+                """.formatted(escapeAttr(tileImage), escapeAttr(appName));
+        if (headerHomeHref != null && !headerHomeHref.isBlank()) {
+            image = """
+                    <a class="header-home" href="%s" title="Home" aria-label="Home">
+                    %s
+                    </a>
+                """.formatted(escapeAttr(headerHomeHref), image.stripTrailing());
+        }
         return """
                   <header class="page-header">
-                    <img class="tile-image" src="%s" alt="%s logo">
+                %s
                     <h1>%s</h1>
                     <p class="subtitle">%s</p>
                   </header>
                 """
-                .formatted(
-                        escapeAttr(tileImage),
-                        escapeAttr(appName),
-                        escapeText(appName),
-                        escapeText(tileDescription));
+                .formatted(image, escapeText(appName), escapeText(tileDescription));
     }
 
     private static String footerHtml() {
@@ -125,6 +144,15 @@ final class PageLayout {
                   height: 64px;
                   object-fit: contain;
                   border-radius: 12px;
+                  transition: transform 0.15s ease, filter 0.15s ease;
+                }
+                a.header-home {
+                  display: inline-block;
+                  line-height: 0;
+                }
+                a.header-home:hover .tile-image {
+                  transform: translateY(-3px);
+                  filter: brightness(1.08);
                 }
                 .page-footer {
                   flex-shrink: 0;

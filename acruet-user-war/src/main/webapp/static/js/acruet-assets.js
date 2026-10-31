@@ -153,10 +153,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function handleAction(action) {
-    if (action === 'envelopes') {
-      window.location.href = '/';
-      return;
-    }
     if (action === 'create-asset') {
       showCreateForm('ASSET');
     } else if (action === 'create-liability') {
@@ -321,7 +317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .map((bundle) => {
         const negativeClass = bundle.totalCents < 0 ? ' balance-negative' : '';
         return `
-          <a class="account-row bundle-row" href="/" data-bundle-id="${bundle.id}">
+          <a class="account-row bundle-row" href="/envelopes" data-bundle-id="${bundle.id}">
             <span class="name">${escapeHtml(bundle.name)} · envelopes</span>
             <span class="balance${negativeClass}">${formatCents(bundle.totalCents)}</span>
           </a>`;

@@ -144,8 +144,7 @@ public final class LedgerViews {
                 """;
     }
 
-    public static String ledgerMainHtml(
-            String bannerHtml, String lockImageUrl, String transactionsImageUrl, String chartImageUrl) {
+    public static String ledgerMainHtml(String bannerHtml, String lockImageUrl) {
         return (bannerHtml == null ? "" : bannerHtml)
                 + """
                 <div id="ledgerRoot" data-lock-image="%s">
@@ -186,7 +185,6 @@ public final class LedgerViews {
                       %s
                     </section>
                   </div>
-                  %s
                   <section id="formPanel" hidden>
                     <h2 id="formTitle"></h2>
                     <div id="formError" class="form-error" hidden></div>
@@ -201,10 +199,7 @@ public final class LedgerViews {
                         escapeAttr(lockImageUrl),
                         escapeAttr(lockImageUrl),
                         actionButtonsHtml(false),
-                        actionButtonsHtml(true),
-                        ReportViews.reportsPanelHtml(transactionsImageUrl, chartImageUrl))
-                + UserNav.keyPageScript("chart.umd.min.js")
-                + UserNav.keyPageScript("acruet-reports.js")
+                        actionButtonsHtml(true))
                 + UserNav.keyPageScript("acruet-ledger.js");
     }
 
@@ -216,8 +211,6 @@ public final class LedgerViews {
                   <button type="button" class="ledger-action-btn" data-action="deposit">Deposit</button>
                   <button type="button" class="ledger-action-btn" data-action="withdraw">Withdraw</button>
                   <button type="button" class="ledger-action-btn" data-action="transfer">Transfer</button>
-                  <button type="button" class="ledger-action-btn" data-action="reports">Reports</button>
-                  <button type="button" class="ledger-action-btn" data-action="assets">Assets</button>
                 </div>
                 """
                 .formatted(bottomClass);

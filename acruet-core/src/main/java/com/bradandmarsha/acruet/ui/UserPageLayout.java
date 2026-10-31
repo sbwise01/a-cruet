@@ -16,6 +16,8 @@ public final class UserPageLayout {
     public static final String TILE_IMAGE_PATH = "/media/acruet-bw.jpg";
     public static final String LOCK_IMAGE_PATH = "/media/lock.png";
     public static final String TRANSACTIONS_IMAGE_PATH = "/media/transactions.png";
+    public static final String ENVELOPE_IMAGE_PATH = "/media/envelope.png";
+    public static final String ASSETS_IMAGE_PATH = "/media/assets.png";
     public static final String REPORT_GRAPHS_IMAGE_PATH = "/media/report-graphs.png";
     public static final String TILE_DESCRIPTION = "Envelope-budgeting web application";
 
@@ -35,8 +37,14 @@ public final class UserPageLayout {
                 mainHtml);
     }
 
-    /** Authenticated pages with avatar menu (Phase 9 item 4). */
+    /** Authenticated pages with avatar menu (Phase 9 item 4). Header icon links home. */
     public static String renderAuthenticated(String title, String extraCss, String mainHtml, AuthNavContext nav) {
+        return renderAuthenticated(title, extraCss, mainHtml, nav, true);
+    }
+
+    /** Authenticated pages. Pass {@code headerLinksHome = false} on the signed-in launcher. */
+    public static String renderAuthenticated(
+            String title, String extraCss, String mainHtml, AuthNavContext nav, boolean headerLinksHome) {
         String tileImage = MediaSettings.fromEnvironment().tileImageUrl(TILE_IMAGE_PATH);
         return PageLayout.render(
                 APP_NAME,
@@ -45,7 +53,8 @@ public final class UserPageLayout {
                 title,
                 PageStyles.navCss() + (extraCss == null ? "" : extraCss),
                 UserNav.authNavHtml(nav),
-                UserNav.authNavScripts() + mainHtml);
+                UserNav.authNavScripts() + mainHtml,
+                headerLinksHome ? "/" : null);
     }
 
     /** Signup and other flows without top nav chrome. */
@@ -75,6 +84,14 @@ public final class UserPageLayout {
 
     public static String transactionsImageUrl() {
         return mediaImageUrl(TRANSACTIONS_IMAGE_PATH);
+    }
+
+    public static String envelopeImageUrl() {
+        return mediaImageUrl(ENVELOPE_IMAGE_PATH);
+    }
+
+    public static String assetsImageUrl() {
+        return mediaImageUrl(ASSETS_IMAGE_PATH);
     }
 
     public static String reportGraphsImageUrl() {
