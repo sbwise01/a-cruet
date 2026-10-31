@@ -96,6 +96,22 @@ public class PositionResource {
         });
     }
 
+    @GET
+    @Path("{id}/snapshots")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response listSnapshots(@PathParam("id") UUID positionId, @Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                List<Map<String, Object>> snapshots = positionService.listSnapshots(user, positionId).stream()
+                        .map(this::snapshotJson)
+                        .collect(Collectors.toList());
+                return Response.ok(Map.of("snapshots", snapshots)).build();
+            } catch (PositionException exception) {
+                return badRequest(exception.getMessage());
+            }
+        });
+    }
+
     @POST
     @Path("{id}/snapshots")
     @Consumes(MediaType.APPLICATION_JSON)

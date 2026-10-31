@@ -130,6 +130,7 @@ public class AdminUserResource {
                       <td>%d</td>
                       <td>%d</td>
                       <td>%d</td>
+                      <td>%d</td>
                       <td>%s</td>
                       <td>%s</td>
                       <td>%s</td>
@@ -144,6 +145,7 @@ public class AdminUserResource {
                                             row.householdRole(),
                                             row.householdMemberCount())),
                                     user.bundleCount(),
+                                    user.positionCount(),
                                     user.ledgerAccountCount(),
                                     user.transactionCount(),
                                     formatInstant(user.lastLoginAt()),
@@ -158,6 +160,7 @@ public class AdminUserResource {
                       <th>User</th>
                       <th>Household</th>
                       <th>Bundles</th>
+                      <th>Positions</th>
                       <th>Envelopes</th>
                       <th>Transactions</th>
                       <th>Last login</th>

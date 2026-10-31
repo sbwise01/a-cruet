@@ -333,7 +333,7 @@ Extends Section 4 (ledger model) and Section 7 (household). **Release:** schema/
 
 ### 9. Assets and liabilities ✅ locked (2026-10-18)
 
-Extends Section 4 (ledger is one asset class) and Section 7 (household). **Not started.** Implementation plan: [`ASSETS.md`](ASSETS.md).
+Extends Section 4 (ledger is one asset class) and Section 7 (household). **Shipped.** Implementation plan: [`ASSETS.md`](ASSETS.md).
 
 Envelopes remain a **transaction ledger**. This feature is a **snapshot register** for other assets and for liabilities (cars, 401k totals, auto loans, mortgages). It begins to turn a-cruet toward personal financial management without copying the envelope engine.
 
@@ -372,7 +372,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 | Household DEK / shared visibility | Section 7 |
 | Offboard export window | Section 6 (#48a) |
 | Abuse counts | Section 3, Section 6 (#52) |
-| Implementation plan (not started) | [`ASSETS.md`](ASSETS.md) |
+| Implementation plan | [`ASSETS.md`](ASSETS.md) |
 
 ## Product requirements
 

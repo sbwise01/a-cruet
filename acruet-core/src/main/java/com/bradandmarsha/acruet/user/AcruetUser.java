@@ -20,6 +20,7 @@ public record AcruetUser(
         int transactionCount,
         int ledgerAccountLimit,
         int bundleCount,
+        int positionCount,
         boolean keySetupComplete,
         Instant createdAt,
         Instant updatedAt,

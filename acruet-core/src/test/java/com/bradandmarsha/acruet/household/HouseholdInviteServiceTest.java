@@ -62,6 +62,7 @@ class HouseholdInviteServiceTest {
                 0,
                 100,
                 1,
+                0,
                 true,
                 now,
                 now,
