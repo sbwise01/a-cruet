@@ -40,16 +40,19 @@ public class AdminUserResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String list(@Context HttpServletRequest request) {
-        List<AdminOpsService.OperationalUserView> users = adminOpsService.listOperationalUsers();
+        AdminOpsService.UserListResult result = adminOpsService.listOperationalUsers();
+        String warning = result.warning() == null
+                ? ""
+                : "<div class=\"notice error\">" + AdminWebSupport.escape(result.warning()) + "</div>";
         return AdminWebSupport.adminShell(
                 "Users",
-                AdminWebSupport.flashNotice(request),
+                AdminWebSupport.flashNotice(request) + warning,
                 """
                 <h2>Provisioned users</h2>
                 <p class="hint">Operational metadata only — ledger content stays encrypted on the client.</p>
                 %s
                 """
-                        .formatted(userTable(users)));
+                        .formatted(userTable(result.users())));
     }
 
     @POST
@@ -151,7 +154,12 @@ public class AdminUserResource {
                                     formatInstant(user.lastLoginAt()),
                                     formatInstant(latestActivity(user)),
                                     statusTags(row, now),
-                                    actionForms(user.id(), view.adminRoleGranted(), row, now)));
+                                    actionForms(
+                                            user.id(),
+                                            view.adminRoleGranted(),
+                                            view.adminRoleKnown(),
+                                            row,
+                                            now)));
         }
         return """
                 <table>
@@ -195,12 +203,15 @@ public class AdminUserResource {
     private static String actionForms(
             UUID userId,
             boolean adminRoleGranted,
+            boolean adminRoleKnown,
             UserRepository.OperationalUserRow row,
             Instant now) {
         boolean offboarding = row.offboardDeadline() != null && row.offboardExportCompletedAt() == null;
         boolean suspensionPending = row.suspendedUntil() != null;
         StringBuilder forms = new StringBuilder();
-        if (adminRoleGranted) {
+        if (!adminRoleKnown) {
+            forms.append("<p class=\"hint\">Admin role unavailable</p>");
+        } else if (adminRoleGranted) {
             forms.append(
                     """
                     <form method="post" action="/users/%s/revoke-admin">

@@ -110,19 +110,34 @@ public final class AdminOpsService {
                 AdminAlertSettings.alertEmailsFromEnvironment());
     }
 
-    public List<OperationalUserView> listOperationalUsers() {
+    public UserListResult listOperationalUsers() {
+        final List<UserRepository.OperationalUserRow> rows;
         try {
-            List<UserRepository.OperationalUserRow> rows = userRepository.listOperational();
-            List<OperationalUserView> views = new ArrayList<>(rows.size());
-            for (UserRepository.OperationalUserRow row : rows) {
-                boolean isAdmin = keycloakAdminClient.hasRealmRole(row.user().keycloakUserId(), adminRole);
-                views.add(new OperationalUserView(row, isAdmin));
-            }
-            return views;
+            rows = userRepository.listOperational();
         } catch (Exception exception) {
             LOGGER.log(Level.WARNING, "Failed to list operational users", exception);
-            return List.of();
+            return new UserListResult(
+                    List.of(),
+                    "Could not load provisioned users from the database.");
         }
+        List<OperationalUserView> views = new ArrayList<>(rows.size());
+        boolean roleLookupFailed = false;
+        for (UserRepository.OperationalUserRow row : rows) {
+            boolean isAdmin = false;
+            boolean roleKnown = true;
+            try {
+                isAdmin = keycloakAdminClient.hasRealmRole(row.user().keycloakUserId(), adminRole);
+            } catch (Exception exception) {
+                LOGGER.log(Level.WARNING, "Failed to read Keycloak admin role for user list", exception);
+                roleLookupFailed = true;
+                roleKnown = false;
+            }
+            views.add(new OperationalUserView(row, isAdmin, roleKnown));
+        }
+        String warning = roleLookupFailed
+                ? "Could not read Keycloak administrator roles. Users are listed; Grant/Revoke admin is hidden until the acruet-admin service account can call the Admin API."
+                : null;
+        return new UserListResult(views, warning);
     }
 
     public List<SignupApplication> listBlockedSignups() {
@@ -601,7 +616,13 @@ public final class AdminOpsService {
         return value;
     }
 
-    public record OperationalUserView(UserRepository.OperationalUserRow row, boolean adminRoleGranted) {
+    public record OperationalUserView(
+            UserRepository.OperationalUserRow row,
+            boolean adminRoleGranted,
+            boolean adminRoleKnown) {
+    }
+
+    public record UserListResult(List<OperationalUserView> users, String warning) {
     }
 
     public record CronResult(int processed, List<String> errors) {

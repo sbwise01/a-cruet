@@ -64,7 +64,6 @@ Technical requirements, architecture decisions, and rollout phases live in:
 2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
 3. ~~New feature, Investments and Assets tracking~~ — shipped; plan in [`docs/ASSETS.md`](docs/ASSETS.md) and [`PRODUCT.md`](docs/PRODUCT.md) §9
 4. Acruet passphrase usability options
-5. Acruet Admin user list issue
-6. New feature, Net Worth auto calculation — additional net worth work after #3; the assets-page Net line does not complete this item
-7. Auto reminders for updating asset and liabilities values
-8. Investment performance reports
+5. New feature, Net Worth auto calculation — additional net worth work after #3; the assets-page Net line does not complete this item
+6. Auto reminders for updating asset and liabilities values
+7. Investment performance reports
