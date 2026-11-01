@@ -126,6 +126,20 @@ public class ProfileResource {
                   <a href="/household/invite">Invite household member</a>
                   <a href="/">Back to home</a>
                 </p>
+                <section id="unlockDevices" class="device-section">
+                  <h3>Unlock devices</h3>
+                  <p class="hint">Register this browser to unlock with Touch ID, Face ID, or Windows Hello. Anyone who can unlock this hardware and is signed in as you can read the ledger. Remove a lost device from this list.</p>
+                  <p id="deviceSetupHint" class="hint" hidden>Complete key setup before registering a device.</p>
+                  <ul id="deviceList" class="device-list"></ul>
+                  <p id="deviceEmpty" class="hint" hidden>No devices registered yet.</p>
+                  <p id="deviceLockedHint" class="hint" hidden>Unlock your ledger to add this device.</p>
+                  <p id="deviceUnsupportedHint" class="hint" hidden>This browser cannot register a device unlock. Use your passphrase here.</p>
+                  <p id="deviceError" class="error" hidden></p>
+                  <p id="deviceSuccess" class="notice success" hidden></p>
+                  <p class="actions">
+                    <button type="button" id="btnAddDevice" hidden>Add this device</button>
+                  </p>
+                </section>
                 """ + UserNav.keyPageScript("acruet-profile.js");
     }
 
@@ -149,6 +163,59 @@ public class ProfileResource {
                 }
                 .notice.success {
                   border-left: 3px solid #34d399;
+                }
+                .device-section {
+                  margin-top: 2.25rem;
+                  padding-top: 1.5rem;
+                  border-top: 1px solid rgba(148, 163, 184, 0.2);
+                }
+                .device-list {
+                  list-style: none;
+                  margin: 1rem 0 0;
+                  padding: 0;
+                }
+                .device-row {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  gap: 0.75rem;
+                  padding: 0.75rem 0;
+                  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+                }
+                .device-row .device-meta {
+                  min-width: 0;
+                  flex: 1;
+                }
+                .device-row .device-name {
+                  font: inherit;
+                  font-weight: 600;
+                  color: inherit;
+                  background: transparent;
+                  border: none;
+                  padding: 0.1rem 0.35rem;
+                  margin: 0;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  text-align: left;
+                }
+                .device-row .device-name:hover { background: rgba(148, 163, 184, 0.15); }
+                .device-row .device-name-input {
+                  font: inherit;
+                  font-weight: 600;
+                  width: min(100%, 16rem);
+                  margin: 0;
+                }
+                .device-row .added {
+                  color: var(--muted);
+                  font-size: 0.85rem;
+                  margin: 0.2rem 0 0;
+                }
+                .device-row .device-actions button {
+                  margin-top: 0;
+                  padding: 0.35rem 0.75rem;
+                  font-size: 0.85rem;
+                  background: #475569;
+                  color: var(--text);
                 }
                 """;
     }

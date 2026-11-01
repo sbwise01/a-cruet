@@ -125,12 +125,12 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 
 ### Release 2 — Profile roster + WebAuthn client
 
-- `acruet-crypto.js`: PRF wrap/unwrap helpers next to passphrase and recovery wraps
-- Profile section: list, rename, remove, add this device (unlocked session required)
-- Hide add when the browser lacks platform + PRF
-- Cache-bust
+- `acruet-crypto.js`: PRF wrap/unwrap helpers next to passphrase and recovery wraps ✅ (2026-11-01)
+- Profile section: list, rename, remove, add this device (unlocked session required) ✅
+- Hide add when the browser lacks platform + PRF ✅
+- Cache-bust ✅
 
-**Verify:** add this browser, reload profile and see it, remove it, passphrase still unlocks. Second browser is not listed until added there.
+**Verify (after deploy):** add this browser, reload profile and see it, remove it, passphrase still unlocks. Second browser is not listed until added there.
 
 ### Release 3 — Unlock surfaces + docs
 
