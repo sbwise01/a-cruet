@@ -59,7 +59,7 @@ Technical requirements, architecture decisions, and rollout phases live in:
 - [`ROLLOUT.md`](docs/ROLLOUT.md) — phased implementation plan for wise-k8s
 - [`ASSETS.md`](docs/ASSETS.md) — snapshot assets/liabilities plan (shipped)
 - [`DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
-- [`NET_WORTH.md`](docs/NET_WORTH.md) — net worth register (shipped)
+- [`NET_WORTH.md`](docs/NET_WORTH.md) — net worth register (complete)
 - [`OPERATIONS.md`](docs/OPERATIONS.md) — Keycloak admin console steps (including after operator CR re-apply)
 
 ## To Do list

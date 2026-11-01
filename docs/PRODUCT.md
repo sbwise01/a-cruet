@@ -406,9 +406,9 @@ Reminds household members to refresh snapshot asset and liability values. Shippe
 | Snapshot register | Section 9 |
 | Household visibility | Section 7 |
 
-### 11. Net worth register ✅ locked (2026-11-01)
+### 11. Net worth register ✅ shipped (2026-11-01)
 
-Household time series of **net-worth observations**. Shipped. Completes former README To Do **#3**. Implementation plan: [`NET_WORTH.md`](NET_WORTH.md).
+Household time series of **net-worth observations**. Complete. Former README To Do **#3**. Shipped plan: [`NET_WORTH.md`](NET_WORTH.md).
 
 The Assets page **Net** line stays the live calculator (envelope totals + latest position snapshots − liabilities). It is not a history. Past years the user only recorded as a yearly total are **manual** observations. Going forward, the user **saves current** (computed) when they choose.
 
@@ -438,7 +438,7 @@ The server **cannot** cron-sum ciphertext. No silent monthly write.
 | Live Assets Net / snapshot register | Section 9 |
 | Quarterly line-item reminder | Section 10 |
 | Household DEK | Section 7 |
-| Implementation plan | [`NET_WORTH.md`](NET_WORTH.md) |
+| Shipped plan | [`NET_WORTH.md`](NET_WORTH.md) |
 
 ## Product requirements
 

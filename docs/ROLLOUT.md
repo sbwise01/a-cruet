@@ -4,7 +4,7 @@ Deploy **a-cruet** on **wise-k8s** as an envelope-budgeting web application with
 
 Product decisions are locked in [`PRODUCT.md`](PRODUCT.md). Keycloak integration is documented in [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) **Phase 5**.
 
-**Rollout status:** ✅ **Complete** *(2026-07-19)* — Phases 0–14 done on cluster. Remaining work is **deferred verification** (see [Deferred verification](#deferred-verification)) and **v2+ enhancements** in [`PRODUCT.md`](PRODUCT.md) out-of-scope table.
+**Rollout status:** ✅ **Complete** *(2026-07-19)* — Phases 0–14 done on cluster. Later product work that shipped after this plan: snapshot assets, quarterly reminders, device unlock, and the **net worth register** (complete — [`NET_WORTH.md`](NET_WORTH.md)). Remaining work is **deferred verification** (see [Deferred verification](#deferred-verification)) and the a-cruet README To Do (Flyway strategy, bootstrap admin as a-cruet user, investment performance reports).
 
 ---
 
@@ -1397,13 +1397,27 @@ Optional cluster checks not required to call the v1/v2 rollout complete:
 | **Blocked signup unblock** (`/blocked-signups`) | Phase 11 | Admin UI path |
 | **Unlinked login anomaly** alert E2E (email + `/anomalies`) | Phases 9–11 | Server-side recording verified; full alert walkthrough skipped |
 
-Future product work (not rollout blockers) stays in [`PRODUCT.md`](PRODUCT.md) **Out of scope (later)** — CAPTCHA, social login, mobile app, multi-currency, etc.
+---
+
+## Post-rollout (shipped)
+
+| Feature | Plan | Status |
+|---------|------|--------|
+| Snapshot assets and liabilities | [`ASSETS.md`](ASSETS.md), PRODUCT §9 | Shipped |
+| Quarterly asset reminders | PRODUCT §10 | Shipped |
+| Device unlock | [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md), PRODUCT §3 | Shipped |
+| Net worth register | [`NET_WORTH.md`](NET_WORTH.md), PRODUCT §11 | **Complete** |
+
+Future product work (not rollout blockers) stays on the a-cruet README To Do and in [`PRODUCT.md`](PRODUCT.md) later-scope items — Flyway strategy, bootstrap admin as a-cruet user, investment performance reports, CAPTCHA, social login, mobile app, multi-currency, etc.
 
 ---
 
 ## References
 
 - [`PRODUCT.md`](PRODUCT.md) — locked decisions
+- [`ASSETS.md`](ASSETS.md) — snapshot assets and liabilities (shipped)
+- [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
+- [`NET_WORTH.md`](NET_WORTH.md) — net worth register (complete)
 - [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) — IdP rollout, Phase 5 clients
 - [`wise-home-index`](../wise-home-index/) — Java 17 / Tomcat / Jersey reference
 - `wise-k8s/iac/kustomize/keycloak-cnpg/`, `plex-cnpg/` — CNPG patterns

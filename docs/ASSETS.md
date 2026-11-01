@@ -1,6 +1,6 @@
 # Assets and liabilities (snapshot register)
 
-**Status:** Product decisions locked (2026-10-18). Snapshot register shipped. Quarterly reminders: [`PRODUCT.md`](PRODUCT.md) §10. Net worth history: [`NET_WORTH.md`](NET_WORTH.md) / PRODUCT §11 (README To Do **#3**).
+**Status:** Product decisions locked (2026-10-18). Snapshot register shipped. Quarterly reminders: [`PRODUCT.md`](PRODUCT.md) §10 (shipped). Net worth history: [`NET_WORTH.md`](NET_WORTH.md) / PRODUCT §11 (shipped).
 
 Locked register rules live in [`PRODUCT.md`](PRODUCT.md) §9. This file is the decided implementation plan.
 
@@ -65,7 +65,7 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 
 1. **Schema + API** — V12, repositories, resource. Envelope UI unchanged. ✅
 2. **`/assets` UI** — sections, snapshot CRUD, read-only bundle lines, current Net. Cache-bust. ✅
-3. **Export, admin, docs** — offboard includes positions; admin `/users` Positions count; README / marketing. Mark To Do **#3** done. **Leave Net Worth To Do (#6).** ✅
+3. **Export, admin, docs** — offboard includes positions; admin `/users` Positions count; README / marketing. Snapshot To Do closed. Net worth shipped later as PRODUCT §11. ✅
 
 Verify with `docker build --target build`. Brad owns commit/PR unless asked that turn.
 
@@ -75,5 +75,5 @@ Verify with `docker build --target build`. Brad owns commit/PR unless asked that
 - Investment holdings, tickers, or price feeds
 - Per-user private assets
 - Nesting snapshot items under a bundle
-- Additional net worth work (To Do #4)
+- Net-worth **history** (shipped separately — PRODUCT §11 / [`NET_WORTH.md`](NET_WORTH.md))
 - Editing or deleting historical snapshots

@@ -1,8 +1,8 @@
 # Net worth register
 
-**Status:** Shipped (2026-11-01). Locked in [`PRODUCT.md`](PRODUCT.md) §11. README To Do **#3** is done.
+**Status:** Shipped and closed (2026-11-01). Locked in [`PRODUCT.md`](PRODUCT.md) §11. Former README To Do **#3** is complete.
 
-This file is the decided implementation plan for a household **history of net worth**, including years the user only recorded as a yearly total.
+This file is the shipped plan for a household **history of net worth**, including years the user only recorded as a yearly total.
 
 ## What this is (and is not)
 
@@ -41,13 +41,13 @@ This is **not**:
 | `as_of_date` | **Plaintext** (same class as position valuations) so staleness does not require decrypt |
 | Payload | Ciphertext `{ netCents, source }`. Computed may add `envelopeCents`, `assetCents`, `liabilityCents` |
 | Save current | Button **next to Net** on `/assets` while unlocked. Same math as the Net line. At will, including same day |
-| Historical | Form on the Net worth report: as-of date + amount. Source `MANUAL` |
+| Historical | Form on **`/assets/historical-net-worth`**: as-of date + amount. Source `MANUAL`. Linked from Assets next to **Save net worth** |
 | Reminder | Signed-in **home** (`/`) when latest `as_of_date` **plus one calendar month** is on or before today, **or** the series is empty |
 | Reminder actions | **Save net worth** writes a COMPUTED row (not quarterly “Done”). **Not now** snoozes **7 local days** |
 | Preview | `/?netWorthReminder=1` (linked + key setup) |
 | Two home dialogs | Quarterly assets reminder first ([`PRODUCT.md`](PRODUCT.md) §10); then this one if still stale |
 | Staleness field | Latest **`as_of_date`**, not `created_at` |
-| Chart | Stored points only — no interpolated months between yearly backfills |
+| Chart | Stored points only — no interpolated months between yearly backfills. Linear calendar x-axis with **year** ticks |
 | Cap | **600** rows per household |
 | Idle / lock | Must be **unlocked** to save computed or add historical (ciphertext). Staleness check can use plaintext dates without unlock |
 | Origin | User app only. Admin: operational **count** on `/users`, never amounts |
@@ -85,26 +85,23 @@ Admin `/users`: show **Net worth** count from `household.net_worth_snapshot_coun
 
 ### Assets (`/assets`)
 
-Keep the live Net row. Add **Save net worth** beside it (disabled while locked or when Net is still loading). Success is a short confirmation; it does not navigate away.
+Keep the live Net row. **Add historical total** (link to `/assets/historical-net-worth`) then **Save net worth** beside it (disabled while locked or when Net is still loading). Success is a short confirmation; it does not navigate away.
 
-### Reports hub
+### Reports
 
-Third tile **Net worth** (reuse an existing media image or the assets tile if no new art). Page:
+`/reports` is a hub of tiles. Envelope reports keep the bundle picker (including **All bundles**). **Net worth** is its own page (`/reports/net-worth`): household series only, no bundle picker, no historical form.
 
-- Chart of observations (date × net), Chart.js like the balance report
-- Table: as-of, net (comma formatted), source
-- **Add historical total** — date + amount
+- Chart of observations (date × net), linear time with year labels; latest snapshot per as-of date on the chart
+- Table: as-of, net (comma formatted), source (every row)
 - Computed tooltips may show the three-part breakdown
 
 ### Home reminder
 
-Same chrome family as the quarterly assets dialog. Copy distinguishes first save vs “last stamp is over a month old.” Primary action saves **today’s** computed net (as-of = local today). Link to `/assets` for line-item edits. Escape / backdrop = Not now.
-
-Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
+Same chrome family as the quarterly assets dialog. Copy distinguishes first save vs “last stamp is over a month old.” Primary action saves **today’s** computed net (as-of = local today). Locked sessions go to `/keys/unlock` and return with the preview flag. Link to `/assets` for line-item edits. Escape / backdrop = Not now.
 
 ## Rollout
 
-Three releases. Verify each with `docker build --target build`. Brad owns commit/PR unless asked that turn. Do not mark README To Do **#3** done until release 3.
+Three releases, all shipped. Verify each with `docker build --target build`. Brad owns commit/PR unless asked that turn. README To Do **#3** (net worth) is closed.
 
 ### Release 1 — Schema + API
 
@@ -118,10 +115,11 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 ### Release 2 — Save current, backfill, report
 
 - `acruet-assets.js`: **Save net worth** next to Net (unlocked; COMPUTED payload + breakdown)
-- Reports hub tile + chart/table + **Add historical total**
+- **Add historical total** on `/assets/historical-net-worth` (not on the report)
+- Dedicated `/reports/net-worth` page (chart/table; year-scaled time axis)
 - Offboard export includes the series
 - Admin `/users` Net worth count
-- Cache-bust (`UserNav.STATIC_ASSET_VERSION` `20261101-10`)
+- Cache-bust (`UserNav.STATIC_ASSET_VERSION`)
 
 **Verify:** save current from `/assets` and see the point on the report; add a year-end total (e.g. 31 Dec 2010) and see it on the chart without inventing line items; live Assets Net still matches today’s calculator. Package succeeds. ✅ (2026-11-01; `docker build --target build`)
 
@@ -131,7 +129,7 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 - **Save net worth** writes COMPUTED; **Not now** = 7-day `localStorage` snooze
 - Queue after quarterly assets reminder when both apply
 - `/?netWorthReminder=1` preview
-- Point [`PRODUCT.md`](PRODUCT.md) §11 at this file (already locked) and mark README To Do **#3** done
+- Point [`PRODUCT.md`](PRODUCT.md) §11 at this file and mark README To Do **#3** done
 - Unauthenticated landing (`MarketingContent`) and matching README: net worth is a **history you save** (including past year-end totals), not only the live Assets Net line
 
 **Verify:** empty series shows first-save copy; after save, reminder stays gone until as-of + 1 month; Not now suppressed for 7 days; `?netWorthReminder=1` still shows; quarterly dialog still wins when both are due; public `/` copy mentions saved net-worth history / year-end backfill. Package succeeds. ✅ (2026-11-01; `docker build --target build`)
@@ -145,3 +143,5 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 - Per-user private net worth (household series only)
 - Investment performance / holdings (README To Do **#3**)
 - Treating the Assets Net line as this feature
+
+This feature is **complete**. Next product work is on the a-cruet README To Do (Flyway strategy, bootstrap admin as a-cruet user, investment performance reports).
