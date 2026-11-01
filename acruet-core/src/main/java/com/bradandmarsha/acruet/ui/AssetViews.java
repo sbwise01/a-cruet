@@ -62,6 +62,25 @@ public final class AssetViews {
                 .register-section { margin-bottom: 2rem; }
                 .register-meta { margin: 0 0 0.75rem; }
                 #registerTotals { margin-top: 0.5rem; }
+                #registerTotals .account-row.net-row {
+                  grid-template-columns: minmax(0, 1fr) auto 7.75rem;
+                }
+                #btnSaveNetWorth {
+                  margin: 0;
+                  padding: 0.25rem 0.65rem;
+                  font-size: 0.85rem;
+                }
+                #btnSaveNetWorth:disabled {
+                  opacity: 0.45;
+                  cursor: not-allowed;
+                  filter: none;
+                }
+                #saveNetWorthNotice {
+                  margin: 0.5rem 0 0;
+                }
+                #saveNetWorthNotice.success {
+                  color: #34d399;
+                }
                 .ledger-actions button:disabled {
                   opacity: 0.45;
                   cursor: not-allowed;
@@ -101,6 +120,7 @@ public final class AssetViews {
                       <div id="liabilitiesList"><p class="hint">Loading…</p></div>
                     </section>
                     <section id="registerTotals" hidden></section>
+                    <p id="saveNetWorthNotice" class="hint" hidden></p>
                   </div>
                   <section id="formPanel" hidden>
                     <h2 id="formTitle"></h2>
@@ -113,6 +133,7 @@ public final class AssetViews {
                   </section>
                 </div>
                 """
+                + UserNav.keyPageScript("acruet-net-worth.js")
                 + UserNav.keyPageScript("acruet-assets.js");
     }
 

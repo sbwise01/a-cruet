@@ -105,7 +105,7 @@ public class OffboardResource {
                 PageStyles.formCss() + offboardCss(),
                 """
                 <h2>Export your a-cruet data</h2>
-                <p class="hint">Your account is being offboarded. Download a decrypted copy of your envelopes and snapshot items before <strong>%s</strong>.</p>
+                <p class="hint">Your account is being offboarded. Download a decrypted copy of your envelopes, snapshot items, and net-worth history before <strong>%s</strong>.</p>
                 %s
                 <div id="offboardLocked">
                   <p>Unlock your ledger to decrypt export files.</p>
@@ -119,6 +119,7 @@ public class OffboardResource {
                     <button type="button" id="btnDownloadJson">Download JSON bundle</button>
                     <button type="button" id="btnDownloadCsv">Download transactions CSV</button>
                     <button type="button" id="btnDownloadPositionsCsv">Download positions CSV</button>
+                    <button type="button" id="btnDownloadNetWorthCsv">Download net worth CSV</button>
                   </p>
                   <p id="offboardExportError" class="error" hidden></p>
                   <p class="hint">After you save your files locally, confirm export so purge can proceed.</p>
@@ -129,6 +130,7 @@ public class OffboardResource {
                         .formatted(
                                 DISPLAY_TIME.format(status.exportDeadline()),
                                 completedNotice)
+                + UserNav.keyPageScript("acruet-net-worth.js")
                 + UserNav.keyPageScript("acruet-offboard.js"),
                 UserPageLayout.navContext(oidcUser, user, true));
     }

@@ -8,7 +8,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const SELECTED_BUNDLE_STORAGE_KEY = 'acruet.selectedBundleId';
+  const REPORTS_BUNDLE_STORAGE_KEY = 'acruet.reports.selectedBundleId';
+  const ALL_BUNDLES = '__all__';
   const DEFAULT_BUNDLE_NAME = 'Default';
+  const reportKind = reportsRoot.dataset.report || 'hub';
 
   const state = {
     bundles: [],
@@ -134,9 +137,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function refresh() {
     hideError();
     try {
+      if (reportKind === 'hub') {
+        return;
+      }
+      if (reportKind === 'net-worth') {
+        initReports();
+        return;
+      }
       await loadBundles();
       if (!state.selectedBundleId) {
-        showError('No envelope bundle is available.');
+        state.accounts = [];
+        initReports();
         return;
       }
       await refreshAccounts();
@@ -171,7 +182,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function pickSelectedBundle() {
-    const preferred = state.selectedBundleId || window.localStorage.getItem(SELECTED_BUNDLE_STORAGE_KEY);
+    const reportsPreferred = state.selectedBundleId || window.localStorage.getItem(REPORTS_BUNDLE_STORAGE_KEY);
+    if (reportsPreferred === ALL_BUNDLES) {
+      state.selectedBundleId = ALL_BUNDLES;
+      persistSelectedBundle();
+      return;
+    }
+    const preferred = reportsPreferred || window.localStorage.getItem(SELECTED_BUNDLE_STORAGE_KEY);
     if (preferred && state.bundles.some((bundle) => bundle.id === preferred)) {
       state.selectedBundleId = preferred;
       persistSelectedBundle();
@@ -183,10 +200,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function persistSelectedBundle() {
+    if (state.selectedBundleId === ALL_BUNDLES) {
+      window.localStorage.setItem(REPORTS_BUNDLE_STORAGE_KEY, ALL_BUNDLES);
+      return;
+    }
     if (!state.selectedBundleId) {
+      window.localStorage.removeItem(REPORTS_BUNDLE_STORAGE_KEY);
       window.localStorage.removeItem(SELECTED_BUNDLE_STORAGE_KEY);
       return;
     }
+    window.localStorage.setItem(REPORTS_BUNDLE_STORAGE_KEY, state.selectedBundleId);
     window.localStorage.setItem(SELECTED_BUNDLE_STORAGE_KEY, state.selectedBundleId);
   }
 
@@ -194,28 +217,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!els.bundleSelect) {
       return;
     }
-    els.bundleSelect.innerHTML = state.bundles
+    const allSelected = state.selectedBundleId === ALL_BUNDLES ? ' selected' : '';
+    const bundleOptions = state.bundles
       .map((bundle) => {
         const selected = bundle.id === state.selectedBundleId ? ' selected' : '';
         return `<option value="${bundle.id}"${selected}>${escapeHtml(bundle.name)}</option>`;
       })
       .join('');
+    els.bundleSelect.innerHTML = `<option value="${ALL_BUNDLES}"${allSelected}>All bundles</option>${bundleOptions}`;
+  }
+
+  function isAllBundles() {
+    return state.selectedBundleId === ALL_BUNDLES;
   }
 
   async function refreshAccounts() {
+    if (isAllBundles()) {
+      state.accounts = await loadAccountsForBundles(state.bundles);
+      initReports();
+      return;
+    }
     if (!state.selectedBundleId) {
       state.accounts = [];
       initReports();
       return;
     }
-    const query = `bundleId=${encodeURIComponent(state.selectedBundleId)}`;
-    const response = await fetch(`/ledger/accounts?${query}`);
-    if (!response.ok) {
-      throw new Error('Failed to load envelopes.');
-    }
-    const body = await response.json();
-    state.accounts = await decryptAccounts(body.accounts || []);
+    const bundle = state.bundles.find((item) => item.id === state.selectedBundleId);
+    state.accounts = await loadAccountsForBundles(bundle ? [bundle] : []);
     initReports();
+  }
+
+  async function loadAccountsForBundles(bundles) {
+    const prefixNames = bundles.length > 1;
+    const accounts = [];
+    for (const bundle of bundles) {
+      const response = await fetch(`/ledger/accounts?bundleId=${encodeURIComponent(bundle.id)}`);
+      if (!response.ok) {
+        throw new Error('Failed to load envelopes.');
+      }
+      const body = await response.json();
+      const decrypted = await decryptAccounts(body.accounts || []);
+      decrypted.forEach((account) => {
+        accounts.push({
+          ...account,
+          bundleId: bundle.id,
+          bundleName: bundle.name,
+          name: prefixNames ? `${bundle.name} · ${account.name}` : account.name,
+        });
+      });
+    }
+    return accounts.sort((left, right) =>
+      String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
   }
 
   async function decryptAccounts(accounts) {
@@ -247,8 +299,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     window.AcruetReports.init({
       getAccounts: () => state.accounts,
-      getBundleId: () => state.selectedBundleId,
+      getBundleId: () => (isAllBundles() ? null : state.selectedBundleId),
+      getBundleIds: () => state.bundles.map((bundle) => bundle.id),
+      isAllBundles,
       getBundleName: () => {
+        if (isAllBundles()) {
+          return '';
+        }
         const bundle = state.bundles.find((item) => item.id === state.selectedBundleId);
         return bundle ? bundle.name : '';
       },

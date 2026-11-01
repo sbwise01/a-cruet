@@ -21,6 +21,7 @@ public record AcruetUser(
         int ledgerAccountLimit,
         int bundleCount,
         int positionCount,
+        int netWorthSnapshotCount,
         boolean keySetupComplete,
         Instant createdAt,
         Instant updatedAt,
