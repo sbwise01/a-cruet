@@ -6,7 +6,7 @@ package com.bradandmarsha.acruet.ui;
 public final class UserNav {
 
     /** Bump when static JS changes so browsers reload cached scripts. */
-    public static final String STATIC_ASSET_VERSION = "20261101-14";
+    public static final String STATIC_ASSET_VERSION = "20261101-15";
 
     private UserNav() {
     }
