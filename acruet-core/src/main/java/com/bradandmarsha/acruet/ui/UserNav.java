@@ -6,7 +6,7 @@ package com.bradandmarsha.acruet.ui;
 public final class UserNav {
 
     /** Bump when static JS changes so browsers reload cached scripts. */
-    public static final String STATIC_ASSET_VERSION = "20261101-5";
+    public static final String STATIC_ASSET_VERSION = "20261101-6";
 
     private UserNav() {
     }
@@ -49,9 +49,10 @@ public final class UserNav {
     public static String authNavScripts() {
         return """
                 <script src="/static/js/acruet-crypto.js?v=%s"></script>
+                <script src="/static/js/acruet-device-unlock-ui.js?v=%s"></script>
                 <script src="/static/js/acruet-user-nav.js?v=%s"></script>
                 """
-                .formatted(STATIC_ASSET_VERSION, STATIC_ASSET_VERSION);
+                .formatted(STATIC_ASSET_VERSION, STATIC_ASSET_VERSION, STATIC_ASSET_VERSION);
     }
 
     public static String keyPageScript(String filename) {

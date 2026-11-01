@@ -81,16 +81,9 @@ public final class AssetViews {
                         <span class="unlock-tile-label">Unlock assets</span>
                       </button>
                     </div>
-                    <div id="inlineUnlockForm" hidden>
-                      <h2>Unlock your ledger</h2>
-                      <p class="hint">Enter your passphrase to decrypt data for this session.</p>
-                      <label for="inlinePassphrase">Passphrase</label>
-                      <input id="inlinePassphrase" type="password" autocomplete="current-password">
-                      <p id="inlineUnlockError" class="error" hidden></p>
-                      <button type="button" id="btnInlineUnlock">Unlock</button>
-                      <button type="button" id="btnInlineUnlockCancel" class="secondary">Cancel</button>
-                      <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a></p>
-                    </div>
+                    """.formatted(escapeAttr(lockImageUrl), escapeAttr(lockImageUrl))
+                + LedgerViews.inlineUnlockFormHtml()
+                + """
                   </div>
                   <div id="assetsBrowse">
                     <div id="assetsError" class="error" hidden></div>
@@ -119,7 +112,7 @@ public final class AssetViews {
                     </p>
                   </section>
                 </div>
-                """.formatted(escapeAttr(lockImageUrl), escapeAttr(lockImageUrl))
+                """
                 + UserNav.keyPageScript("acruet-assets.js");
     }
 

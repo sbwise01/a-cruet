@@ -136,40 +136,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       showDeviceError('Unlock your ledger to add this device.');
       return;
     }
-    const dekKey = AcruetCrypto.session.getDek();
     btnAddDevice.disabled = true;
     btnAddDevice.textContent = 'Waiting for this device…';
     try {
-      const optionsResponse = await fetch('/keys/devices/attestation-options', { method: 'POST' });
-      if (!optionsResponse.ok) {
-        const body = await optionsResponse.json().catch(() => ({}));
-        throw new Error(body.error || 'Could not start device registration.');
-      }
-      const options = await optionsResponse.json();
-      const created = await AcruetCrypto.deviceUnlock.createPlatformCredential(options.publicKey);
-      const wrappedDek = await AcruetCrypto.deviceUnlock.wrapDekWithPrf(created.prfBytes, dekKey);
-      const registerResponse = await fetch('/keys/devices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          credentialId: created.credentialId,
-          clientData: created.clientData,
-          attestation: created.attestation,
-          wrapAlgorithm: AcruetCrypto.WRAP_ALGORITHM,
-          wrappedDek,
-          displayName: AcruetCrypto.deviceUnlock.defaultDeviceName(),
-        }),
-      });
-      if (!registerResponse.ok) {
-        const body = await registerResponse.json().catch(() => ({}));
-        throw new Error(body.error || 'Could not save this device.');
-      }
-      const view = await registerResponse.json();
-      AcruetCrypto.deviceUnlock.rememberDevice({
-        credentialId: created.credentialId,
-        deviceId: view.id,
-        subject,
-      });
+      await AcruetCrypto.deviceUnlock.registerThisDevice();
       showDeviceSuccess('This device can unlock next time.');
       await loadDevices();
     } catch (error) {

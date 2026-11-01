@@ -29,32 +29,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     bundleSelect: document.getElementById('bundleSelect'),
   };
 
+  const deviceUnlockUi = AcruetDeviceUnlock.attachInline({
+    form: els.inlineUnlockForm,
+    tile: els.unlockTile,
+    passphraseInput: els.inlinePassphrase,
+    errorEl: els.inlineUnlockError,
+    unlockButton: els.btnInlineUnlock,
+    cancelButton: els.btnInlineUnlockCancel,
+    onUnlocked: () => {
+      hideInlineUnlockForm();
+      syncLockState();
+    },
+    onCancel: hideInlineUnlockForm,
+  });
+
   window.AcruetReportsPage = {
-    showInlineUnlock: () => showInlineUnlockForm(),
+    showInlineUnlock: () => deviceUnlockUi.showForm(),
     onKeyLocked: () => syncLockState(),
   };
 
   await AcruetCrypto.session.ensureReady();
   syncLockState();
   document.addEventListener('acruet:crypto-changed', syncLockState);
-
-  if (els.unlockTile) {
-    els.unlockTile.addEventListener('click', showInlineUnlockForm);
-  }
-  if (els.btnInlineUnlock) {
-    els.btnInlineUnlock.addEventListener('click', submitInlineUnlock);
-  }
-  if (els.inlinePassphrase) {
-    els.inlinePassphrase.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        submitInlineUnlock();
-      }
-    });
-  }
-  if (els.btnInlineUnlockCancel) {
-    els.btnInlineUnlockCancel.addEventListener('click', hideInlineUnlockForm);
-  }
   if (els.bundleSelect) {
     els.bundleSelect.addEventListener('change', async () => {
       state.selectedBundleId = els.bundleSelect.value || null;

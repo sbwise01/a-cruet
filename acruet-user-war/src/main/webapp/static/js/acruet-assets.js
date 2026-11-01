@@ -44,32 +44,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   let formErrorTimeout = null;
   let renamingPositionId = null;
 
+  const deviceUnlockUi = AcruetDeviceUnlock.attachInline({
+    form: els.inlineUnlockForm,
+    tile: els.unlockTile,
+    passphraseInput: els.inlinePassphrase,
+    errorEl: els.inlineUnlockError,
+    unlockButton: els.btnInlineUnlock,
+    cancelButton: els.btnInlineUnlockCancel,
+    onUnlocked: () => {
+      hideInlineUnlockForm();
+      syncLockState();
+    },
+    onCancel: hideInlineUnlockForm,
+  });
+
   window.AcruetAssets = {
-    showInlineUnlock: () => showInlineUnlockForm(),
+    showInlineUnlock: () => deviceUnlockUi.showForm(),
     onKeyLocked: () => syncLockState(),
   };
 
   await AcruetCrypto.session.ensureReady();
   syncLockState();
   document.addEventListener('acruet:crypto-changed', syncLockState);
-
-  if (els.unlockTile) {
-    els.unlockTile.addEventListener('click', showInlineUnlockForm);
-  }
-  if (els.btnInlineUnlock) {
-    els.btnInlineUnlock.addEventListener('click', submitInlineUnlock);
-  }
-  if (els.inlinePassphrase) {
-    els.inlinePassphrase.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        submitInlineUnlock();
-      }
-    });
-  }
-  if (els.btnInlineUnlockCancel) {
-    els.btnInlineUnlockCancel.addEventListener('click', hideInlineUnlockForm);
-  }
 
   els.assetsBrowse.addEventListener('click', (event) => {
     const button = event.target.closest('.ledger-action-btn');
