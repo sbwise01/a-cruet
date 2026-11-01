@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const deviceLockedHint = document.getElementById('deviceLockedHint');
   const deviceUnsupportedHint = document.getElementById('deviceUnsupportedHint');
   const deviceSetupHint = document.getElementById('deviceSetupHint');
+  const deviceIosHint = document.getElementById('deviceIosHint');
   const deviceError = document.getElementById('deviceError');
   const deviceSuccess = document.getElementById('deviceSuccess');
   const btnAddDevice = document.getElementById('btnAddDevice');
@@ -104,6 +105,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       || alreadyRegistered || atCap;
     deviceUnsupportedHint.hidden = !keySetupComplete || platformSupported;
     deviceSetupHint.hidden = keySetupComplete;
+    if (deviceIosHint) {
+      const userAgent = navigator.userAgent || '';
+      deviceIosHint.hidden = !/iPhone|iPad/.test(userAgent);
+    }
   }
 
   async function loadDevices() {

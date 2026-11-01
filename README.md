@@ -71,3 +71,4 @@ Technical requirements, architecture decisions, and rollout phases live in:
 7. Admin app avatar and return to dashboard feature parity with user app
 8. Commas in envelopes and assets values
 9. Marketing language update in unauthenticated landing page
+10. easy name back to wise-home-index, maybe footer?
