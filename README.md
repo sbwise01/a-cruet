@@ -64,11 +64,10 @@ Technical requirements, architecture decisions, and rollout phases live in:
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
 2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
-3. ~~Acruet passphrase usability options~~ — shipped; plan in [`docs/DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md)
-4. New feature, Net Worth auto calculation — additional net worth work after #3; the assets-page Net line does not complete this item
-5. Auto reminders for updating asset and liabilities values
-6. Investment performance reports
-7. Admin app avatar and return to dashboard feature parity with user app
-8. Commas in envelopes and assets values
-9. Marketing language update in unauthenticated landing page
-10. easy name back to wise-home-index, maybe footer?
+3. New feature, Net Worth auto calculation — additional net worth work after #3; the assets-page Net line does not complete this item
+4. Auto reminders for updating asset and liabilities values
+5. Investment performance reports
+6. Admin app avatar and return to dashboard feature parity with user app
+7. Commas in envelopes and assets values
+8. Marketing language update in unauthenticated landing page
+9. easy name back to wise-home-index, maybe footer?
