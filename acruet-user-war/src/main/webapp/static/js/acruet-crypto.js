@@ -679,24 +679,45 @@ const AcruetCrypto = (() => {
     return true;
   }
 
+  function defaultBrowserName() {
+    const userAgent = navigator.userAgent || '';
+    if (/Edg\//.test(userAgent) || /EdgiOS/.test(userAgent)) {
+      return 'Edge';
+    }
+    if (/OPR\/|Opera/.test(userAgent)) {
+      return 'Opera';
+    }
+    if (/Firefox|FxiOS/.test(userAgent)) {
+      return 'Firefox';
+    }
+    if (/CriOS/.test(userAgent) || (/Chrome|Chromium/.test(userAgent) && !/Edg/.test(userAgent))) {
+      return 'Chrome';
+    }
+    if (/Safari/.test(userAgent) && !/Chrome|Chromium|CriOS|Android/.test(userAgent)) {
+      return 'Safari';
+    }
+    return '';
+  }
+
   function defaultDeviceName() {
     const userAgent = navigator.userAgent || '';
+    let platform = 'This device';
     if (/iPhone/.test(userAgent)) {
-      return 'iPhone';
+      platform = 'iPhone';
+    } else if (/iPad/.test(userAgent)) {
+      platform = 'iPad';
+    } else if (/Macintosh|Mac OS X/.test(userAgent)) {
+      platform = 'Mac';
+    } else if (/Android/.test(userAgent)) {
+      platform = 'Android';
+    } else if (/Windows/.test(userAgent)) {
+      platform = 'Windows PC';
     }
-    if (/iPad/.test(userAgent)) {
-      return 'iPad';
+    const browser = defaultBrowserName();
+    if (!browser || platform === 'This device') {
+      return browser || platform;
     }
-    if (/Macintosh|Mac OS X/.test(userAgent)) {
-      return 'Mac';
-    }
-    if (/Android/.test(userAgent)) {
-      return 'Android';
-    }
-    if (/Windows/.test(userAgent)) {
-      return 'Windows PC';
-    }
-    return 'This device';
+    return platform + ' ' + browser;
   }
 
   function storedDevice() {
