@@ -667,10 +667,16 @@ const AcruetCrypto = (() => {
   }
 
   async function supportsDeviceUnlock() {
-    if (!(await platformAuthenticatorAvailable())) {
+    if (!window.PublicKeyCredential
+        || !navigator.credentials
+        || typeof navigator.credentials.create !== 'function') {
       return false;
     }
-    return (await prfExtensionSupported()) !== false;
+    // iOS 26: isUVPAA() is false unless a third-party passkey provider is on.
+    // That hid Add on Safari when Authenticator was off, which is the only
+    // path that can reach Apple Face ID. Offer Add whenever WebAuthn create
+    // exists; create() + PRF results are the real gate.
+    return true;
   }
 
   function defaultDeviceName() {
