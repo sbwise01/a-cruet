@@ -687,19 +687,21 @@ window.AcruetReports = (() => {
       showError('Chart library failed to load.');
       return;
     }
-    const labelCounts = new Map();
-    const labels = snapshots.map((snapshot) => {
-      const count = (labelCounts.get(snapshot.asOfDate) || 0) + 1;
-      labelCounts.set(snapshot.asOfDate, count);
-      return count === 1 ? snapshot.asOfDate : `${snapshot.asOfDate} (${count})`;
-    });
+    const charted = latestSnapshotPerAsOfDate(snapshots);
+    const points = charted.map((snapshot) => ({
+      x: asOfTimestamp(snapshot.asOfDate),
+      y: snapshot.netCents / 100,
+    }));
+    const xs = points.map((point) => point.x);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const pad = Math.max((maxX - minX) * 0.03, 15 * 24 * 60 * 60 * 1000);
     netWorthChartInstance = new Chart(canvas, {
       type: 'line',
       data: {
-        labels,
         datasets: [{
           label: 'Net worth',
-          data: snapshots.map((snapshot) => snapshot.netCents / 100),
+          data: points,
           borderColor: '#38bdf8',
           backgroundColor: 'rgba(56, 189, 248, 0.15)',
           fill: false,
@@ -711,13 +713,18 @@ window.AcruetReports = (() => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
+        parsing: false,
+        interaction: { mode: 'nearest', intersect: false },
         plugins: {
           legend: { labels: { color: '#e2e8f0' } },
           tooltip: {
             callbacks: {
+              title(items) {
+                const snapshot = charted[items[0]?.dataIndex];
+                return snapshot ? snapshot.asOfDate : '';
+              },
               label(context) {
-                const snapshot = snapshots[context.dataIndex];
+                const snapshot = charted[context.dataIndex];
                 const amount = AcruetNetWorth.formatCents(snapshot.netCents);
                 const breakdown = netWorthBreakdownTitle(snapshot);
                 return breakdown ? `${amount} · ${breakdown}` : amount;
@@ -727,7 +734,18 @@ window.AcruetReports = (() => {
         },
         scales: {
           x: {
-            ticks: { color: '#94a3b8', maxTicksLimit: 12 },
+            type: 'linear',
+            min: minX - pad,
+            max: maxX + pad,
+            afterBuildTicks(scale) {
+              scale.ticks = yearTickValues(scale.min, scale.max).map((value) => ({ value }));
+            },
+            ticks: {
+              color: '#94a3b8',
+              callback(value) {
+                return String(new Date(value).getUTCFullYear());
+              },
+            },
             grid: { color: 'rgba(148, 163, 184, 0.15)' },
           },
           y: {
@@ -742,6 +760,39 @@ window.AcruetReports = (() => {
         },
       },
     });
+  }
+
+  function latestSnapshotPerAsOfDate(snapshots) {
+    const byDate = new Map();
+    snapshots.forEach((snapshot) => {
+      const existing = byDate.get(snapshot.asOfDate);
+      if (!existing || String(snapshot.createdAt || '') >= String(existing.createdAt || '')) {
+        byDate.set(snapshot.asOfDate, snapshot);
+      }
+    });
+    return Array.from(byDate.values()).sort((left, right) =>
+      String(left.asOfDate).localeCompare(String(right.asOfDate)));
+  }
+
+  function asOfTimestamp(asOfDate) {
+    return Date.parse(`${asOfDate}T12:00:00Z`);
+  }
+
+  function yearTickValues(min, max) {
+    const startYear = new Date(min).getUTCFullYear();
+    const endYear = new Date(max).getUTCFullYear();
+    const ticks = [];
+    for (let year = startYear; year <= endYear; year += 1) {
+      let timestamp = Date.parse(`${year}-01-01T12:00:00Z`);
+      if (timestamp < min) {
+        timestamp = min;
+      }
+      if (timestamp > max) {
+        timestamp = max;
+      }
+      ticks.push(timestamp);
+    }
+    return ticks;
   }
 
   function showError(message) {
