@@ -90,6 +90,7 @@ public class OidcAuthFilter implements Filter {
         if (path.equals("/health")
                 || path.startsWith("/auth/")
                 || path.startsWith("/internal/cron/")
+                || path.startsWith("/static/")
                 || path.equals("/signup")
                 || path.startsWith("/signup/")) {
             return true;
@@ -99,13 +100,15 @@ public class OidcAuthFilter implements Filter {
     }
 
     private static String forbiddenPage(OidcUser user) {
-        return AdminPageLayout.render(
+        return AdminPageLayout.renderAuthenticated(
                 "Forbidden",
+                "",
                 """
                 <h2>403 Forbidden</h2>
                 <p>Signed in as <strong>%s</strong>, but this surface requires the administrator role.</p>
-                <p><a href="/auth/logout">Sign out</a></p>
-                """.formatted(escape(user.displayName())));
+                """.formatted(escape(user.displayName())),
+                user,
+                false);
     }
 
     private static String escape(String value) {

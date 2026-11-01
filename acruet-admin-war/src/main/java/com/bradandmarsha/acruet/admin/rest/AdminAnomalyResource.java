@@ -29,6 +29,7 @@ public class AdminAnomalyResource {
     public String list(@Context HttpServletRequest request) {
         List<LoginAnomalyRepository.LoginAnomaly> anomalies = adminOpsService.listRecentAnomalies(100);
         return AdminWebSupport.adminShell(
+                request,
                 "Login anomalies",
                 AdminWebSupport.flashNotice(request),
                 """

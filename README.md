@@ -67,7 +67,3 @@ Technical requirements, architecture decisions, and rollout phases live in:
 3. New feature, Net Worth auto calculation — additional net worth work after #3; the assets-page Net line does not complete this item
 4. Auto reminders for updating asset and liabilities values
 5. Investment performance reports
-6. Admin app avatar and return to dashboard feature parity with user app
-7. Commas in envelopes and assets values
-8. Marketing language update in unauthenticated landing page
-9. easy name back to wise-home-index, maybe footer?

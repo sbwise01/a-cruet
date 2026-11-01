@@ -1111,9 +1111,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function formatCents(cents) {
-    const sign = cents < 0 ? '-' : '';
-    const abs = Math.abs(cents);
-    return `${sign}$${(abs / 100).toFixed(2)}`;
+    const value = Number(cents || 0) / 100;
+    const sign = value < 0 ? '-' : '';
+    return `${sign}$${Math.abs(value).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   }
 
   function formatUsdInput(cents) {

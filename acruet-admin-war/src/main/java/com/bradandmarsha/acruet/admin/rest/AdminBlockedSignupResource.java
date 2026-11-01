@@ -37,6 +37,7 @@ public class AdminBlockedSignupResource {
     public String list(@Context HttpServletRequest request) {
         List<SignupApplication> blocked = adminOpsService.listBlockedSignups();
         return AdminWebSupport.adminShell(
+                request,
                 "Blocked signups",
                 AdminWebSupport.flashNotice(request),
                 """

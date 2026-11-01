@@ -12,26 +12,27 @@ public final class MarketingContent {
         return """
                 <article class="marketing">
                   <h2>About a-cruet</h2>
-                  <p><strong>a-cruet</strong> is a personal web app for <strong>envelope budgeting</strong> — setting aside money for specific purposes (Christmas fund, vacation, health expenses, and similar goals) and tracking how those balances change over time.</p>
-                  <p>A <strong>cruet</strong> is a small glass vessel for valued liquids like olive oil. The name also echoes <strong>&ldquo;accrue it&rdquo;</strong> — the accounting idea of letting savings build up deliberately rather than spending as it arrives.</p>
+                  <p><strong>a-cruet</strong> is a <strong>personal financial management</strong> application — a place to see what you have, what you owe, and how savings set aside for a purpose are doing. That matches the verse in the footer: store up what matters; do not gulp it down.</p>
+                  <p>A <strong>cruet</strong> is a small glass vessel for valued liquids like olive oil. The name also echoes <strong>&ldquo;accrue it&rdquo;</strong> — letting savings and other holdings build up deliberately rather than spending as they arrive.</p>
 
                   <h2>What it does</h2>
-                  <p>Envelope budgeting treats each savings goal as its own <strong>envelope</strong>. When money comes in, you decide how much belongs in each envelope. When you spend or move money, you take it from the right envelope so you always know what each goal still has.</p>
+                  <p><strong>Envelope budgeting</strong> is the transaction core. Each savings goal is its own <strong>envelope</strong> (Christmas fund, vacation, health expenses, and similar). When money comes in, you decide how much belongs in each envelope. When you spend or move money, you take it from the right envelope so you always know what each goal still has.</p>
                   <p>With a-cruet you can:</p>
                   <ul>
                     <li><strong>Apply for access</strong> — submit a short application; an administrator reviews and approves new users</li>
-                    <li><strong>Sign in</strong> securely and manage your own envelopes</li>
+                    <li><strong>Sign in</strong> securely and manage household finances</li>
                     <li><strong>Record deposits</strong>, <strong>withdrawals</strong>, and <strong>transfers</strong> between envelopes</li>
                     <li><strong>Group envelopes into bundles</strong> — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle</li>
-                    <li><strong>View reports</strong> — a spreadsheet-style history and a chart of balances over time for the bundle you have selected</li>
+                    <li><strong>View transaction reports</strong> — a spreadsheet-style history and a chart of balances over time for the bundle you have selected</li>
                     <li><strong>Track other assets and liabilities</strong> — cars, investment totals, loans, and similar items as dated snapshot values, separate from envelope transactions</li>
-                    <li><strong>Share a household ledger</strong> — an existing member can invite family by email so you use the same bundles and envelopes together (each person has their own sign-in and encryption passphrase; up to five members per household)</li>
+                    <li><strong>See current net worth</strong> — assets minus liabilities, including envelope-bundle totals, on the assets page</li>
+                    <li><strong>Share a household ledger</strong> — an existing member can invite family by email so you use the same bundles, envelopes, and assets together (each person has their own sign-in and encryption passphrase; up to five members per household)</li>
                     <li><strong>Protect your data</strong> with a personal encryption passphrase that only you know</li>
                   </ul>
-                  <p>The app is built for people who want a simple, intentional way to <strong>allocate and track savings by purpose</strong>, not a full double-entry accounting system or a bank connection.</p>
+                  <p>The app is built for people who want a simple, intentional way to <strong>manage personal finances</strong> — allocate savings by purpose, track other assets and debts, review transactions, and see net worth — not a full double-entry accounting system or a bank connection.</p>
 
                   <h2>How your privacy works</h2>
-                  <p>Your financial details — envelope names, amounts, notes, and balances — are <strong>encrypted in your browser</strong> before they ever reach the server. The service stores scrambled data it cannot read.</p>
+                  <p>Your financial details — envelope names, asset values, amounts, notes, and balances — are <strong>encrypted in your browser</strong> before they ever reach the server. The service stores scrambled data it cannot read.</p>
                   <p>You choose a <strong>passphrase</strong> to unlock your ledger. That is not your sign-in password. The app downloads a <strong>recovery file</strong> when you set up encryption — store that file somewhere safe; you do not need to memorize it. After the first unlock you may optionally register this device (Touch ID, Face ID, or Windows Hello). A registered device can also set a new passphrase if you forget the old one. Use the recovery file on <strong>Forgot passphrase?</strong> when no device is at hand. If you lose your passphrase, recovery file, and every registered device, <strong>your data cannot be recovered</strong> — not even by an administrator.</p>
                   <p>Administrators can see <strong>who</strong> uses the app and <strong>how much activity</strong> there is (for example, how many envelopes or transactions exist), but they <strong>never</strong> see your actual balances or descriptions.</p>
 

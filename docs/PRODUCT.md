@@ -1,5 +1,11 @@
 # A Cruet
 
+**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking and **net worth** (assets minus liabilities). Additional net-worth work remains on the README To Do.
+
+The vision is unchanged and is the footer verse: *The wise store up choice food and olive oil, but fools gulp theirs down.* (Proverbs 21:20)
+
+Locked feature and engineering decisions stay in the sections below. Public landing copy lives in `MarketingContent` and the README.
+
 ## Decisions
 
 Product and technical decisions captured during requirements clarification. Each subsection is locked before moving to the next.
@@ -383,7 +389,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 - Application operates on both server side and client side
 - Client side consists of HTML and JavaScript delivered to a web browser which serves as the front end
 - Server side consists of REST based API resources running on the Tomcat server
-- The application's primary purpose will be a web based management system for a general ledger for accounting.  The ledger accounts will represent categorizations of savings (i.e. christmas fund, vacation fund, health fund, etc..)
+- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, and net worth (assets minus liabilities; additional net-worth work remains a later To Do)
 - The application will be integrated with auth.home.bradandmarsha.com for authentication of users of the application
 - The application will store data in a cloud native postgres database instance
 - The data stored by the application will be encrypted using client side encryption.  The web server will only receive data in encrypted form and store it in the database encrypted.

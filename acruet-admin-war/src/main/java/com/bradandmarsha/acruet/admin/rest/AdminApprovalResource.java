@@ -4,8 +4,6 @@ import com.bradandmarsha.acruet.approval.ApprovalService;
 import com.bradandmarsha.acruet.auth.OidcUser;
 import com.bradandmarsha.acruet.household.HouseholdDisplay;
 import com.bradandmarsha.acruet.signup.SignupRepository;
-import com.bradandmarsha.acruet.ui.AdminPageLayout;
-import com.bradandmarsha.acruet.ui.PageStyles;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.ws.rs.Consumes;
@@ -41,17 +39,16 @@ public class AdminApprovalResource {
     public String queue(@Context HttpServletRequest request) {
         List<SignupRepository.PendingApplication> pending = approvalService.listPending();
         String notice = flashNotice(request);
-        return AdminPageLayout.render(
+        return AdminWebSupport.adminShell(
+                request,
                 "Approval queue",
-                PageStyles.tableCss(),
+                notice,
                 """
                 <h2>Pending applications</h2>
                 <p class="hint">Verified applicants awaiting Keycloak provisioning.</p>
                 %s
-                %s
-                <p><a href="/">Back to dashboard</a></p>
                 """
-                        .formatted(notice, pendingTable(pending)));
+                        .formatted(pendingTable(pending)));
     }
 
     @POST
