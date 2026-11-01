@@ -1,8 +1,8 @@
 # Assets and liabilities (snapshot register)
 
-**Status:** Product decisions locked (2026-10-18). **Release 3 complete** — schema, `/assets` UI, offboard export, admin Positions count, README / marketing. README To Do **#3** is done. To Do **#6** (Net Worth) stays.
+**Status:** Product decisions locked (2026-10-18). Snapshot register shipped. Quarterly reminders: [`PRODUCT.md`](PRODUCT.md) §10. Additional net worth work is current README To Do **#3**.
 
-Locked rules live in [`PRODUCT.md`](PRODUCT.md) §9. This file is the decided implementation plan. Additional net worth work stays on the README To Do as item **#4**.
+Locked register rules live in [`PRODUCT.md`](PRODUCT.md) §9. This file is the decided implementation plan.
 
 ## What this is (and is not)
 
@@ -15,7 +15,7 @@ This feature is a **snapshot register**. You create an item, set a value and dat
 - Envelope bundle totals appear in **Assets** as **read-only** computed lines (not snapshot rows you edit).
 - Household-wide: every member sees every item (same household DEK as bundles). Not nested under an envelope bundle.
 
-The assets page **Net** line is register arithmetic, not the Net Worth feature. README To Do **#4** stays after this ships (dedicated net-worth view, history/charts, or other rollups). Snapshot history is stored so #4 has data later.
+The assets page **Net** line is register arithmetic, not the Net Worth feature. Current README To Do **#3** (Net Worth) stays. Quarterly update reminders are PRODUCT.md §10 (README To Do **#4**, shipped). Snapshot history is stored so later net-worth work has data.
 
 ```text
 Envelope class                    Snapshot class
