@@ -6,7 +6,7 @@ package com.bradandmarsha.acruet.ui;
 public final class UserNav {
 
     /** Bump when static JS changes so browsers reload cached scripts. */
-    public static final String STATIC_ASSET_VERSION = "20261101-15";
+    public static final String STATIC_ASSET_VERSION = "20261101-16";
 
     private UserNav() {
     }
@@ -52,8 +52,12 @@ public final class UserNav {
                 <script src="/static/js/acruet-device-unlock-ui.js?v=%s"></script>
                 <script src="/static/js/acruet-user-nav.js?v=%s"></script>
                 <script src="/static/js/acruet-asset-reminder.js?v=%s"></script>
+                <script src="/static/js/acruet-net-worth.js?v=%s"></script>
+                <script src="/static/js/acruet-net-worth-reminder.js?v=%s"></script>
                 """
                 .formatted(
+                        STATIC_ASSET_VERSION,
+                        STATIC_ASSET_VERSION,
                         STATIC_ASSET_VERSION,
                         STATIC_ASSET_VERSION,
                         STATIC_ASSET_VERSION,

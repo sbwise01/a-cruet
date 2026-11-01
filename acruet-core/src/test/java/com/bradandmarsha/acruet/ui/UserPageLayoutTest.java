@@ -14,6 +14,21 @@ class UserPageLayoutTest {
         assertTrue(html.contains("Personal financial management application"));
         assertTrue(html.contains("personal financial management"));
         assertTrue(html.contains("Envelope budgeting"));
-        assertTrue(html.contains("See current net worth"));
+        assertTrue(html.contains("Save a net worth history"));
+        assertTrue(html.contains("year-end totals"));
+        assertTrue(html.contains("keep a net worth history"));
+    }
+
+    @Test
+    void authenticatedShellLoadsNetWorthReminder() {
+        String html = UserPageLayout.renderAuthenticated(
+                "Home",
+                "",
+                "<p>home</p>",
+                new AuthNavContext("BW", "Brad", "brad@example.com", true, true, false),
+                false);
+        assertTrue(html.contains("acruet-net-worth.js"));
+        assertTrue(html.contains("acruet-net-worth-reminder.js"));
+        assertTrue(html.contains("acruet-asset-reminder.js"));
     }
 }

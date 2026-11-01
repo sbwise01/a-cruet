@@ -25,11 +25,11 @@ public final class MarketingContent {
                     <li><strong>Group envelopes into bundles</strong> — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle</li>
                     <li><strong>View transaction reports</strong> — a spreadsheet-style history and a chart of balances over time for the bundle you have selected</li>
                     <li><strong>Track other assets and liabilities</strong> — cars, investment totals, loans, and similar items as dated snapshot values, separate from envelope transactions</li>
-                    <li><strong>See current net worth</strong> — assets minus liabilities, including envelope-bundle totals, on the assets page</li>
+                    <li><strong>Save a net worth history</strong> — stamp today’s live Assets Net, or add past year-end totals you already wrote down. The Assets Net line is today only; the register is the history you keep</li>
                     <li><strong>Share a household ledger</strong> — an existing member can invite family by email so you use the same bundles, envelopes, and assets together (each person has their own sign-in and encryption passphrase; up to five members per household)</li>
                     <li><strong>Protect your data</strong> with a personal encryption passphrase that only you know</li>
                   </ul>
-                  <p>The app is built for people who want a simple, intentional way to <strong>manage personal finances</strong> — allocate savings by purpose, track other assets and debts, review transactions, and see net worth — not a full double-entry accounting system or a bank connection.</p>
+                  <p>The app is built for people who want a simple, intentional way to <strong>manage personal finances</strong> — allocate savings by purpose, track other assets and debts, review transactions, and keep a net worth history — not a full double-entry accounting system or a bank connection.</p>
 
                   <h2>How your privacy works</h2>
                   <p>Your financial details — envelope names, asset values, amounts, notes, and balances — are <strong>encrypted in your browser</strong> before they ever reach the server. The service stores scrambled data it cannot read.</p>
