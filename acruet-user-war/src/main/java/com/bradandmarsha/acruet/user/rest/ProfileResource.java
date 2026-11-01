@@ -129,6 +129,7 @@ public class ProfileResource {
                 <section id="unlockDevices" class="device-section">
                   <h3>Unlock devices</h3>
                   <p class="hint">Register this browser to unlock with Touch ID, Face ID, or Windows Hello. Anyone who can unlock this hardware and is signed in as you can read the ledger. Remove a lost device from this list.</p>
+                  <p id="deviceIosHint" class="hint" hidden>On iPhone or iPad, use Safari and install Apple’s Passwords app (iOS 18+). A work passkey app such as Microsoft Authenticator will intercept Add this device.</p>
                   <p id="deviceSetupHint" class="hint" hidden>Complete key setup before registering a device.</p>
                   <ul id="deviceList" class="device-list"></ul>
                   <p id="deviceEmpty" class="hint" hidden>No devices registered yet.</p>
