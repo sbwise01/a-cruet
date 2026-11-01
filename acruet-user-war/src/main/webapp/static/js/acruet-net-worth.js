@@ -62,7 +62,7 @@ window.AcruetNetWorth = (() => {
   }
 
   function requireUnlocked() {
-    if (!window.AcruetCrypto || !AcruetCrypto.session.isUnlocked()) {
+    if (typeof AcruetCrypto === 'undefined' || !AcruetCrypto.session.isUnlocked()) {
       throw new Error('Unlock your ledger first.');
     }
   }
