@@ -91,6 +91,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (window.AcruetReportsPage && window.AcruetReportsPage.onKeyLocked) {
           window.AcruetReportsPage.onKeyLocked();
         }
+        if (window.AcruetHistoricalNetWorth && window.AcruetHistoricalNetWorth.onKeyLocked) {
+          window.AcruetHistoricalNetWorth.onKeyLocked();
+        }
         renderMenu();
       });
     }
@@ -106,6 +109,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           window.AcruetAssets.showInlineUnlock();
         } else if (window.AcruetReportsPage && window.AcruetReportsPage.showInlineUnlock) {
           window.AcruetReportsPage.showInlineUnlock();
+        } else if (window.AcruetHistoricalNetWorth && window.AcruetHistoricalNetWorth.showInlineUnlock) {
+          window.AcruetHistoricalNetWorth.showInlineUnlock();
         }
       });
     }

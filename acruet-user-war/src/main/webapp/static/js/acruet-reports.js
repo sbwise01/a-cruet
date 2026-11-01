@@ -35,7 +35,6 @@ window.AcruetReports = (() => {
     controlsWired = true;
 
     bindButton('btnRenderChart', renderBalanceChart);
-    bindButton('btnAddHistoricalNetWorth', () => void addHistoricalNetWorth());
 
     setDefaultDates(document.getElementById('txReportFrom'), document.getElementById('txReportTo'), 'year');
     setDefaultDates(document.getElementById('chartReportFrom'), document.getElementById('chartReportTo'), 'month');
@@ -590,11 +589,9 @@ window.AcruetReports = (() => {
 
   async function renderNetWorthReport() {
     hideError();
-    hideNetWorthFormError();
     destroyNetWorthChart();
     const meta = document.getElementById('netWorthMeta');
     const table = document.getElementById('netWorthTable');
-    const addButton = document.getElementById('btnAddHistoricalNetWorth');
     if (!window.AcruetNetWorth) {
       showError('Net worth helper failed to load.');
       return;
@@ -605,11 +602,6 @@ window.AcruetReports = (() => {
       const usable = result.snapshots.filter((snapshot) => !snapshot.decryptError);
       if (meta) {
         meta.textContent = `${result.count} of ${result.limit} observations`;
-      }
-      if (addButton) {
-        const atLimit = result.count >= result.limit;
-        addButton.disabled = atLimit;
-        addButton.title = atLimit ? `Net worth limit reached (${result.limit}).` : '';
       }
       renderNetWorthTable(result.snapshots);
       renderNetWorthChart(usable);
@@ -630,7 +622,7 @@ window.AcruetReports = (() => {
       return;
     }
     if (!snapshots.length) {
-      table.innerHTML = '<p class="hint">No saved net worth yet. Save from Assets or add a historical total.</p>';
+      table.innerHTML = '<p class="hint">No saved net worth yet. Save current or add a historical total from Assets.</p>';
       return;
     }
     const rows = snapshots
@@ -750,47 +742,6 @@ window.AcruetReports = (() => {
         },
       },
     });
-  }
-
-  async function addHistoricalNetWorth() {
-    hideNetWorthFormError();
-    hideError();
-    if (!window.AcruetNetWorth) {
-      showNetWorthFormError('Net worth helper failed to load.');
-      return;
-    }
-    try {
-      api.requireUnlocked();
-      const asOfDate = document.getElementById('netWorthAsOf').value;
-      const amount = document.getElementById('netWorthAmount').value;
-      if (!asOfDate) {
-        throw new Error('As-of date is required.');
-      }
-      const netCents = AcruetNetWorth.parseUsd(amount);
-      await AcruetNetWorth.create(asOfDate, AcruetNetWorth.manualPayload(netCents));
-      document.getElementById('netWorthAmount').value = '';
-      await renderNetWorthReport();
-    } catch (error) {
-      showNetWorthFormError(error.message || 'Failed to add historical total.');
-    }
-  }
-
-  function showNetWorthFormError(message) {
-    const target = document.getElementById('netWorthFormError');
-    if (!target) {
-      showError(message);
-      return;
-    }
-    target.textContent = message;
-    target.hidden = false;
-  }
-
-  function hideNetWorthFormError() {
-    const target = document.getElementById('netWorthFormError');
-    if (target) {
-      target.hidden = true;
-      target.textContent = '';
-    }
   }
 
   function showError(message) {
