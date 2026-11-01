@@ -383,6 +383,29 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 | Abuse counts | Section 3, Section 6 (#52) |
 | Implementation plan | [`ASSETS.md`](ASSETS.md) |
 
+### 10. Quarterly asset reminders ✅ locked (2026-11-01)
+
+Reminds household members to refresh snapshot asset and liability values. Completes current README To Do **#4**. Additional net-worth work remains README To Do **#3**.
+
+| Item | Decision |
+|------|----------|
+| Cadence | Last **7 calendar days** of each quarter: **25–31 Mar**, **24–30 Jun**, **24–30 Sep**, **25–31 Dec** (local date in the browser) |
+| Where | **Signed-in home** (`/`) after login or when returning to the launcher — not every inner page |
+| Who | Linked users with encryption **key setup complete**. Unlinked / first-login key setup: no dialog |
+| UI | Modal: short reminder + link to **`/assets`**. Buttons **Not now** and **Done** only |
+| Not now | Hide until the **next local calendar day** still inside the window (or the next quarter) |
+| Done | Hide until the **next quarter’s** window. Does not write a snapshot; user confirms they handled the review |
+| Storage | **Browser `localStorage`**, keyed by signed-in email. Per browser / device. Server stores nothing |
+| Detection | No auto-complete from snapshot writes. Admin app: none |
+| Preview | `/?assetReminder=1` forces the dialog for UI review (still requires a linked account with key setup) |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Snapshot register | Section 9 |
+| Household visibility | Section 7 |
+
 ## Product requirements
 
 - Application running in Apache Tomcat written in the Java programming language
@@ -440,6 +463,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
     - liabilities are positive amounts owed
     - page may show current Assets − Liabilities; additional net worth work is a later To Do
     - limit 50 active snapshot items per household
+  - quarterly reminder to update snapshot assets and liabilities (home modal on the last 7 days of Mar / Jun / Sep / Dec; Not now / Done)
 - The application will support the following administrative workflows:
   - approve new user applications
   - assign administrators

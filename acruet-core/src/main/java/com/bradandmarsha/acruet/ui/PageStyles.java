@@ -237,6 +237,47 @@ public final class PageStyles {
                 """;
     }
 
+    /** Quarterly assets reminder dialog on signed-in home (PRODUCT.md §10). */
+    public static String reminderCss() {
+        return """
+                .asset-reminder-overlay {
+                  position: fixed;
+                  inset: 0;
+                  z-index: 40;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 1.25rem;
+                  background: rgba(15, 23, 42, 0.72);
+                }
+                .asset-reminder-dialog {
+                  width: min(28rem, 100%);
+                  padding: 1.35rem 1.4rem 1.2rem;
+                  background: var(--bg-card);
+                  border: 1px solid rgba(148, 163, 184, 0.2);
+                  border-radius: 12px;
+                }
+                .asset-reminder-dialog h2 {
+                  margin: 0 0 0.65rem;
+                  font-size: 1.2rem;
+                }
+                .asset-reminder-dialog p { margin: 0.55rem 0; }
+                .asset-reminder-actions {
+                  display: flex;
+                  justify-content: flex-end;
+                  gap: 0.6rem;
+                  margin: 1.1rem 0 0;
+                }
+                .asset-reminder-actions button {
+                  margin-top: 0;
+                }
+                .asset-reminder-actions button.secondary {
+                  background: #475569;
+                  color: var(--text);
+                }
+                """;
+    }
+
     /** Public landing marketing sections (Phase 9 item 3). */
     public static String marketingCss() {
         return """

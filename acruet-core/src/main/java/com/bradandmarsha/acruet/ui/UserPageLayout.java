@@ -51,7 +51,7 @@ public final class UserPageLayout {
                 tileImage,
                 TILE_DESCRIPTION,
                 title,
-                PageStyles.navCss() + (extraCss == null ? "" : extraCss),
+                PageStyles.navCss() + PageStyles.reminderCss() + (extraCss == null ? "" : extraCss),
                 UserNav.authNavHtml(nav),
                 UserNav.authNavScripts() + mainHtml,
                 headerLinksHome ? "/" : null);
