@@ -3,20 +3,27 @@ package com.bradandmarsha.acruet.user.rest;
 import com.bradandmarsha.acruet.auth.OidcUser;
 import com.bradandmarsha.acruet.auth.UserSession;
 import com.bradandmarsha.acruet.household.HouseholdJoinService;
+import com.bradandmarsha.acruet.keys.DeviceUnlockException;
+import com.bradandmarsha.acruet.keys.DeviceUnlockService;
+import com.bradandmarsha.acruet.keys.DeviceWrapPayload;
 import com.bradandmarsha.acruet.keys.KeyService;
 import com.bradandmarsha.acruet.keys.KeyServiceException;
 import com.bradandmarsha.acruet.keys.RecoveryWrapPayload;
+import com.bradandmarsha.acruet.keys.WebAuthnOptions;
 import com.bradandmarsha.acruet.keys.WrappedDekPayload;
 import com.bradandmarsha.acruet.ui.PageStyles;
 import com.bradandmarsha.acruet.ui.UserNav;
 import com.bradandmarsha.acruet.ui.UserPageLayout;
 import com.bradandmarsha.acruet.user.AcruetUser;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
@@ -25,8 +32,12 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Client-side encryption key setup, unlock, rotation, recovery, and wrapped DEK API (Phase 7).
@@ -34,8 +45,14 @@ import java.util.Optional;
 @Path("keys")
 public class KeyResource {
 
+    static final String WEBAUTHN_CHALLENGE_ATTRIBUTE = "acruet.webauthn.challenge";
+    static final String WEBAUTHN_PURPOSE_ATTRIBUTE = "acruet.webauthn.purpose";
+    private static final String PURPOSE_CREATE = "create";
+    private static final String PURPOSE_GET = "get";
+
     private final KeyService keyService = new KeyService();
     private final HouseholdJoinService householdJoinService = HouseholdJoinService.fromEnvironment();
+    private final DeviceUnlockService deviceUnlockService = DeviceUnlockService.fromEnvironment();
 
     @GET
     @Path("setup")
@@ -294,6 +311,127 @@ public class KeyResource {
         });
     }
 
+    @GET
+    @Path("devices")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response listDevices(@Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                List<Map<String, Object>> devices = new ArrayList<>();
+                for (DeviceUnlockService.DeviceView view : deviceUnlockService.list(user)) {
+                    devices.add(deviceJson(view));
+                }
+                return Response.ok(Map.of("devices", devices)).build();
+            } catch (DeviceUnlockException exception) {
+                return deviceError(exception);
+            }
+        });
+    }
+
+    @POST
+    @Path("devices/attestation-options")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response attestationOptions(@Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                DeviceUnlockService.IssuedOptions issued = deviceUnlockService.attestationOptions(user);
+                storeChallenge(request, issued.challenge(), PURPOSE_CREATE);
+                return Response.ok(Map.of("publicKey", issued.publicKey())).build();
+            } catch (DeviceUnlockException exception) {
+                return deviceError(exception);
+            }
+        });
+    }
+
+    @POST
+    @Path("devices")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response registerDevice(DeviceRegistrationRequest body, @Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                requireChallenge(request, PURPOSE_CREATE, body == null ? null : body.clientData);
+                DeviceWrapPayload payload = new DeviceWrapPayload(
+                        body == null ? null : body.wrapAlgorithm,
+                        body == null ? null : body.wrappedDek,
+                        body == null ? null : body.credentialId,
+                        body == null ? null : body.displayName);
+                DeviceUnlockService.DeviceView view = deviceUnlockService.register(user, payload, Instant.now());
+                clearChallenge(request);
+                return Response.ok(deviceJson(view)).build();
+            } catch (DeviceUnlockException exception) {
+                return deviceError(exception);
+            }
+        });
+    }
+
+    @POST
+    @Path("devices/assertion-options")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response assertionOptions(@Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                DeviceUnlockService.IssuedOptions issued = deviceUnlockService.assertionOptions(user);
+                storeChallenge(request, issued.challenge(), PURPOSE_GET);
+                return Response.ok(Map.of("publicKey", issued.publicKey())).build();
+            } catch (DeviceUnlockException exception) {
+                return deviceError(exception);
+            }
+        });
+    }
+
+    @POST
+    @Path("devices/unlock")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response unlockDevice(DeviceUnlockRequest body, @Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                requireChallenge(request, PURPOSE_GET, body == null ? null : body.clientData);
+                DeviceUnlockService.UnlockPayload unlocked =
+                        deviceUnlockService.unlock(user, body == null ? null : body.credentialId, Instant.now());
+                clearChallenge(request);
+                return Response.ok(Map.of(
+                        "wrappedDek", unlocked.wrappedDek(),
+                        "wrapAlgorithm", unlocked.wrapAlgorithm(),
+                        "prfEvalFirst", unlocked.prfEvalFirst())).build();
+            } catch (DeviceUnlockException exception) {
+                return deviceError(exception);
+            }
+        });
+    }
+
+    @PUT
+    @Path("devices/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response renameDevice(
+            @PathParam("id") UUID deviceId, DeviceRenameRequest body, @Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                DeviceUnlockService.DeviceView view = deviceUnlockService.rename(
+                        user, deviceId, body == null ? null : body.displayName);
+                return Response.ok(deviceJson(view)).build();
+            } catch (DeviceUnlockException exception) {
+                return deviceError(exception);
+            }
+        });
+    }
+
+    @DELETE
+    @Path("devices/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response removeDevice(@PathParam("id") UUID deviceId, @Context HttpServletRequest request) {
+        return withUser(request, user -> {
+            try {
+                deviceUnlockService.remove(user, deviceId);
+                return Response.ok(Map.of("removed", true)).build();
+            } catch (DeviceUnlockException exception) {
+                return deviceError(exception);
+            }
+        });
+    }
+
     private Response withUser(
             HttpServletRequest request,
             java.util.function.Function<AcruetUser, Response> action) {
@@ -488,8 +626,71 @@ public class KeyResource {
         public String recoveryWrappedDek;
     }
 
+    public static class DeviceRegistrationRequest {
+        public String credentialId;
+        public String clientData;
+        public String attestation;
+        public String wrapAlgorithm;
+        public String wrappedDek;
+        public String displayName;
+    }
+
+    public static class DeviceUnlockRequest {
+        public String credentialId;
+        public String clientData;
+        public String authenticatorData;
+        public String signature;
+    }
+
+    public static class DeviceRenameRequest {
+        public String displayName;
+    }
+
     private static String keySetupPath(AcruetUser user) {
         return HouseholdJoinService.initialKeySetupPath(user);
+    }
+
+    private static Map<String, Object> deviceJson(DeviceUnlockService.DeviceView view) {
+        Map<String, Object> json = new LinkedHashMap<>();
+        json.put("id", view.id().toString());
+        json.put("displayName", view.displayName());
+        json.put("createdAt", view.createdAt().toString());
+        json.put("lastUsedAt", view.lastUsedAt().toString());
+        return json;
+    }
+
+    private static Response deviceError(DeviceUnlockException exception) {
+        String message = exception.getMessage();
+        Response.Status status = "Device not found.".equals(message)
+                ? Response.Status.NOT_FOUND
+                : Response.Status.BAD_REQUEST;
+        return Response.status(status).entity(Map.of("error", message)).build();
+    }
+
+    private static void storeChallenge(HttpServletRequest request, byte[] challenge, String purpose) {
+        HttpSession session = request.getSession(true);
+        session.setAttribute(WEBAUTHN_CHALLENGE_ATTRIBUTE, challenge);
+        session.setAttribute(WEBAUTHN_PURPOSE_ATTRIBUTE, purpose);
+    }
+
+    private static void clearChallenge(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return;
+        }
+        session.removeAttribute(WEBAUTHN_CHALLENGE_ATTRIBUTE);
+        session.removeAttribute(WEBAUTHN_PURPOSE_ATTRIBUTE);
+    }
+
+    private static void requireChallenge(HttpServletRequest request, String purpose, String clientData) {
+        HttpSession session = request.getSession(false);
+        Object stored = session == null ? null : session.getAttribute(WEBAUTHN_CHALLENGE_ATTRIBUTE);
+        Object storedPurpose = session == null ? null : session.getAttribute(WEBAUTHN_PURPOSE_ATTRIBUTE);
+        if (!(stored instanceof byte[] challenge)
+                || !purpose.equals(storedPurpose)
+                || !WebAuthnOptions.clientDataMatchesChallenge(clientData, challenge)) {
+            throw new DeviceUnlockException("WebAuthn challenge is invalid or expired.");
+        }
     }
 
     private static String escapeAttr(String value) {

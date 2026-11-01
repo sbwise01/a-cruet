@@ -121,7 +121,7 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 - Registration/assertion option builders (origin / RP id = user hostname)
 - No UI change; passphrase unlock unchanged
 
-**Verify:** unit tests for cap (10), cascade delete, unique credential id; package succeeds.
+**Verify:** unit tests for cap (10), cascade delete, unique credential id; package succeeds. ✅ (2026-11-01)
 
 ### Release 2 — Profile roster + WebAuthn client
 
