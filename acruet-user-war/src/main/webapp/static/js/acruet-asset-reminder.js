@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
       || nav.dataset.accountLinked !== 'true'
       || nav.dataset.keySetup !== 'true'
       || window.location.pathname !== '/') {
+    settleAssetReminder();
     return;
   }
 
@@ -14,15 +15,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const today = localToday();
   const quarter = quarterId(today);
   if (!forced && (!quarter || !inLastSevenDaysOfMonth(today))) {
+    settleAssetReminder();
     return;
   }
 
   const storageKey = storageKeyFor(nav.dataset.email);
   const state = readState(storageKey);
   if (!forced && state.doneQuarter === quarter) {
+    settleAssetReminder();
     return;
   }
   if (!forced && state.notNowDate === isoDate(today)) {
+    settleAssetReminder();
     return;
   }
 
@@ -36,10 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
   notNow.addEventListener('click', () => {
     writeState(storageKey, { ...state, notNowDate: isoDate(today) });
     overlay.remove();
+    settleAssetReminder();
   });
   done.addEventListener('click', () => {
     writeState(storageKey, { ...state, doneQuarter: quarter, notNowDate: '' });
     overlay.remove();
+    settleAssetReminder();
   });
   overlay.addEventListener('click', (event) => {
     if (event.target === overlay) {
@@ -104,6 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const last = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
     const day = date.getDate();
     return day >= last - 6 && day <= last;
+  }
+
+  function settleAssetReminder() {
+    window.__acruetAssetReminderSettled = true;
+    document.dispatchEvent(new CustomEvent('acruet:asset-reminder-settled'));
   }
 
   function storageKeyFor(email) {

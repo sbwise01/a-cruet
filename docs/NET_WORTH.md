@@ -1,6 +1,6 @@
 # Net worth register
 
-**Status:** Product decisions locked (2026-11-01). Not shipped. Locked in [`PRODUCT.md`](PRODUCT.md) §11. README To Do **#3** stays open until release 3.
+**Status:** Shipped (2026-11-01). Locked in [`PRODUCT.md`](PRODUCT.md) §11. README To Do **#3** is done.
 
 This file is the decided implementation plan for a household **history of net worth**, including years the user only recorded as a yearly total.
 
@@ -134,7 +134,7 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 - Point [`PRODUCT.md`](PRODUCT.md) §11 at this file (already locked) and mark README To Do **#3** done
 - Unauthenticated landing (`MarketingContent`) and matching README: net worth is a **history you save** (including past year-end totals), not only the live Assets Net line
 
-**Verify:** empty series shows first-save copy; after save, reminder stays gone until as-of + 1 month; Not now suppressed for 7 days; `?netWorthReminder=1` still shows; quarterly dialog still wins when both are due; public `/` copy mentions saved net-worth history / year-end backfill.
+**Verify:** empty series shows first-save copy; after save, reminder stays gone until as-of + 1 month; Not now suppressed for 7 days; `?netWorthReminder=1` still shows; quarterly dialog still wins when both are due; public `/` copy mentions saved net-worth history / year-end backfill. Package succeeds. ✅ (2026-11-01; `docker build --target build`)
 
 ## Out of scope
 
@@ -143,5 +143,5 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 - Interpolating months between yearly backfills
 - Editing or deleting an observation
 - Per-user private net worth (household series only)
-- Investment performance / holdings (README To Do **#4**)
+- Investment performance / holdings (README To Do **#3**)
 - Treating the Assets Net line as this feature

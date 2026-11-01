@@ -1,6 +1,6 @@
 # A Cruet
 
-**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking and **net worth** (assets minus liabilities). Additional net-worth work remains on the README To Do.
+**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking and a household **net worth** history (live Assets Net plus saved observations, including past year-end totals).
 
 The vision is unchanged and is the footer verse: *The wise store up choice food and olive oil, but fools gulp theirs down.* (Proverbs 21:20)
 
@@ -355,7 +355,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 | Kind | Plaintext enum **`ASSET`** or **`LIABILITY`** (same class of metadata as transaction type) |
 | Sections | **Assets** and **Liabilities**. Enter liability amounts as **positive** balances owed |
 | Envelope lines | Each **active** envelope bundle’s current total appears on the assets page as a **read-only** computed line (not a snapshot row). Archived bundles omitted |
-| Current Net | Page may show Assets − Liabilities. That arithmetic is **part of this register**, not To Do #4 (Net Worth) |
+| Current Net | Page may show Assets − Liabilities. That arithmetic is **part of this register**, not the net-worth history (Section 11) |
 | Scope | **Household-wide** — all members see all items (same household DEK). **Not** nested under an envelope bundle |
 | Naming / amounts | Ciphertext (name + USD cents in the snapshot payload) |
 | Current value | Latest snapshot by user **as-of date**, then `created_at` |
@@ -385,7 +385,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 
 ### 10. Quarterly asset reminders ✅ locked (2026-11-01)
 
-Reminds household members to refresh snapshot asset and liability values. Shipped. Net-worth history is Section 11 / README To Do **#3**.
+Reminds household members to refresh snapshot asset and liability values. Shipped. Net-worth history is Section 11 (shipped).
 
 | Item | Decision |
 |------|----------|
@@ -408,7 +408,7 @@ Reminds household members to refresh snapshot asset and liability values. Shippe
 
 ### 11. Net worth register ✅ locked (2026-11-01)
 
-Household time series of **net-worth observations**. Completes current README To Do **#3**. Implementation plan: [`NET_WORTH.md`](NET_WORTH.md).
+Household time series of **net-worth observations**. Shipped. Completes former README To Do **#3**. Implementation plan: [`NET_WORTH.md`](NET_WORTH.md).
 
 The Assets page **Net** line stays the live calculator (envelope totals + latest position snapshots − liabilities). It is not a history. Past years the user only recorded as a yearly total are **manual** observations. Going forward, the user **saves current** (computed) when they choose.
 
@@ -446,7 +446,7 @@ The server **cannot** cron-sum ciphertext. No silent monthly write.
 - Application operates on both server side and client side
 - Client side consists of HTML and JavaScript delivered to a web browser which serves as the front end
 - Server side consists of REST based API resources running on the Tomcat server
-- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, and net worth (assets minus liabilities; additional net-worth work remains a later To Do)
+- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, and a household net worth history (live Assets Net plus saved observations, including past year-end totals)
 - The application will be integrated with auth.home.bradandmarsha.com for authentication of users of the application
 - The application will store data in a cloud native postgres database instance
 - The data stored by the application will be encrypted using client side encryption.  The web server will only receive data in encrypted form and store it in the database encrypted.

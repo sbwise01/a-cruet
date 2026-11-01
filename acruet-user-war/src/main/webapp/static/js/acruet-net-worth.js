@@ -75,6 +75,133 @@ window.AcruetNetWorth = (() => {
     return Number.isNaN(number) ? null : number;
   }
 
+  async function latest() {
+    const response = await fetch('/net-worth/latest');
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || 'Failed to load latest net worth.');
+    }
+    return {
+      snapshot: body.snapshot || null,
+      count: Number(body.count || 0),
+      limit: Number(body.limit || LIMIT),
+    };
+  }
+
+  function addCalendarMonth(isoDate) {
+    const [year, month, day] = String(isoDate).split('-').map(Number);
+    const next = new Date(year, month - 1, 1);
+    next.setMonth(next.getMonth() + 1);
+    const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    next.setDate(Math.min(day, lastDay));
+    return localIsoDate(next);
+  }
+
+  function isStale(asOfDate, todayIso = localIsoDate()) {
+    if (!asOfDate) {
+      return true;
+    }
+    return addCalendarMonth(asOfDate) <= todayIso;
+  }
+
+  function snoozeUntil(todayIso = localIsoDate()) {
+    const [year, month, day] = todayIso.split('-').map(Number);
+    const until = new Date(year, month - 1, day);
+    until.setDate(until.getDate() + 7);
+    return localIsoDate(until);
+  }
+
+  function isSnoozed(notNowUntil, todayIso = localIsoDate()) {
+    return Boolean(notNowUntil) && todayIso < notNowUntil;
+  }
+
+  async function computeLiveNet() {
+    requireUnlocked();
+    const dek = AcruetCrypto.session.getDek();
+    const [positionsBody, bundles] = await Promise.all([loadPositions(dek), loadBundles(dek)]);
+    const snapshotAssetCents = positionsBody
+      .filter((position) => position.kind === 'ASSET')
+      .reduce((sum, position) => sum + position.cents, 0);
+    const liabilityCents = positionsBody
+      .filter((position) => position.kind === 'LIABILITY')
+      .reduce((sum, position) => sum + position.cents, 0);
+    const envelopeCents = bundles.reduce((sum, bundle) => sum + bundle.totalCents, 0);
+    return {
+      netCents: envelopeCents + snapshotAssetCents - liabilityCents,
+      envelopeCents,
+      assetCents: snapshotAssetCents,
+      liabilityCents,
+    };
+  }
+
+  async function loadPositions(dek) {
+    const response = await fetch('/positions');
+    if (!response.ok) {
+      throw new Error('Failed to load snapshot items.');
+    }
+    const body = await response.json();
+    const positions = [];
+    for (const position of body.positions || []) {
+      const namePayload = await AcruetCrypto.decryptJson(dek, position.encryptedName);
+      let cents = 0;
+      if (position.latestSnapshot) {
+        const snapshot = await AcruetCrypto.decryptJson(dek, position.latestSnapshot.encryptedPayload);
+        cents = Number(snapshot.cents ?? snapshot.totalCents ?? 0);
+      }
+      positions.push({
+        kind: position.kind,
+        name: namePayload.name,
+        cents,
+      });
+    }
+    return positions;
+  }
+
+  async function loadBundles(dek) {
+    const response = await fetch('/ledger/bundles');
+    if (!response.ok) {
+      throw new Error('Failed to load envelope bundles.');
+    }
+    const body = await response.json();
+    const bundles = [];
+    for (const bundle of body.bundles || []) {
+      bundles.push({
+        id: bundle.id,
+        totalCents: await bundleTotalCents(bundle.id, dek),
+      });
+    }
+    return bundles;
+  }
+
+  async function bundleTotalCents(bundleId, dek) {
+    const query = `bundleId=${encodeURIComponent(bundleId)}`;
+    const [accountsResponse, transactionsResponse] = await Promise.all([
+      fetch(`/ledger/accounts?${query}`),
+      fetch(`/ledger/transactions?${query}`),
+    ]);
+    if (!accountsResponse.ok || !transactionsResponse.ok) {
+      throw new Error('Failed to load envelope totals.');
+    }
+    const accountsBody = await accountsResponse.json();
+    const transactionsBody = await transactionsResponse.json();
+    const activeIds = new Set();
+    for (const account of accountsBody.accounts || []) {
+      if (account.status === 'ACTIVE') {
+        activeIds.add(account.id);
+      }
+    }
+    let total = 0;
+    for (const transaction of transactionsBody.transactions || []) {
+      const payload = await AcruetCrypto.decryptJson(dek, transaction.encryptedPayload);
+      (payload.lines || []).forEach((line) => {
+        if (activeIds.has(line.accountId)) {
+          total += line.amountCents;
+        }
+      });
+    }
+    return total;
+  }
+
   async function list() {
     requireUnlocked();
     const response = await fetch('/net-worth');
@@ -142,7 +269,12 @@ window.AcruetNetWorth = (() => {
     sourceLabel,
     computedPayload,
     manualPayload,
+    latest,
     list,
     create,
+    computeLiveNet,
+    isStale,
+    snoozeUntil,
+    isSnoozed,
   };
 })();
