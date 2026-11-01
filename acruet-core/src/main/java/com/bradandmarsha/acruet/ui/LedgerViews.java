@@ -133,6 +133,36 @@ public final class LedgerViews {
                 }
                 .unlock-tile-label { font-weight: 600; text-align: center; line-height: 1.3; }
                 #inlineUnlockForm { max-width: 24rem; margin: 1.5rem auto 0; }
+                #deviceUnlockPrimary button, #offerRegisterDevice button { margin-top: 0.75rem; }
+                """;
+    }
+
+    public static String inlineUnlockFormHtml() {
+        return """
+                    <div id="inlineUnlockForm" hidden>
+                      <h2>Unlock your ledger</h2>
+                      <div id="deviceUnlockPrimary" hidden>
+                        <p class="hint">Use this device to decrypt data for this session.</p>
+                        <button type="button" id="btnDeviceUnlock">Unlock with this device</button>
+                        <p class="actions">
+                          <button type="button" id="btnUsePassphrase" class="secondary">Use passphrase instead</button>
+                        </p>
+                      </div>
+                      <div id="passphraseUnlockBlock">
+                        <p class="hint">Enter your passphrase to decrypt data for this session.</p>
+                        <label for="inlinePassphrase">Passphrase</label>
+                        <input id="inlinePassphrase" type="password" autocomplete="current-password">
+                        <button type="button" id="btnInlineUnlock">Unlock</button>
+                      </div>
+                      <div id="offerRegisterDevice" hidden>
+                        <p class="hint">Also unlock on this device next time?</p>
+                        <button type="button" id="btnOfferRegister">Add this device</button>
+                        <button type="button" id="btnOfferDecline" class="secondary">Not now</button>
+                      </div>
+                      <p id="inlineUnlockError" class="error" hidden></p>
+                      <button type="button" id="btnInlineUnlockCancel" class="secondary">Cancel</button>
+                      <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a></p>
+                    </div>
                 """;
     }
 
@@ -155,16 +185,9 @@ public final class LedgerViews {
                         <span class="unlock-tile-label">Unlock envelopes</span>
                       </button>
                     </div>
-                    <div id="inlineUnlockForm" hidden>
-                      <h2>Unlock your ledger</h2>
-                      <p class="hint">Enter your passphrase to decrypt data for this session.</p>
-                      <label for="inlinePassphrase">Passphrase</label>
-                      <input id="inlinePassphrase" type="password" autocomplete="current-password">
-                      <p id="inlineUnlockError" class="error" hidden></p>
-                      <button type="button" id="btnInlineUnlock">Unlock</button>
-                      <button type="button" id="btnInlineUnlockCancel" class="secondary">Cancel</button>
-                      <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a></p>
-                    </div>
+                    """.formatted(escapeAttr(lockImageUrl), escapeAttr(lockImageUrl))
+                + inlineUnlockFormHtml()
+                + """
                   </div>
                   <div id="ledgerBrowse">
                     <div id="ledgerError" class="error" hidden></div>
@@ -195,11 +218,7 @@ public final class LedgerViews {
                     </p>
                   </section>
                 </div>
-                """.formatted(
-                        escapeAttr(lockImageUrl),
-                        escapeAttr(lockImageUrl),
-                        actionButtonsHtml(false),
-                        actionButtonsHtml(true))
+                """.formatted(actionButtonsHtml(false), actionButtonsHtml(true))
                 + UserNav.keyPageScript("acruet-ledger.js");
     }
 

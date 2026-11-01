@@ -184,16 +184,9 @@ public final class ReportViews {
                         <span class="unlock-tile-label">Unlock reports</span>
                       </button>
                     </div>
-                    <div id="inlineUnlockForm" hidden>
-                      <h2>Unlock your ledger</h2>
-                      <p class="hint">Enter your passphrase to decrypt data for this session.</p>
-                      <label for="inlinePassphrase">Passphrase</label>
-                      <input id="inlinePassphrase" type="password" autocomplete="current-password">
-                      <p id="inlineUnlockError" class="error" hidden></p>
-                      <button type="button" id="btnInlineUnlock">Unlock</button>
-                      <button type="button" id="btnInlineUnlockCancel" class="secondary">Cancel</button>
-                      <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a></p>
-                    </div>
+                    """.formatted(escapeAttr(lockImageUrl))
+                + LedgerViews.inlineUnlockFormHtml()
+                + """
                   </div>
                   <div id="reportsBrowse">
                     <div id="reportsPageError" class="error" hidden></div>
@@ -207,7 +200,6 @@ public final class ReportViews {
                   </div>
                 </div>
                 """.formatted(
-                        escapeAttr(lockImageUrl),
                         reportsPanelHtml(transactionsImageUrl, chartImageUrl)
                                 .strip())
                 + UserNav.keyPageScript("chart.umd.min.js")

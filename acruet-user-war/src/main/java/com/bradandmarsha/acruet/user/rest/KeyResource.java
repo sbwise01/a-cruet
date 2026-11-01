@@ -472,7 +472,7 @@ public class KeyResource {
         String tokenValue = inviteToken == null ? "" : escapeAttr(inviteToken);
         return """
                 <h2>Join household encryption</h2>
-                <p class="hint">You were invited to share a household ledger. Use the <strong>invitation token</strong> from your household invitation email.</p>
+                <p class="hint">You were invited to share a household ledger. Use the <strong>invitation token</strong> from your household invitation email. Your sign-in password is not this passphrase. After setup you can optionally register this device to unlock, or to set a new passphrase if you forget the old one.</p>
                 <div id="step-token" class="wizard-step">
                   <p><strong>Step 1:</strong> Enter your invitation token.</p>
                   <label for="inviteToken">Invitation token</label>
@@ -505,7 +505,7 @@ public class KeyResource {
     private static String setupHtml() {
         return """
                 <h2>Create your encryption key</h2>
-                <p class="hint">Your passphrase never leaves this browser. Store the recovery file somewhere safe — it is required to reset a forgotten passphrase.</p>
+                <p class="hint">Your sign-in password is not your ledger passphrase. The passphrase never leaves this browser. After setup you can optionally register this device (Touch ID, Face ID, or Windows Hello). A registered device can also set a new passphrase if you forget the old one. Store the recovery file somewhere safe.</p>
                 <div id="step-passphrase" class="wizard-step">
                   <p><strong>Step 1:</strong> Choose a strong passphrase (12+ characters).</p>
                   <p class="hint">Spaces and punctuation are allowed. Your passphrase never leaves this browser.</p>
@@ -551,11 +551,25 @@ public class KeyResource {
     private static String unlockHtml() {
         return """
                 <h2>Unlock your ledger</h2>
-                <p class="hint">Enter your passphrase to decrypt data for this session (30-minute idle timeout).</p>
-                <label for="passphrase">Passphrase</label>
-                <input id="passphrase" type="password" autocomplete="current-password" required>
+                <div id="deviceUnlockPrimary" hidden>
+                  <p class="hint">Use this device to decrypt data for this session (30-minute idle timeout).</p>
+                  <button type="button" id="btnDeviceUnlock">Unlock with this device</button>
+                  <p class="actions">
+                    <button type="button" id="btnUsePassphrase" class="secondary">Use passphrase instead</button>
+                  </p>
+                </div>
+                <div id="passphraseUnlockBlock">
+                  <p class="hint">Enter your passphrase to decrypt data for this session (30-minute idle timeout).</p>
+                  <label for="passphrase">Passphrase</label>
+                  <input id="passphrase" type="password" autocomplete="current-password" required>
+                  <button type="button" id="btnUnlock">Unlock</button>
+                </div>
+                <div id="offerRegisterDevice" hidden>
+                  <p class="hint">Also unlock on this device next time?</p>
+                  <button type="button" id="btnOfferRegister">Add this device</button>
+                  <button type="button" id="btnOfferDecline" class="secondary">Not now</button>
+                </div>
                 <p id="unlockError" class="error" hidden></p>
-                <button type="button" id="btnUnlock">Unlock</button>
                 <p class="actions"><a href="/keys/forgot-passphrase">Forgot passphrase?</a> · <a href="/">Back to home</a></p>
                 """ + UserNav.keyPageScript("acruet-key-unlock.js");
     }
@@ -580,10 +594,12 @@ public class KeyResource {
 
     private static String rotateHtml() {
         return """
-                <h2>Rotate encryption key</h2>
-                <p class="hint">Re-wraps your existing data key with a new passphrase. Ledger ciphertext is unchanged. A new recovery file is downloaded afterward.</p>
-                <label for="currentPassphrase">Current passphrase</label>
-                <input id="currentPassphrase" type="password" autocomplete="current-password" required>
+                <h2>Change encryption passphrase</h2>
+                <p id="rotateHint" class="hint">Re-wraps your existing data key with a new passphrase. Ledger ciphertext is unchanged. A new recovery file is downloaded afterward. Device unlocks stay valid.</p>
+                <div id="currentPassphraseBlock">
+                  <label for="currentPassphrase">Current passphrase</label>
+                  <input id="currentPassphrase" type="password" autocomplete="current-password">
+                </div>
                 <label for="newPassphrase">New passphrase</label>
                 <input id="newPassphrase" type="password" autocomplete="new-password" minlength="12" required>
                 <label for="newPassphraseConfirm">Confirm new passphrase</label>
@@ -607,6 +623,7 @@ public class KeyResource {
         return """
                 .wizard-step { margin-top: 1rem; }
                 .notice { margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 8px; background: var(--bg-card); }
+                button.secondary { background: #475569; color: var(--text); }
                 """;
     }
 

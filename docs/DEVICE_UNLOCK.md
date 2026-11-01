@@ -1,6 +1,6 @@
 # Device unlock (WebAuthn)
 
-**Status:** Product direction chosen (2026-10-31). Not yet locked in [`PRODUCT.md`](PRODUCT.md) §3. README To Do **#4** (passphrase usability) is this work.
+**Status:** Locked in [`PRODUCT.md`](PRODUCT.md) §3 (2026-11-01). README To Do **#3** (passphrase usability) is this work.
 
 This file is the decided implementation plan for making ledger unlock usable without treating the Keycloak sign-in password as the encryption secret.
 
@@ -112,7 +112,7 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 
 ## Rollout
 
-Three releases. Verify each with `docker build --target build`. Brad owns commit/PR unless asked that turn. Do not mark README To Do **#4** done until release 3.
+Three releases. Verify each with `docker build --target build`. Brad owns commit/PR unless asked that turn. Do not mark README To Do **#3** done until release 3.
 
 ### Release 1 — Schema + API
 
@@ -134,15 +134,15 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 
 ### Release 3 — Unlock surfaces + docs
 
-- Device-primary button on `/envelopes`, `/assets`, `/reports`, `/keys/unlock` when this credential exists
-- Post-passphrase “Also unlock on this device next time”
-- **Change passphrase while unlocked** — `/keys/rotate` omits the current-passphrase field when the DEK is already in session (device or passphrase). Issue a new recovery file. `/keys/forgot-passphrase` stays as the no-device path (upload recovery file)
-- Marketing / key-setup hint: sign-in password ≠ ledger passphrase; device unlock is optional; a registered device can also reset a forgotten passphrase
-- Point [`PRODUCT.md`](PRODUCT.md) §3 at this file and lock the table above
-- Mark README To Do **#4** done
-- Leave tab-shared session and “until sign-out” idle **off** this item
+- Device-primary button on `/envelopes`, `/assets`, `/reports`, `/keys/unlock` when this credential exists ✅ (2026-11-01)
+- Post-passphrase “Also unlock on this device next time” ✅
+- **Change passphrase while unlocked** — `/keys/rotate` omits the current-passphrase field when the DEK is already in session (device or passphrase). Issue a new recovery file. `/keys/forgot-passphrase` stays as the no-device path (upload recovery file) ✅
+- Marketing / key-setup hint: sign-in password ≠ ledger passphrase; device unlock is optional; a registered device can also reset a forgotten passphrase ✅
+- Point [`PRODUCT.md`](PRODUCT.md) §3 at this file and lock the table above ✅
+- Mark README To Do **#3** done ✅
+- Leave tab-shared session and “until sign-out” idle **off** this item ✅
 
-**Verify:** registered Mac unlocks with platform prompt; passphrase fallback works; new browser asks for passphrase then can add; remove device and that browser falls back to passphrase; rotate passphrase and device unlock still works; **forget the passphrase, unlock with the Mac, set a new passphrase, iPhone still unlocks.**
+**Verify (after deploy):** registered Mac unlocks with platform prompt; passphrase fallback works; new browser asks for passphrase then can add; remove device and that browser falls back to passphrase; rotate passphrase and device unlock still works; **forget the passphrase, unlock with the Mac, set a new passphrase, iPhone still unlocks.**
 
 ## Out of scope
 

@@ -31,7 +31,7 @@ The app is built for people who want a simple, intentional way to **allocate and
 
 Your financial details — envelope names, amounts, notes, and balances — are **encrypted in your browser** before they ever reach the server. The service stores scrambled data it cannot read.
 
-You choose a **passphrase** to unlock your ledger. The app asks you to save a **recovery file** when you first set up encryption. If you lose both your passphrase and that file, **your data cannot be recovered** — not even by an administrator. That is intentional: your savings picture stays yours alone.
+You choose a **passphrase** to unlock your ledger. That is not your sign-in password. The app asks you to save a **recovery file** when you first set up encryption. After the first unlock you may optionally register this device (Touch ID, Face ID, or Windows Hello). A registered device can also set a new passphrase if you forget the old one. If you lose your passphrase, recovery file, and every registered device, **your data cannot be recovered** — not even by an administrator. That is intentional: your savings picture stays yours alone.
 
 Administrators can see **who** uses the app and **how much activity** there is (for example, how many envelopes or transactions exist), but they **never** see your actual balances or descriptions.
 
@@ -57,14 +57,14 @@ Technical requirements, architecture decisions, and rollout phases live in:
 - [`PRODUCT.md`](docs/PRODUCT.md) — locked product and engineering decisions
 - [`ROLLOUT.md`](docs/ROLLOUT.md) — phased implementation plan for wise-k8s
 - [`ASSETS.md`](docs/ASSETS.md) — snapshot assets/liabilities plan (shipped)
-- [`DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md) — WebAuthn device unlock plan (README To Do #4)
+- [`DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped; README To Do #3)
 - [`OPERATIONS.md`](docs/OPERATIONS.md) — Keycloak admin console steps (including after operator CR re-apply)
 
 ## To Do list
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
 2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
-3. Acruet passphrase usability options — plan in [`docs/DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md)
+3. ~~Acruet passphrase usability options~~ — shipped; plan in [`docs/DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md)
 4. New feature, Net Worth auto calculation — additional net worth work after #3; the assets-page Net line does not complete this item
 5. Auto reminders for updating asset and liabilities values
 6. Investment performance reports

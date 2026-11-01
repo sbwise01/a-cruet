@@ -57,7 +57,9 @@ Product and technical decisions captured during requirements clarification. Each
 | wise-home-index | **Tiles for both** hostnames — user tile **public**; admin tile **private** (visible on index only from trusted/private network per wise-home-index rules) |
 | Keycloak realm | **`wise-k8s`** @ `auth.home.bradandmarsha.com` |
 
-### 3. Envelope encryption ✅ locked (2026-07-12)
+### 3. Envelope encryption ✅ locked (2026-07-12; device unlock 2026-11-01)
+
+Device unlock decisions live in [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md). That file is locked with this section.
 
 #### Encryption scope
 
@@ -82,9 +84,10 @@ Product and technical decisions captured during requirements clarification. Each
 |------|----------|
 | KEK derivation | **Passphrase-derived** — passphrase never sent to server |
 | Recovery | **Mandatory v2 recovery file** at key creation (and after passphrase reset/rotate). File contains a random **recovery secret** (not memorized) plus recovery wrap — **file-only**, no separate recovery code |
-| Forgot passphrase | **`/keys/forgot-passphrase`** — signed-in user uploads recovery file, sets new passphrase; new recovery file issued; ledger ciphertext unchanged |
-| Key loss | **Unrecoverable** if user loses **both** passphrase **and** recovery file — admins cannot decrypt |
-| Session unlock | Passphrase unlocks KEK for a **configurable idle timeout** (implementation picks default, e.g. 30 min) |
+| Forgot passphrase | **`/keys/forgot-passphrase`** — signed-in user uploads recovery file, sets new passphrase; new recovery file issued; ledger ciphertext unchanged. An unlocked session (device or passphrase) can also set a new passphrase on `/keys/rotate` without the old passphrase |
+| Device unlock | Optional WebAuthn **platform** wrap of the same DEK (Touch ID / Face ID / Windows Hello). Not the Keycloak sign-in password. See [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md) |
+| Key loss | **Unrecoverable** if user loses **passphrase**, **recovery file**, and **every registered device** — admins cannot decrypt |
+| Session unlock | Passphrase or a registered device unlocks the DEK for a **configurable idle timeout** (implementation default 30 min) |
 | First-login gate | **Mandatory key creation** on first login — passphrase + recovery file before any ledger feature |
 | Legacy v1 users | One-time **`/keys/enroll-recovery`** after deploy (passphrase required); v1 recovery files cannot reset a forgotten passphrase |
 

@@ -277,6 +277,15 @@ const AcruetCrypto = (() => {
     getDek() {
       return session.isUnlocked() ? dek : null;
     },
+
+    async unlockFromDek(dekKey) {
+      const meResponse = await fetch('/auth/me');
+      const subject = meResponse.ok ? (await meResponse.json()).subject : null;
+      await persistSession(dekKey, subject);
+      bindActivity();
+      notifyCryptoChanged();
+      return dekKey;
+    },
   };
 
   function assertWebCrypto() {
@@ -438,6 +447,14 @@ const AcruetCrypto = (() => {
       }),
       dekKey,
     };
+  }
+
+  async function rotateDualWrappedDekFromSession(newPassphrase, emailHint) {
+    const dekKey = session.getDek();
+    if (!dekKey) {
+      throw new Error('Unlock your ledger to change the passphrase without the current one.');
+    }
+    return createDualWrappedDekFromHouseholdDek(dekKey, newPassphrase, emailHint);
   }
 
   async function resetPassphraseFromRecoveryFile(recoveryFileRaw, newPassphrase, emailHint) {
@@ -822,6 +839,123 @@ const AcruetCrypto = (() => {
     };
   }
 
+  function platformUnlockLabel() {
+    const userAgent = navigator.userAgent || '';
+    if (/iPhone|iPad/.test(userAgent)) {
+      return 'Unlock with Face ID';
+    }
+    if (/Macintosh|Mac OS X/.test(userAgent)) {
+      return 'Unlock with Touch ID';
+    }
+    if (/Windows/.test(userAgent)) {
+      return 'Unlock with Windows Hello';
+    }
+    return 'Unlock with this device';
+  }
+
+  async function getPlatformAssertion(publicKeyOptions) {
+    const decoded = decodePublicKeyOptions(publicKeyOptions);
+    let assertion;
+    try {
+      assertion = await navigator.credentials.get({ publicKey: decoded });
+    } catch (error) {
+      throw new Error(webAuthnUserMessage(
+        error,
+        'Unlock cancelled.',
+        error.message || 'Could not unlock with this device.',
+      ));
+    }
+    if (!assertion) {
+      throw new Error('Unlock cancelled.');
+    }
+    const prfBytes = prfFromCredential(assertion);
+    if (!prfBytes) {
+      throw new Error(
+        'This browser cannot derive a device wrap key. Use passphrase unlock on this device.',
+      );
+    }
+    return {
+      assertion,
+      credentialId: toBase64Url(new Uint8Array(assertion.rawId)),
+      clientData: toBase64(new Uint8Array(assertion.response.clientDataJSON)),
+      authenticatorData: toBase64(new Uint8Array(assertion.response.authenticatorData)),
+      signature: toBase64(new Uint8Array(assertion.response.signature)),
+      prfBytes,
+    };
+  }
+
+  async function currentSubject() {
+    const meResponse = await fetch('/auth/me');
+    if (!meResponse.ok) {
+      return null;
+    }
+    const me = await meResponse.json();
+    return me.subject || null;
+  }
+
+  async function registerThisDevice() {
+    const dekKey = session.getDek();
+    if (!dekKey) {
+      throw new Error('Unlock your ledger to add this device.');
+    }
+    const optionsResponse = await fetch('/keys/devices/attestation-options', { method: 'POST' });
+    if (!optionsResponse.ok) {
+      const body = await optionsResponse.json().catch(() => ({}));
+      throw new Error(body.error || 'Could not start device registration.');
+    }
+    const options = await optionsResponse.json();
+    const created = await createPlatformCredential(options.publicKey);
+    const wrappedDek = await wrapDekWithPrf(created.prfBytes, dekKey);
+    const registerResponse = await fetch('/keys/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        credentialId: created.credentialId,
+        clientData: created.clientData,
+        attestation: created.attestation,
+        wrapAlgorithm: WRAP_ALGORITHM,
+        wrappedDek,
+        displayName: defaultDeviceName(),
+      }),
+    });
+    if (!registerResponse.ok) {
+      const body = await registerResponse.json().catch(() => ({}));
+      throw new Error(body.error || 'Could not save this device.');
+    }
+    const view = await registerResponse.json();
+    rememberDevice({
+      credentialId: created.credentialId,
+      deviceId: view.id,
+      subject: await currentSubject(),
+    });
+    return view;
+  }
+
+  async function unlockWithThisDevice(publicKey) {
+    const asserted = await getPlatformAssertion(publicKey);
+    const unlockResponse = await fetch('/keys/devices/unlock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        credentialId: asserted.credentialId,
+        clientData: asserted.clientData,
+        authenticatorData: asserted.authenticatorData,
+        signature: asserted.signature,
+      }),
+    });
+    if (!unlockResponse.ok) {
+      const body = await unlockResponse.json().catch(() => ({}));
+      if (unlockResponse.status === 404) {
+        forgetDevice();
+      }
+      throw new Error(body.error || 'Could not unlock with this device.');
+    }
+    const unlocked = await unlockResponse.json();
+    const dekKey = await unwrapDekWithPrf(asserted.prfBytes, unlocked.wrappedDek);
+    await session.unlockFromDek(dekKey);
+    return dekKey;
+  }
+
   const deviceUnlock = {
     PRF_EVAL_FIRST,
     supportsDeviceUnlock,
@@ -833,6 +967,10 @@ const AcruetCrypto = (() => {
     decodePublicKeyOptions,
     prfFromCredential,
     createPlatformCredential,
+    getPlatformAssertion,
+    platformUnlockLabel,
+    registerThisDevice,
+    unlockWithThisDevice,
     wrapDekWithPrf,
     unwrapDekWithPrf,
     toBase64Url,
@@ -863,6 +1001,7 @@ const AcruetCrypto = (() => {
     joinHouseholdKeySetup,
     enrollRecoveryWrap,
     rotateDualWrappedDek,
+    rotateDualWrappedDekFromSession,
     resetPassphraseFromRecoveryFile,
     newInviteToken,
     buildHouseholdInviteWrap,
