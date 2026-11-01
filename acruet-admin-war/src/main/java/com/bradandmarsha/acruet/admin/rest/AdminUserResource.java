@@ -45,6 +45,7 @@ public class AdminUserResource {
                 ? ""
                 : "<div class=\"notice error\">" + AdminWebSupport.escape(result.warning()) + "</div>";
         return AdminWebSupport.adminShell(
+                request,
                 "Users",
                 AdminWebSupport.flashNotice(request) + warning,
                 """

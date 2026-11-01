@@ -8,6 +8,8 @@ final class PageLayout {
     static final String FOOTER_VERSE =
             "The wise store up choice food and olive oil, but fools gulp theirs down.";
     static final String FOOTER_CITATION = "Proverbs 21:20";
+    static final String HOME_INDEX_HREF = "https://home.bradandmarsha.com/";
+    static final String HOME_INDEX_LABEL = "wise-k8s home";
 
     private PageLayout() {
     }
@@ -105,10 +107,18 @@ final class PageLayout {
                   <footer class="page-footer">
                     <p class="verse">&ldquo;%s&rdquo;</p>
                     <p class="citation">&mdash; %s</p>
-                    <p class="issues-link"><a href="https://github.com/sbwise01/a-cruet/issues" target="_blank" rel="noopener noreferrer">Report issues or enhancement requests</a></p>
+                    <p class="footer-links">
+                      <a href="%s">%s</a>
+                      <span class="footer-sep" aria-hidden="true">&middot;</span>
+                      <a href="https://github.com/sbwise01/a-cruet/issues" target="_blank" rel="noopener noreferrer">Report issues or enhancement requests</a>
+                    </p>
                   </footer>
                 """
-                .formatted(escapeText(FOOTER_VERSE), escapeText(FOOTER_CITATION));
+                .formatted(
+                        escapeText(FOOTER_VERSE),
+                        escapeText(FOOTER_CITATION),
+                        escapeAttr(HOME_INDEX_HREF),
+                        escapeText(HOME_INDEX_LABEL));
     }
 
     private static String layoutCss() {
@@ -171,14 +181,17 @@ final class PageLayout {
                 .page-footer .citation {
                   margin: 0.35rem 0 0;
                 }
-                .page-footer .issues-link {
+                .page-footer .footer-links {
                   margin: 1rem 0 0;
                 }
-                .page-footer .issues-link a {
+                .page-footer .footer-links a {
                   color: var(--accent);
                 }
-                .page-footer .issues-link a:hover {
+                .page-footer .footer-links a:hover {
                   text-decoration: underline;
+                }
+                .page-footer .footer-sep {
+                  margin: 0 0.45rem;
                 }
                 """;
     }

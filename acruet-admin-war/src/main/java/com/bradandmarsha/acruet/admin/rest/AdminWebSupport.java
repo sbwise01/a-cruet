@@ -6,7 +6,6 @@ import com.bradandmarsha.acruet.ui.AdminPageLayout;
 import com.bradandmarsha.acruet.ui.PageStyles;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
-import jakarta.ws.rs.core.Context;
 
 import java.util.Optional;
 
@@ -69,10 +68,12 @@ final class AdminWebSupport {
                 .replace("\"", "&quot;");
     }
 
-    static String adminShell(String title, String notice, String body) {
-        return AdminPageLayout.render(
+    static String adminShell(HttpServletRequest request, String title, String notice, String body) {
+        return AdminPageLayout.renderAuthenticated(
                 title,
                 PageStyles.tableCss() + PageStyles.adminWideCss(),
-                notice + body + "<p><a href=\"/\">Back to dashboard</a></p>");
+                notice + body,
+                currentUser(request).orElse(null),
+                true);
     }
 }

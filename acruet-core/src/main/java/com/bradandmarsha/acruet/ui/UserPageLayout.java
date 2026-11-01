@@ -19,7 +19,7 @@ public final class UserPageLayout {
     public static final String ENVELOPE_IMAGE_PATH = "/media/envelope.png";
     public static final String ASSETS_IMAGE_PATH = "/media/assets.png";
     public static final String REPORT_GRAPHS_IMAGE_PATH = "/media/report-graphs.png";
-    public static final String TILE_DESCRIPTION = "Envelope-budgeting web application";
+    public static final String TILE_DESCRIPTION = "Personal financial management application";
 
     private UserPageLayout() {
     }
