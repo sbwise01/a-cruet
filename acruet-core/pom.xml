@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.bradandmarsha</groupId>
         <artifactId>acruet</artifactId>
-        <version>5.5.0</version>
+        <version>6.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
