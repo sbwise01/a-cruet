@@ -370,7 +370,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 |------|----------|
 | Offboard export | Client-side CSV/JSON includes all positions and snapshots |
 | Admin | Operational **`position_count`** (active) — never decrypted names or values |
-| README To Do #4 | **Stays** after this feature ships. Reserved for additional net worth requirements (dedicated view, history/charts, other rollups). Do not treat the assets-page Net line as completing #4 |
+| Assets-page Net | Live register arithmetic only. The net-worth **history** is Section 11 / [`NET_WORTH.md`](NET_WORTH.md) |
 
 #### Cross-references
 
@@ -385,7 +385,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 
 ### 10. Quarterly asset reminders ✅ locked (2026-11-01)
 
-Reminds household members to refresh snapshot asset and liability values. Completes current README To Do **#4**. Additional net-worth work remains README To Do **#3**.
+Reminds household members to refresh snapshot asset and liability values. Shipped. Net-worth history is Section 11 / README To Do **#3**.
 
 | Item | Decision |
 |------|----------|
@@ -405,6 +405,40 @@ Reminds household members to refresh snapshot asset and liability values. Comple
 |-------|---------|
 | Snapshot register | Section 9 |
 | Household visibility | Section 7 |
+
+### 11. Net worth register ✅ locked (2026-11-01)
+
+Household time series of **net-worth observations**. Completes current README To Do **#3**. Implementation plan: [`NET_WORTH.md`](NET_WORTH.md).
+
+The Assets page **Net** line stays the live calculator (envelope totals + latest position snapshots − liabilities). It is not a history. Past years the user only recorded as a yearly total are **manual** observations. Going forward, the user **saves current** (computed) when they choose.
+
+The server **cannot** cron-sum ciphertext. No silent monthly write.
+
+| Item | Decision |
+|------|----------|
+| Model | Separate append-only **net-worth register** — not a fake asset/liability on `/assets` |
+| Scope | **Household-wide** (same household DEK). Admin sees a **count** only |
+| Row | Plaintext **`as_of_date`** + encrypted payload. No edit/delete of past rows |
+| Payload | `{ netCents, source: MANUAL \| COMPUTED }`. Computed may also store `envelopeCents`, `assetCents`, `liabilityCents` |
+| Manual / backfill | User enters **date + one total**. No invented line items. Solves year-end history without per-item snapshots |
+| Save current | Client does the same math as the Assets Net line and POSTs **COMPUTED** (with breakdown). Button **next to Net** on `/assets` (unlocked). Allowed at will, including the same day |
+| Reminder | On signed-in **home** (`/`) when the latest register **`as_of_date` is ≥ 1 calendar month old**, or there are **no rows**. Primary button **saves** a computed snapshot. **Not now** snoozes **7 local days** (`localStorage`). Preview `/?netWorthReminder=1` |
+| Staleness | Latest **`as_of_date`**, not `created_at` (backfilling 31 Dec 2025 today still leaves current net unstamped) |
+| Two dialogs | Quarterly assets reminder (§10) first; after it closes, show net-worth reminder if still stale |
+| Periodic job | **None**. No opportunistic silent write on unlock |
+| Chart | Plot **stored observations only**. No interpolated monthly points between yearly backfills |
+| Cap | **600** observations per household |
+| Offboard | Client-side export includes all net-worth rows |
+| Reconstruct past | **Do not** derive old year-end totals from today’s position list |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Live Assets Net / snapshot register | Section 9 |
+| Quarterly line-item reminder | Section 10 |
+| Household DEK | Section 7 |
+| Implementation plan | [`NET_WORTH.md`](NET_WORTH.md) |
 
 ## Product requirements
 
@@ -461,9 +495,10 @@ Reminds household members to refresh snapshot asset and liability values. Comple
   - track snapshot assets and liabilities (household-wide; infrequent value updates; history of snapshots; no envelope linkage)
     - assets page shows read-only envelope-bundle totals plus snapshot assets
     - liabilities are positive amounts owed
-    - page may show current Assets − Liabilities; additional net worth work is a later To Do
+    - page may show current Assets − Liabilities (live); net-worth **history** is a separate register (Section 11)
     - limit 50 active snapshot items per household
   - quarterly reminder to update snapshot assets and liabilities (home modal on the last 7 days of Mar / Jun / Sep / Dec; Not now / Done)
+  - net worth register (household; manual historical totals; save current from live Net; sign-in reminder when latest as-of is ≥ 1 month old)
 - The application will support the following administrative workflows:
   - approve new user applications
   - assign administrators

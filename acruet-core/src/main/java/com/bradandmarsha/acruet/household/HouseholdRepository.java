@@ -146,6 +146,18 @@ public final class HouseholdRepository {
         }
     }
 
+    public void incrementNetWorthSnapshotCount(Connection connection, UUID householdId) throws SQLException {
+        String sql = """
+                UPDATE household
+                SET net_worth_snapshot_count = net_worth_snapshot_count + 1, updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, householdId);
+            statement.executeUpdate();
+        }
+    }
+
     public void decrementPositionCount(Connection connection, UUID householdId) throws SQLException {
         String sql = """
                 UPDATE household
