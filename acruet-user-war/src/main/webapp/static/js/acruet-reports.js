@@ -4,6 +4,7 @@
 window.AcruetReports = (() => {
   let api = null;
   let chartInstance = null;
+  let netWorthChartInstance = null;
   let lastTxReport = null;
 
   const els = {};
@@ -15,6 +16,7 @@ window.AcruetReports = (() => {
     els.hub = document.getElementById('reportsHub');
     els.transactionsPanel = document.getElementById('reportTransactionsPanel');
     els.chartPanel = document.getElementById('reportChartPanel');
+    els.netWorthPanel = document.getElementById('reportNetWorthPanel');
     els.error = document.getElementById('reportError');
     els.txError = document.getElementById('txReportError');
   }
@@ -32,13 +34,8 @@ window.AcruetReports = (() => {
     }
     controlsWired = true;
 
-    bindButton('btnTxReportBack', showHub);
-    bindButton('btnChartReportBack', showHub);
     bindButton('btnRenderChart', renderBalanceChart);
-
-    els.hub.querySelectorAll('.report-tile').forEach((tile) => {
-      tile.addEventListener('click', () => openReport(tile.dataset.report));
-    });
+    bindButton('btnAddHistoricalNetWorth', () => void addHistoricalNetWorth());
 
     setDefaultDates(document.getElementById('txReportFrom'), document.getElementById('txReportTo'), 'year');
     setDefaultDates(document.getElementById('chartReportFrom'), document.getElementById('chartReportTo'), 'month');
@@ -110,47 +107,17 @@ window.AcruetReports = (() => {
     document.querySelector('main.page')?.classList.toggle('page--report-chart', active);
   }
 
-  function showHub() {
-    hideError();
-    hideTxError();
-    setChartLayoutActive(false);
-    applyBundleScopeHints();
-    els.hub.hidden = false;
-    els.transactionsPanel.hidden = true;
-    els.chartPanel.hidden = true;
-    destroyChart();
-  }
-
   function applyBundleScopeHints() {
+    const allBundles = api && typeof api.isAllBundles === 'function' && api.isAllBundles();
     const name = api && typeof api.getBundleName === 'function' ? api.getBundleName() : '';
-    const text = name
-      ? `Reporting on bundle “${name}”. Switch bundles above to report on another.`
-      : 'Reporting on the selected bundle.';
+    const text = allBundles
+      ? 'Reporting on all bundles. Switch bundles above to report on one.'
+      : name
+        ? `Reporting on bundle “${name}”. Switch bundles above to report on another.`
+        : 'Reporting on the selected bundle.';
     document.querySelectorAll('.reports-bundle-hint').forEach((hint) => {
       hint.textContent = text;
     });
-  }
-
-  function openReport(kind) {
-    hideError();
-    hideTxError();
-    els.hub.hidden = true;
-    if (kind === 'transactions') {
-      populateAccountList('txReportAccounts');
-      setChartLayoutActive(false);
-      safeClearTxReport();
-      els.transactionsPanel.hidden = false;
-      els.chartPanel.hidden = true;
-      destroyChart();
-      return;
-    }
-    if (kind === 'chart') {
-      populateAccountList('chartReportAccounts');
-      els.chartPanel.hidden = false;
-      els.transactionsPanel.hidden = true;
-      setChartLayoutActive(true);
-      destroyChart();
-    }
   }
 
   function showReportsEntry() {
@@ -160,18 +127,25 @@ window.AcruetReports = (() => {
     api.beforeReportsOpen();
     els.panel.hidden = false;
     applyBundleScopeHints();
-    showHub();
+    if (els.transactionsPanel) {
+      populateAccountList('txReportAccounts');
+      setChartLayoutActive(false);
+      safeClearTxReport();
+    } else if (els.chartPanel) {
+      populateAccountList('chartReportAccounts');
+      setChartLayoutActive(true);
+      destroyChart();
+    } else if (els.netWorthPanel) {
+      setChartLayoutActive(true);
+      void renderNetWorthReport();
+    }
   }
 
   function closeAll() {
-    if (!els.panel) {
-      return;
-    }
     hideError();
     setChartLayoutActive(false);
-    els.panel.hidden = true;
-    showHub();
     destroyChart();
+    destroyNetWorthChart();
     if (api) {
       api.afterReportsClose();
     }
@@ -217,8 +191,20 @@ window.AcruetReports = (() => {
   }
 
   async function loadTransactions(from, to) {
-    const params = new URLSearchParams({ from, to });
     const bundleId = api && typeof api.getBundleId === 'function' ? api.getBundleId() : null;
+    if (bundleId) {
+      return fetchTransactions(from, to, bundleId);
+    }
+    const bundleIds = api && typeof api.getBundleIds === 'function' ? api.getBundleIds() : [];
+    if (!bundleIds.length) {
+      return fetchTransactions(from, to, null);
+    }
+    const batches = await Promise.all(bundleIds.map((id) => fetchTransactions(from, to, id)));
+    return batches.flat();
+  }
+
+  async function fetchTransactions(from, to, bundleId) {
+    const params = new URLSearchParams({ from, to });
     if (bundleId) {
       params.set('bundleId', bundleId);
     }
@@ -592,6 +578,218 @@ window.AcruetReports = (() => {
     if (chartInstance) {
       chartInstance.destroy();
       chartInstance = null;
+    }
+  }
+
+  function destroyNetWorthChart() {
+    if (netWorthChartInstance) {
+      netWorthChartInstance.destroy();
+      netWorthChartInstance = null;
+    }
+  }
+
+  async function renderNetWorthReport() {
+    hideError();
+    hideNetWorthFormError();
+    destroyNetWorthChart();
+    const meta = document.getElementById('netWorthMeta');
+    const table = document.getElementById('netWorthTable');
+    const addButton = document.getElementById('btnAddHistoricalNetWorth');
+    if (!window.AcruetNetWorth) {
+      showError('Net worth helper failed to load.');
+      return;
+    }
+    try {
+      api.requireUnlocked();
+      const result = await AcruetNetWorth.list();
+      const usable = result.snapshots.filter((snapshot) => !snapshot.decryptError);
+      if (meta) {
+        meta.textContent = `${result.count} of ${result.limit} observations`;
+      }
+      if (addButton) {
+        const atLimit = result.count >= result.limit;
+        addButton.disabled = atLimit;
+        addButton.title = atLimit ? `Net worth limit reached (${result.limit}).` : '';
+      }
+      renderNetWorthTable(result.snapshots);
+      renderNetWorthChart(usable);
+    } catch (error) {
+      if (meta) {
+        meta.textContent = '';
+      }
+      if (table) {
+        table.innerHTML = '';
+      }
+      showError(error.message || 'Failed to load net worth.');
+    }
+  }
+
+  function renderNetWorthTable(snapshots) {
+    const table = document.getElementById('netWorthTable');
+    if (!table) {
+      return;
+    }
+    if (!snapshots.length) {
+      table.innerHTML = '<p class="hint">No saved net worth yet. Save from Assets or add a historical total.</p>';
+      return;
+    }
+    const rows = snapshots
+      .slice()
+      .reverse()
+      .map((snapshot) => {
+        if (snapshot.decryptError) {
+          return `<tr><td>${safeEscapeHtml(snapshot.asOfDate)}</td><td colspan="2">Unable to decrypt</td></tr>`;
+        }
+        const title = netWorthBreakdownTitle(snapshot);
+        const titleAttr = title ? ` title="${safeEscapeHtml(title)}"` : '';
+        const netClass = snapshot.netCents < 0 ? ' class="report-amount-negative"' : '';
+        return `<tr${titleAttr}>
+          <td>${safeEscapeHtml(snapshot.asOfDate)}</td>
+          <td${netClass}>${safeEscapeHtml(AcruetNetWorth.formatCents(snapshot.netCents))}</td>
+          <td>${safeEscapeHtml(AcruetNetWorth.sourceLabel(snapshot.source))}</td>
+        </tr>`;
+      })
+      .join('');
+    table.innerHTML = `
+      <table>
+        <thead>
+          <tr><th>As of</th><th>Net</th><th>Source</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function netWorthBreakdownTitle(snapshot) {
+    if (snapshot.source !== AcruetNetWorth.SOURCE_COMPUTED) {
+      return '';
+    }
+    const parts = [];
+    if (snapshot.envelopeCents != null) {
+      parts.push(`Envelopes ${AcruetNetWorth.formatCents(snapshot.envelopeCents)}`);
+    }
+    if (snapshot.assetCents != null) {
+      parts.push(`Assets ${AcruetNetWorth.formatCents(snapshot.assetCents)}`);
+    }
+    if (snapshot.liabilityCents != null) {
+      parts.push(`Liabilities ${AcruetNetWorth.formatCents(snapshot.liabilityCents)}`);
+    }
+    return parts.join(' · ');
+  }
+
+  function renderNetWorthChart(snapshots) {
+    const canvas = document.getElementById('netWorthChart');
+    if (!canvas) {
+      return;
+    }
+    const wrap = canvas.closest('.report-chart-wrap');
+    if (!snapshots.length) {
+      if (wrap) {
+        wrap.hidden = true;
+      }
+      return;
+    }
+    if (wrap) {
+      wrap.hidden = false;
+    }
+    if (typeof Chart === 'undefined') {
+      showError('Chart library failed to load.');
+      return;
+    }
+    const labelCounts = new Map();
+    const labels = snapshots.map((snapshot) => {
+      const count = (labelCounts.get(snapshot.asOfDate) || 0) + 1;
+      labelCounts.set(snapshot.asOfDate, count);
+      return count === 1 ? snapshot.asOfDate : `${snapshot.asOfDate} (${count})`;
+    });
+    netWorthChartInstance = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Net worth',
+          data: snapshots.map((snapshot) => snapshot.netCents / 100),
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.15)',
+          fill: false,
+          tension: 0,
+          pointRadius: 4,
+          spanGaps: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#e2e8f0' } },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const snapshot = snapshots[context.dataIndex];
+                const amount = AcruetNetWorth.formatCents(snapshot.netCents);
+                const breakdown = netWorthBreakdownTitle(snapshot);
+                return breakdown ? `${amount} · ${breakdown}` : amount;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#94a3b8', maxTicksLimit: 12 },
+            grid: { color: 'rgba(148, 163, 184, 0.15)' },
+          },
+          y: {
+            ticks: {
+              color: '#94a3b8',
+              callback(value) {
+                return formatDollars(value);
+              },
+            },
+            grid: { color: 'rgba(148, 163, 184, 0.15)' },
+          },
+        },
+      },
+    });
+  }
+
+  async function addHistoricalNetWorth() {
+    hideNetWorthFormError();
+    hideError();
+    if (!window.AcruetNetWorth) {
+      showNetWorthFormError('Net worth helper failed to load.');
+      return;
+    }
+    try {
+      api.requireUnlocked();
+      const asOfDate = document.getElementById('netWorthAsOf').value;
+      const amount = document.getElementById('netWorthAmount').value;
+      if (!asOfDate) {
+        throw new Error('As-of date is required.');
+      }
+      const netCents = AcruetNetWorth.parseUsd(amount);
+      await AcruetNetWorth.create(asOfDate, AcruetNetWorth.manualPayload(netCents));
+      document.getElementById('netWorthAmount').value = '';
+      await renderNetWorthReport();
+    } catch (error) {
+      showNetWorthFormError(error.message || 'Failed to add historical total.');
+    }
+  }
+
+  function showNetWorthFormError(message) {
+    const target = document.getElementById('netWorthFormError');
+    if (!target) {
+      showError(message);
+      return;
+    }
+    target.textContent = message;
+    target.hidden = false;
+  }
+
+  function hideNetWorthFormError() {
+    const target = document.getElementById('netWorthFormError');
+    if (target) {
+      target.hidden = true;
+      target.textContent = '';
     }
   }
 

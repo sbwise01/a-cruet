@@ -6,6 +6,7 @@ import com.bradandmarsha.acruet.auth.UserSession;
 import com.bradandmarsha.acruet.household.HouseholdJoinService;
 import com.bradandmarsha.acruet.ui.LedgerViews;
 import com.bradandmarsha.acruet.ui.ReportViews;
+import com.bradandmarsha.acruet.ui.ReportViews.ReportPage;
 import com.bradandmarsha.acruet.ui.UserPageLayout;
 import com.bradandmarsha.acruet.user.AcruetUser;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +21,7 @@ import jakarta.ws.rs.core.UriBuilder;
 import java.util.Optional;
 
 /**
- * Envelope reports page.
+ * Reports hub and dedicated report pages.
  */
 @Path("reports")
 public class ReportsResource {
@@ -29,7 +30,32 @@ public class ReportsResource {
 
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Response page(@Context HttpServletRequest request) {
+    public Response hub(@Context HttpServletRequest request) {
+        return page(request, ReportPage.HUB);
+    }
+
+    @GET
+    @Path("envelope-transactions")
+    @Produces(MediaType.TEXT_HTML)
+    public Response envelopeTransactions(@Context HttpServletRequest request) {
+        return page(request, ReportPage.ENVELOPE_TRANSACTIONS);
+    }
+
+    @GET
+    @Path("envelope-balance")
+    @Produces(MediaType.TEXT_HTML)
+    public Response envelopeBalance(@Context HttpServletRequest request) {
+        return page(request, ReportPage.ENVELOPE_BALANCE);
+    }
+
+    @GET
+    @Path("net-worth")
+    @Produces(MediaType.TEXT_HTML)
+    public Response netWorth(@Context HttpServletRequest request) {
+        return page(request, ReportPage.NET_WORTH);
+    }
+
+    private Response page(HttpServletRequest request, ReportPage reportPage) {
         Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
         Optional<AcruetUser> user = UserSession.acruetUser(request);
         if (oidcUser.isEmpty() || user.isEmpty()) {
@@ -45,13 +71,15 @@ public class ReportsResource {
                 .map(ignored -> LedgerViews.offboardBannerHtml())
                 .orElse("");
         return Response.ok(UserPageLayout.renderAuthenticated(
-                "Reports",
+                reportPage.title(),
                 LedgerViews.ledgerCss() + ReportViews.reportsCss(),
                 ReportViews.reportsPageHtml(
                         banner,
                         UserPageLayout.lockImageUrl(),
+                        reportPage,
                         UserPageLayout.transactionsImageUrl(),
-                        UserPageLayout.reportGraphsImageUrl()),
+                        UserPageLayout.reportGraphsImageUrl(),
+                        UserPageLayout.assetsImageUrl()),
                 UserPageLayout.navContext(oidcUser.get(), user.get(), true))).build();
     }
 }

@@ -121,9 +121,9 @@ Three releases. Verify each with `docker build --target build`. Brad owns commit
 - Reports hub tile + chart/table + **Add historical total**
 - Offboard export includes the series
 - Admin `/users` Net worth count
-- Cache-bust
+- Cache-bust (`UserNav.STATIC_ASSET_VERSION` `20261101-10`)
 
-**Verify:** save current from `/assets` and see the point on the report; add a year-end total (e.g. 31 Dec 2010) and see it on the chart without inventing line items; live Assets Net still matches today’s calculator.
+**Verify:** save current from `/assets` and see the point on the report; add a year-end total (e.g. 31 Dec 2010) and see it on the chart without inventing line items; live Assets Net still matches today’s calculator. Package succeeds. ✅ (2026-11-01; `docker build --target build`)
 
 ### Release 3 — Sign-in reminder + docs
 

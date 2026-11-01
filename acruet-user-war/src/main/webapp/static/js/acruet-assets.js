@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     positionLimit: 50,
     formMode: null,
     editingPositionId: null,
+    liveNet: null,
   };
 
   const els = {
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     assetsList: document.getElementById('assetsList'),
     liabilitiesList: document.getElementById('liabilitiesList'),
     registerTotals: document.getElementById('registerTotals'),
+    saveNotice: document.getElementById('saveNetWorthNotice'),
     formPanel: document.getElementById('formPanel'),
     formTitle: document.getElementById('formTitle'),
     formError: document.getElementById('formError'),
@@ -77,6 +79,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btnCancelForm').addEventListener('click', closeForm);
   document.getElementById('btnSubmitForm').addEventListener('click', submitForm);
+  if (els.registerTotals) {
+    els.registerTotals.addEventListener('click', (event) => {
+      const button = event.target.closest('#btnSaveNetWorth');
+      if (!button || button.disabled) {
+        return;
+      }
+      void saveCurrentNetWorth();
+    });
+  }
 
   function syncLockState() {
     if (AcruetCrypto.session.isUnlocked()) {
@@ -88,6 +99,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     els.assetsLocked.hidden = false;
     els.assetsBrowse.hidden = true;
+    state.liveNet = null;
+    if (els.saveNotice) {
+      els.saveNotice.hidden = true;
+      els.saveNotice.textContent = '';
+      els.saveNotice.classList.remove('success');
+    }
     closeForm(false);
     hideInlineUnlockForm();
   }
@@ -298,6 +315,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindBundleLinks();
 
     const netClass = net < 0 ? ' balance-negative' : '';
+    state.liveNet = {
+      netCents: net,
+      envelopeCents: envelopeTotal,
+      assetCents: snapshotAssetTotal,
+      liabilityCents: liabilitiesTotal,
+    };
     els.registerTotals.hidden = false;
     els.registerTotals.innerHTML = `
       <div class="account-row total-row">
@@ -310,11 +333,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         <span class="row-archive"></span>
         <span class="balance">${formatCents(liabilitiesTotal)}</span>
       </div>
-      <div class="account-row total-row">
+      <div class="account-row total-row net-row">
         <span class="name">Net</span>
-        <span class="row-archive"></span>
+        <span class="row-archive">
+          <button type="button" id="btnSaveNetWorth" class="secondary">Save net worth</button>
+        </span>
         <span class="balance${netClass}">${formatCents(net)}</span>
       </div>`;
+  }
+
+  async function saveCurrentNetWorth() {
+    hideError();
+    const button = document.getElementById('btnSaveNetWorth');
+    if (!state.liveNet || !window.AcruetNetWorth) {
+      showError('Net worth is still loading.');
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Saving…';
+    }
+    try {
+      await AcruetNetWorth.create(
+        AcruetNetWorth.localIsoDate(),
+        AcruetNetWorth.computedPayload(state.liveNet),
+      );
+      showSaveNotice(`Saved net worth for ${AcruetNetWorth.localIsoDate()}.`);
+    } catch (error) {
+      showError(error.message || 'Failed to save net worth.');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Save net worth';
+      }
+    }
+  }
+
+  function showSaveNotice(message) {
+    if (!els.saveNotice) {
+      return;
+    }
+    els.saveNotice.textContent = message;
+    els.saveNotice.classList.add('success');
+    els.saveNotice.hidden = false;
   }
 
   function renderAssetRows(snapshotAssets) {

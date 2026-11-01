@@ -46,7 +46,7 @@ public final class HouseholdRepository {
     public Optional<Household> findById(Connection connection, UUID householdId) throws SQLException {
         String sql = """
                 SELECT id, ledger_account_count, transaction_count, ledger_account_limit,
-                       bundle_count, position_count, created_at, updated_at
+                       bundle_count, position_count, net_worth_snapshot_count, created_at, updated_at
                 FROM household
                 WHERE id = ?
                 """;
@@ -211,6 +211,7 @@ public final class HouseholdRepository {
                 resultSet.getInt("ledger_account_limit"),
                 resultSet.getInt("bundle_count"),
                 resultSet.getInt("position_count"),
+                resultSet.getInt("net_worth_snapshot_count"),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant());
     }

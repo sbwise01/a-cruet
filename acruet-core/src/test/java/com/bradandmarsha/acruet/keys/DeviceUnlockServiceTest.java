@@ -137,6 +137,7 @@ class DeviceUnlockServiceTest {
                 100,
                 1,
                 0,
+                0,
                 keySetupComplete,
                 now,
                 now,

@@ -32,6 +32,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btnDownloadJson').addEventListener('click', () => void downloadJson());
   document.getElementById('btnDownloadCsv').addEventListener('click', () => void downloadCsv());
   document.getElementById('btnDownloadPositionsCsv').addEventListener('click', () => void downloadPositionsCsv());
+  const netWorthCsvButton = document.getElementById('btnDownloadNetWorthCsv');
+  if (netWorthCsvButton) {
+    netWorthCsvButton.addEventListener('click', () => void downloadNetWorthCsv());
+  }
   document.getElementById('btnMarkComplete').addEventListener('click', () => void markComplete());
 
   async function unlock() {
@@ -85,7 +89,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     bundles.sort((left, right) =>
       String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
-    return { exportedAt: isoDate(new Date()), bundles, positions: await loadPositions() };
+    return {
+      exportedAt: isoDate(new Date()),
+      bundles,
+      positions: await loadPositions(),
+      netWorth: await loadNetWorth(),
+    };
   }
 
   async function loadPositions() {
@@ -126,6 +135,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     positions.sort((left, right) =>
       String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
     return positions;
+  }
+
+  async function loadNetWorth() {
+    if (!window.AcruetNetWorth) {
+      throw new Error('Net worth helper failed to load.');
+    }
+    const result = await AcruetNetWorth.list();
+    return result.snapshots.map((snapshot) => {
+      if (snapshot.decryptError) {
+        return {
+          id: snapshot.id,
+          asOfDate: snapshot.asOfDate,
+          createdAt: snapshot.createdAt,
+          decryptError: true,
+        };
+      }
+      const row = {
+        id: snapshot.id,
+        asOfDate: snapshot.asOfDate,
+        createdAt: snapshot.createdAt,
+        netCents: snapshot.netCents,
+        source: snapshot.source,
+      };
+      if (snapshot.envelopeCents != null) {
+        row.envelopeCents = snapshot.envelopeCents;
+      }
+      if (snapshot.assetCents != null) {
+        row.assetCents = snapshot.assetCents;
+      }
+      if (snapshot.liabilityCents != null) {
+        row.liabilityCents = snapshot.liabilityCents;
+      }
+      return row;
+    });
   }
 
   async function decryptBundleName(bundle) {
@@ -257,6 +300,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       triggerDownload(blob, `acruet-positions-${isoDate(new Date())}.csv`);
     } catch (error) {
       showError(els.exportError, error.message || 'Positions CSV export failed.');
+    }
+  }
+
+  async function downloadNetWorthCsv() {
+    hideError(els.exportError);
+    try {
+      requireUnlocked();
+      const data = await loadLedgerData();
+      const rows = [['As of', 'Net', 'Source', 'Envelopes', 'Assets', 'Liabilities', 'Recorded at']];
+      data.netWorth.forEach((snapshot) => {
+        if (snapshot.decryptError) {
+          rows.push([snapshot.asOfDate, '', 'Unable to decrypt', '', '', '', snapshot.createdAt || '']);
+          return;
+        }
+        rows.push([
+          snapshot.asOfDate,
+          formatCents(snapshot.netCents),
+          snapshot.source || '',
+          snapshot.envelopeCents == null ? '' : formatCents(snapshot.envelopeCents),
+          snapshot.assetCents == null ? '' : formatCents(snapshot.assetCents),
+          snapshot.liabilityCents == null ? '' : formatCents(snapshot.liabilityCents),
+          snapshot.createdAt || '',
+        ]);
+      });
+      const csv = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      triggerDownload(blob, `acruet-net-worth-${isoDate(new Date())}.csv`);
+    } catch (error) {
+      showError(els.exportError, error.message || 'Net worth CSV export failed.');
     }
   }
 

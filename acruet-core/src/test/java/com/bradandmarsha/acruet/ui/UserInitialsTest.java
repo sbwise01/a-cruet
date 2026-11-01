@@ -27,6 +27,7 @@ class UserInitialsTest {
                 100,
                 1,
                 0,
+                0,
                 true,
                 java.time.Instant.now(),
                 java.time.Instant.now(),
