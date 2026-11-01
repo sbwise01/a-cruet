@@ -335,7 +335,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
       <div class="account-row total-row net-row">
         <span class="name">Net</span>
-        <span class="row-archive">
+        <span class="row-archive net-row-actions">
+          <a href="/assets/historical-net-worth" class="secondary">Add historical total</a>
           <button type="button" id="btnSaveNetWorth" class="secondary">Save net worth</button>
         </span>
         <span class="balance${netClass}">${formatCents(net)}</span>

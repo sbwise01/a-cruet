@@ -63,11 +63,11 @@ class ReportViewsTest {
                 "/assets.png");
         assertTrue(html.contains("data-report=\"net-worth\""));
         assertTrue(html.contains("id=\"reportNetWorthPanel\""));
-        assertTrue(html.contains("Add historical total"));
         assertTrue(html.contains("acruet-net-worth.js"));
         assertTrue(html.contains("href=\"/reports\""));
         assertFalse(html.contains("id=\"bundlePanel\""));
         assertFalse(html.contains("id=\"bundleSelect\""));
+        assertFalse(html.contains("Add historical total"));
         assertFalse(html.contains("Save net worth"));
     }
 }

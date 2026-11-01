@@ -65,10 +65,17 @@ public final class AssetViews {
                 #registerTotals .account-row.net-row {
                   grid-template-columns: minmax(0, 1fr) auto 7.75rem;
                 }
-                #btnSaveNetWorth {
+                #registerTotals .net-row-actions {
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 0.4rem;
+                  justify-content: center;
+                }
+                #registerTotals .net-row-actions .secondary {
                   margin: 0;
                   padding: 0.25rem 0.65rem;
                   font-size: 0.85rem;
+                  text-decoration: none;
                 }
                 #btnSaveNetWorth:disabled {
                   opacity: 0.45;
@@ -78,8 +85,15 @@ public final class AssetViews {
                 #saveNetWorthNotice {
                   margin: 0.5rem 0 0;
                 }
-                #saveNetWorthNotice.success {
+                #saveNetWorthNotice.success,
+                #historicalNotice.success {
                   color: #34d399;
+                }
+                a.secondary {
+                  display: inline-block;
+                  background: #475569;
+                  color: var(--text);
+                  text-decoration: none;
                 }
                 .ledger-actions button:disabled {
                   opacity: 0.45;
@@ -135,6 +149,42 @@ public final class AssetViews {
                 """
                 + UserNav.keyPageScript("acruet-net-worth.js")
                 + UserNav.keyPageScript("acruet-assets.js");
+    }
+
+    public static String historicalNetWorthHtml(String bannerHtml, String lockImageUrl) {
+        return (bannerHtml == null ? "" : bannerHtml)
+                + """
+                <div id="historicalNetWorthRoot">
+                  <div id="historicalLocked" hidden>
+                    <div class="unlock-tile-wrap">
+                      <button type="button" id="unlockTile" class="unlock-tile">
+                        <img src="%s" alt="Locked">
+                        <span class="unlock-tile-label">Unlock assets</span>
+                      </button>
+                    </div>
+                    """.formatted(escapeAttr(lockImageUrl))
+                + LedgerViews.inlineUnlockFormHtml()
+                + """
+                  </div>
+                  <div id="historicalBrowse">
+                    <h2>Add historical total</h2>
+                    <p class="hint">Use this for year-end totals you already have. One date and one amount — no line items are invented.</p>
+                    <p id="historicalError" class="error" hidden></p>
+                    <p id="historicalNotice" class="hint" hidden></p>
+                    <label for="netWorthAsOf">As of</label>
+                    <input id="netWorthAsOf" type="date" required>
+                    <label for="netWorthAmount">Net worth</label>
+                    <input id="netWorthAmount" type="text" inputmode="decimal" required placeholder="0.00">
+                    <p>
+                      <button type="button" id="btnAddHistoricalNetWorth">Add historical total</button>
+                      <a href="/assets" class="secondary">Back to assets</a>
+                    </p>
+                    <p class="hint"><a href="/reports/net-worth">View net worth report</a></p>
+                  </div>
+                </div>
+                """
+                + UserNav.keyPageScript("acruet-net-worth.js")
+                + UserNav.keyPageScript("acruet-net-worth-historical.js");
     }
 
     private static String escapeAttr(String value) {

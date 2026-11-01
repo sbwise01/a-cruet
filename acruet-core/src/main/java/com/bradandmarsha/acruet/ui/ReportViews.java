@@ -143,9 +143,6 @@ public final class ReportViews {
                   filter: none;
                 }
                 .report-amount-negative { color: #fbbf24; }
-                #netWorthHistorical { margin-top: 1.75rem; }
-                #netWorthHistorical h3 { margin-bottom: 0.35rem; }
-                #netWorthFormError { margin-top: 0.75rem; }
                 """;
     }
 
@@ -303,18 +300,6 @@ public final class ReportViews {
                       <canvas id="netWorthChart"></canvas>
                     </div>
                     <div id="netWorthTable" class="report-table-wrap"></div>
-                    <section id="netWorthHistorical">
-                      <h3>Add historical total</h3>
-                      <p class="hint">Use this for year-end totals you already have. One date and one amount — no line items are invented.</p>
-                      <label for="netWorthAsOf">As of</label>
-                      <input id="netWorthAsOf" type="date" required>
-                      <label for="netWorthAmount">Net worth</label>
-                      <input id="netWorthAmount" type="text" inputmode="decimal" required placeholder="0.00">
-                      <p>
-                        <button type="button" id="btnAddHistoricalNetWorth">Add historical total</button>
-                      </p>
-                      <p id="netWorthFormError" class="error" hidden></p>
-                    </section>
                     <p class="report-panel-actions">
                       <a href="/reports" class="secondary">Back to reports</a>
                     </p>

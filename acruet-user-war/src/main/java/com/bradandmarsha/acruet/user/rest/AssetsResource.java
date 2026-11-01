@@ -18,6 +18,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 /**
  * Snapshot assets and liabilities page.
@@ -30,6 +31,20 @@ public class AssetsResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public Response page(@Context HttpServletRequest request) {
+        return render(request, "Assets", AssetViews::assetsMainHtml);
+    }
+
+    @GET
+    @Path("historical-net-worth")
+    @Produces(MediaType.TEXT_HTML)
+    public Response historicalNetWorth(@Context HttpServletRequest request) {
+        return render(request, "Add historical total", AssetViews::historicalNetWorthHtml);
+    }
+
+    private Response render(
+            HttpServletRequest request,
+            String title,
+            BiFunction<String, String, String> body) {
         Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
         Optional<AcruetUser> user = UserSession.acruetUser(request);
         if (oidcUser.isEmpty() || user.isEmpty()) {
@@ -45,9 +60,9 @@ public class AssetsResource {
                 .map(ignored -> LedgerViews.offboardBannerHtml())
                 .orElse("");
         return Response.ok(UserPageLayout.renderAuthenticated(
-                "Assets",
+                title,
                 AssetViews.assetsCss(),
-                AssetViews.assetsMainHtml(banner, UserPageLayout.lockImageUrl()),
+                body.apply(banner, UserPageLayout.lockImageUrl()),
                 UserPageLayout.navContext(oidcUser.get(), user.get(), true))).build();
     }
 }
