@@ -133,7 +133,7 @@ public class ProfileResource {
                   <ul id="deviceList" class="device-list"></ul>
                   <p id="deviceEmpty" class="hint" hidden>No devices registered yet.</p>
                   <p id="deviceLockedHint" class="hint" hidden>Unlock your ledger to add this device.</p>
-                  <p id="deviceUnsupportedHint" class="hint" hidden>This browser cannot register a device unlock. Use your passphrase here.</p>
+                  <p id="deviceUnsupportedHint" class="hint" hidden>This browser has no WebAuthn API. Use your passphrase here.</p>
                   <p id="deviceError" class="error" hidden></p>
                   <p id="deviceSuccess" class="notice success" hidden></p>
                   <p class="actions">

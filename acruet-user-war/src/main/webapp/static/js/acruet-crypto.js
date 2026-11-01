@@ -667,30 +667,57 @@ const AcruetCrypto = (() => {
   }
 
   async function supportsDeviceUnlock() {
-    if (!(await platformAuthenticatorAvailable())) {
+    if (!window.PublicKeyCredential
+        || !navigator.credentials
+        || typeof navigator.credentials.create !== 'function') {
       return false;
     }
-    return (await prfExtensionSupported()) !== false;
+    // iOS 26: isUVPAA() is false unless a third-party passkey provider is on.
+    // That hid Add on Safari when Authenticator was off, which is the only
+    // path that can reach Apple Face ID. Offer Add whenever WebAuthn create
+    // exists; create() + PRF results are the real gate.
+    return true;
+  }
+
+  function defaultBrowserName() {
+    const userAgent = navigator.userAgent || '';
+    if (/Edg\//.test(userAgent) || /EdgiOS/.test(userAgent)) {
+      return 'Edge';
+    }
+    if (/OPR\/|Opera/.test(userAgent)) {
+      return 'Opera';
+    }
+    if (/Firefox|FxiOS/.test(userAgent)) {
+      return 'Firefox';
+    }
+    if (/CriOS/.test(userAgent) || (/Chrome|Chromium/.test(userAgent) && !/Edg/.test(userAgent))) {
+      return 'Chrome';
+    }
+    if (/Safari/.test(userAgent) && !/Chrome|Chromium|CriOS|Android/.test(userAgent)) {
+      return 'Safari';
+    }
+    return '';
   }
 
   function defaultDeviceName() {
     const userAgent = navigator.userAgent || '';
+    let platform = 'This device';
     if (/iPhone/.test(userAgent)) {
-      return 'iPhone';
+      platform = 'iPhone';
+    } else if (/iPad/.test(userAgent)) {
+      platform = 'iPad';
+    } else if (/Macintosh|Mac OS X/.test(userAgent)) {
+      platform = 'Mac';
+    } else if (/Android/.test(userAgent)) {
+      platform = 'Android';
+    } else if (/Windows/.test(userAgent)) {
+      platform = 'Windows PC';
     }
-    if (/iPad/.test(userAgent)) {
-      return 'iPad';
+    const browser = defaultBrowserName();
+    if (!browser || platform === 'This device') {
+      return browser || platform;
     }
-    if (/Macintosh|Mac OS X/.test(userAgent)) {
-      return 'Mac';
-    }
-    if (/Android/.test(userAgent)) {
-      return 'Android';
-    }
-    if (/Windows/.test(userAgent)) {
-      return 'Windows PC';
-    }
-    return 'This device';
+    return platform + ' ' + browser;
   }
 
   function storedDevice() {
