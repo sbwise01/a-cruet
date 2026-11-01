@@ -85,6 +85,20 @@ class DeviceUnlockServiceTest {
         assertEquals("acruet.home.bradandmarsha.com", rp.get("id"));
     }
 
+    @Test
+    void attestationOptionsIncludePrfEval() {
+        DeviceUnlockService service = service(new InMemoryUnlockDeviceStore());
+        DeviceUnlockService.IssuedOptions options = service.attestationOptions(sampleUser(true));
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> extensions =
+                (java.util.Map<String, Object>) options.publicKey().get("extensions");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> prf = (java.util.Map<String, Object>) extensions.get("prf");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> eval = (java.util.Map<String, Object>) prf.get("eval");
+        assertEquals(WebAuthnOptions.encode(WebAuthnSettings.PRF_EVAL_FIRST), eval.get("first"));
+    }
+
     private static DeviceUnlockService service(InMemoryUnlockDeviceStore store) {
         return new DeviceUnlockService(
                 store, WebAuthnSettings.fromBaseUrl("https://acruet.home.bradandmarsha.com"));

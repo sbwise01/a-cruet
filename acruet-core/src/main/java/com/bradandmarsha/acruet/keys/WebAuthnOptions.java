@@ -59,7 +59,7 @@ public final class WebAuthnOptions {
         options.put("timeout", TIMEOUT_MS);
         options.put("authenticatorSelection", authenticatorSelection);
         options.put("attestation", "none");
-        options.put("extensions", Map.of("prf", Map.of()));
+        options.put("extensions", prfExtensions());
         return options;
     }
 
@@ -72,16 +72,13 @@ public final class WebAuthnOptions {
             descriptor.put("id", encode(device.credentialId()));
             allowCredentials.add(descriptor);
         }
-        Map<String, Object> prfEval = new LinkedHashMap<>();
-        prfEval.put("first", encode(WebAuthnSettings.PRF_EVAL_FIRST));
-
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("challenge", encode(challenge));
         options.put("timeout", TIMEOUT_MS);
         options.put("rpId", settings.rpId());
         options.put("allowCredentials", allowCredentials);
         options.put("userVerification", "required");
-        options.put("extensions", Map.of("prf", Map.of("eval", prfEval)));
+        options.put("extensions", prfExtensions());
         return options;
     }
 
@@ -93,6 +90,12 @@ public final class WebAuthnOptions {
         String json = new String(clientData, java.nio.charset.StandardCharsets.UTF_8);
         String encoded = encode(expectedChallenge);
         return json.contains("\"challenge\":\"" + encoded + "\"");
+    }
+
+    private static Map<String, Object> prfExtensions() {
+        Map<String, Object> prfEval = new LinkedHashMap<>();
+        prfEval.put("first", encode(WebAuthnSettings.PRF_EVAL_FIRST));
+        return Map.of("prf", Map.of("eval", prfEval));
     }
 
     private static Map<String, Object> algParam(int alg) {

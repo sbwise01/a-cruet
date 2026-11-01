@@ -1,6 +1,7 @@
 /**
  * Client-side envelope encryption primitives (Phase 7 + file-only recovery, Phase 7.1).
- * Passphrase-derived KEK and recovery-secret wrap never send secrets to the server.
+ * Passphrase-derived KEK, recovery-secret wrap, and WebAuthn PRF device wrap never send
+ * secrets to the server.
  */
 const AcruetCrypto = (() => {
   const KDF_ALGORITHM = 'PBKDF2';
@@ -15,6 +16,8 @@ const AcruetCrypto = (() => {
   const STORAGE_DEK_KEY = 'acruet.session.dek';
   const STORAGE_EXPIRY_KEY = 'acruet.session.expiry';
   const STORAGE_SUBJECT_KEY = 'acruet.session.subject';
+  const STORAGE_DEVICE_KEY = 'acruet.unlock.device';
+  const PRF_EVAL_FIRST = new TextEncoder().encode('acruet-device-wrap-v1');
 
   let dek = null;
   let expiryMs = null;
@@ -534,6 +537,282 @@ const AcruetCrypto = (() => {
     return unwrapDek(inviteKey, fromBase64(wrappedDekBase64));
   }
 
+  function toBase64Url(bytes) {
+    return toBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function fromBase64Url(value) {
+    const normalized = String(value).replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    return fromBase64(padded);
+  }
+
+  function fromBase64Flexible(value) {
+    if (!value) {
+      throw new Error('Missing encoded value.');
+    }
+    return fromBase64Url(value);
+  }
+
+  async function importPrfWrapKey(prfBytes) {
+    let keyBytes = prfBytes instanceof Uint8Array ? prfBytes : new Uint8Array(prfBytes);
+    if (keyBytes.byteLength !== 16 && keyBytes.byteLength !== 24 && keyBytes.byteLength !== 32) {
+      keyBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', keyBytes));
+    }
+    return crypto.subtle.importKey(
+      'raw',
+      keyBytes,
+      { name: WRAP_ALGORITHM },
+      false,
+      ['wrapKey', 'unwrapKey'],
+    );
+  }
+
+  async function wrapDekWithPrf(prfBytes, dekKey) {
+    assertWebCrypto();
+    const kek = await importPrfWrapKey(prfBytes);
+    const wrapped = await wrapDek(kek, dekKey);
+    return toBase64(new Uint8Array(wrapped));
+  }
+
+  async function unwrapDekWithPrf(prfBytes, wrappedDekBase64) {
+    assertWebCrypto();
+    const kek = await importPrfWrapKey(prfBytes);
+    return unwrapDek(kek, fromBase64Flexible(wrappedDekBase64));
+  }
+
+  function decodeBufferField(value) {
+    if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+      return value;
+    }
+    return fromBase64Url(value);
+  }
+
+  function decodePublicKeyOptions(publicKey) {
+    const decoded = { ...publicKey };
+    decoded.challenge = decodeBufferField(publicKey.challenge);
+    if (publicKey.user && publicKey.user.id) {
+      decoded.user = { ...publicKey.user, id: decodeBufferField(publicKey.user.id) };
+    }
+    if (Array.isArray(publicKey.excludeCredentials)) {
+      decoded.excludeCredentials = publicKey.excludeCredentials.map((credential) => ({
+        ...credential,
+        id: decodeBufferField(credential.id),
+      }));
+    }
+    if (Array.isArray(publicKey.allowCredentials)) {
+      decoded.allowCredentials = publicKey.allowCredentials.map((credential) => ({
+        ...credential,
+        id: decodeBufferField(credential.id),
+      }));
+    }
+    const first = publicKey.extensions && publicKey.extensions.prf
+      && publicKey.extensions.prf.eval && publicKey.extensions.prf.eval.first;
+    decoded.extensions = {
+      ...(publicKey.extensions || {}),
+      prf: {
+        eval: {
+          first: first ? decodeBufferField(first) : PRF_EVAL_FIRST.slice(),
+        },
+      },
+    };
+    return decoded;
+  }
+
+  function prfFromCredential(credential) {
+    if (!credential || typeof credential.getClientExtensionResults !== 'function') {
+      return null;
+    }
+    const results = credential.getClientExtensionResults();
+    const first = results && results.prf && results.prf.results && results.prf.results.first;
+    if (!first) {
+      return null;
+    }
+    return first instanceof Uint8Array ? first : new Uint8Array(first);
+  }
+
+  async function platformAuthenticatorAvailable() {
+    if (!window.PublicKeyCredential
+        || typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') {
+      return false;
+    }
+    try {
+      return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  }
+
+  async function prfExtensionSupported() {
+    if (typeof PublicKeyCredential.getClientCapabilities !== 'function') {
+      return null;
+    }
+    try {
+      const capabilities = await PublicKeyCredential.getClientCapabilities();
+      if (!capabilities || typeof capabilities !== 'object') {
+        return null;
+      }
+      if (Object.prototype.hasOwnProperty.call(capabilities, 'extension:prf')) {
+        return Boolean(capabilities['extension:prf']);
+      }
+      if (capabilities.extensions && Object.prototype.hasOwnProperty.call(capabilities.extensions, 'prf')) {
+        return Boolean(capabilities.extensions.prf);
+      }
+      return null;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  async function supportsDeviceUnlock() {
+    if (!(await platformAuthenticatorAvailable())) {
+      return false;
+    }
+    return (await prfExtensionSupported()) !== false;
+  }
+
+  function defaultDeviceName() {
+    const userAgent = navigator.userAgent || '';
+    if (/iPhone/.test(userAgent)) {
+      return 'iPhone';
+    }
+    if (/iPad/.test(userAgent)) {
+      return 'iPad';
+    }
+    if (/Macintosh|Mac OS X/.test(userAgent)) {
+      return 'Mac';
+    }
+    if (/Android/.test(userAgent)) {
+      return 'Android';
+    }
+    if (/Windows/.test(userAgent)) {
+      return 'Windows PC';
+    }
+    return 'This device';
+  }
+
+  function storedDevice() {
+    try {
+      const raw = localStorage.getItem(STORAGE_DEVICE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.deviceId || !parsed.credentialId) {
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function rememberDevice({ credentialId, deviceId, subject }) {
+    localStorage.setItem(STORAGE_DEVICE_KEY, JSON.stringify({
+      credentialId,
+      deviceId,
+      subject: subject || null,
+    }));
+  }
+
+  function forgetDevice(deviceId) {
+    const stored = storedDevice();
+    if (!stored || !deviceId || stored.deviceId === deviceId) {
+      localStorage.removeItem(STORAGE_DEVICE_KEY);
+    }
+  }
+
+  function thisDeviceIsRegistered(devices, subject) {
+    const stored = storedDevice();
+    if (!stored) {
+      return false;
+    }
+    if (subject && stored.subject && stored.subject !== subject) {
+      localStorage.removeItem(STORAGE_DEVICE_KEY);
+      return false;
+    }
+    return (devices || []).some((device) => device.id === stored.deviceId);
+  }
+
+  async function evaluatePrfLocally(rawId) {
+    try {
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rpId: window.location.hostname,
+          allowCredentials: [{ type: 'public-key', id: rawId }],
+          userVerification: 'required',
+          timeout: 120000,
+          extensions: { prf: { eval: { first: PRF_EVAL_FIRST.slice() } } },
+        },
+      });
+      return prfFromCredential(assertion);
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  function webAuthnUserMessage(error, cancelledMessage, failedMessage) {
+    if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
+      return cancelledMessage;
+    }
+    return (error && error.message) || failedMessage;
+  }
+
+  async function createPlatformCredential(publicKeyOptions) {
+    const decoded = decodePublicKeyOptions(publicKeyOptions);
+    let credential;
+    try {
+      credential = await navigator.credentials.create({ publicKey: decoded });
+    } catch (error) {
+      throw new Error(webAuthnUserMessage(
+        error,
+        'Registration cancelled.',
+        error.message || 'Could not register this device.',
+      ));
+    }
+    if (!credential) {
+      throw new Error('Registration cancelled.');
+    }
+    let prfBytes = prfFromCredential(credential);
+    if (!prfBytes) {
+      prfBytes = await evaluatePrfLocally(credential.rawId);
+    }
+    if (!prfBytes) {
+      throw new Error(
+        'This browser cannot derive a device wrap key. Use passphrase unlock on this device.',
+      );
+    }
+    return {
+      credential,
+      credentialId: toBase64Url(new Uint8Array(credential.rawId)),
+      clientData: toBase64(new Uint8Array(credential.response.clientDataJSON)),
+      attestation: toBase64(new Uint8Array(credential.response.attestationObject)),
+      prfBytes,
+    };
+  }
+
+  const deviceUnlock = {
+    PRF_EVAL_FIRST,
+    supportsDeviceUnlock,
+    defaultDeviceName,
+    storedDevice,
+    rememberDevice,
+    forgetDevice,
+    thisDeviceIsRegistered,
+    decodePublicKeyOptions,
+    prfFromCredential,
+    createPlatformCredential,
+    wrapDekWithPrf,
+    unwrapDekWithPrf,
+    toBase64Url,
+    fromBase64Url,
+    fromBase64Flexible,
+  };
+
   return {
     KDF_ALGORITHM,
     KDF_HASH,
@@ -564,5 +843,6 @@ const AcruetCrypto = (() => {
     encryptJson,
     decryptJson,
     session,
+    deviceUnlock,
   };
 })();
