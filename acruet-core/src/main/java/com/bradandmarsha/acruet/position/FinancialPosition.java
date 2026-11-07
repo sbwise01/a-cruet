@@ -12,6 +12,7 @@ public record FinancialPosition(
         PositionKind kind,
         PositionStatus status,
         UUID groupId,
+        boolean investment,
         byte[] encryptedName,
         Instant createdAt,
         Instant updatedAt,

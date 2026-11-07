@@ -79,6 +79,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.AcruetValueOverTime && window.AcruetValueOverTime.onKeyLocked) {
       window.AcruetValueOverTime.onKeyLocked();
     }
+    if (window.AcruetInvestmentPerformance && window.AcruetInvestmentPerformance.onKeyLocked) {
+      window.AcruetInvestmentPerformance.onKeyLocked();
+    }
+    if (window.AcruetInvestmentGain && window.AcruetInvestmentGain.onKeyLocked) {
+      window.AcruetInvestmentGain.onKeyLocked();
+    }
+    if (window.AcruetNetWorthProject && window.AcruetNetWorthProject.onKeyLocked) {
+      window.AcruetNetWorthProject.onKeyLocked();
+    }
   }
 
   function showInlineUnlockForm() {
@@ -150,6 +159,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (reportKind === 'value-over-time') {
         if (window.AcruetValueOverTime) {
           window.AcruetValueOverTime.show();
+        }
+        return;
+      }
+      if (reportKind === 'investment-performance') {
+        if (window.AcruetInvestmentPerformance) {
+          window.AcruetInvestmentPerformance.show();
+        }
+        return;
+      }
+      if (reportKind === 'investment-gain') {
+        if (window.AcruetInvestmentGain) {
+          window.AcruetInvestmentGain.show();
         }
         return;
       }

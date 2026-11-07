@@ -67,6 +67,18 @@ public final class PositionService {
             LocalDate asOfDate,
             String encryptedPayloadBase64,
             UUID groupId) {
+        return createPosition(user, kind, encryptedNameBase64, asOfDate, encryptedPayloadBase64, groupId, false);
+    }
+
+    public FinancialPosition createPosition(
+            AcruetUser user,
+            PositionKind kind,
+            String encryptedNameBase64,
+            LocalDate asOfDate,
+            String encryptedPayloadBase64,
+            UUID groupId,
+            boolean investment) {
+        requireInvestmentAllowed(kind, investment);
         validateEncryptedBlob(encryptedNameBase64);
         validateEncryptedBlob(encryptedPayloadBase64);
         requireAsOfDate(asOfDate);
@@ -85,6 +97,7 @@ public final class PositionService {
                         user.householdId(),
                         kind,
                         groupId,
+                        investment,
                         EncryptedBlob.decode(encryptedNameBase64));
                 positionRepository.insertSnapshot(
                         connection,
@@ -105,7 +118,7 @@ public final class PositionService {
     }
 
     public FinancialPosition updateName(AcruetUser user, UUID positionId, String encryptedNameBase64) {
-        return updatePosition(user, positionId, encryptedNameBase64, false, null);
+        return updatePosition(user, positionId, encryptedNameBase64, false, null, false, false);
     }
 
     public FinancialPosition updatePosition(
@@ -114,9 +127,20 @@ public final class PositionService {
             String encryptedNameBase64,
             boolean groupSpecified,
             UUID groupId) {
+        return updatePosition(user, positionId, encryptedNameBase64, groupSpecified, groupId, false, false);
+    }
+
+    public FinancialPosition updatePosition(
+            AcruetUser user,
+            UUID positionId,
+            String encryptedNameBase64,
+            boolean groupSpecified,
+            UUID groupId,
+            boolean investmentSpecified,
+            boolean investment) {
         boolean rename = encryptedNameBase64 != null && !encryptedNameBase64.isBlank();
-        if (!rename && !groupSpecified) {
-            throw new PositionException("Name or group is required.");
+        if (!rename && !groupSpecified && !investmentSpecified) {
+            throw new PositionException("Name, group, or investment flag is required.");
         }
         if (rename) {
             validateEncryptedBlob(encryptedNameBase64);
@@ -124,7 +148,7 @@ public final class PositionService {
         try {
             return Database.inTransactionReturning(connection -> {
                 checkWriteRateLimit(connection, user.id());
-                requireActive(connection, user.householdId(), positionId);
+                FinancialPosition current = requireActive(connection, user.householdId(), positionId);
                 if (rename) {
                     positionRepository.updateEncryptedName(
                             connection,
@@ -135,6 +159,11 @@ public final class PositionService {
                 if (groupSpecified) {
                     requireActiveGroup(connection, user.householdId(), groupId);
                     positionRepository.updateGroupId(connection, user.householdId(), positionId, groupId);
+                }
+                if (investmentSpecified) {
+                    requireInvestmentAllowed(current.kind(), investment);
+                    positionRepository.updateInvestment(
+                            connection, user.householdId(), positionId, investment);
                 }
                 rateLimiter.record(connection, user.id());
                 return positionRepository.findById(connection, user.householdId(), positionId)
@@ -213,6 +242,12 @@ public final class PositionService {
             throw new PositionException("Position is archived.");
         }
         return position;
+    }
+
+    static void requireInvestmentAllowed(PositionKind kind, boolean investment) {
+        if (investment && kind != PositionKind.ASSET) {
+            throw new PositionException("Liabilities cannot be tracked as investments.");
+        }
     }
 
     private static void requireAsOfDate(LocalDate asOfDate) {

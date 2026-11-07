@@ -33,6 +33,15 @@ public final class AssetViews {
                 #liabilitiesList.has-groups .account-row {
                   grid-template-columns: 1.5rem minmax(0, 1fr) 2rem 4.75rem 7.75rem;
                 }
+                #assetsList.has-investments .account-row {
+                  grid-template-columns: minmax(0, 1fr) 2rem 4.75rem 7.75rem;
+                }
+                #assetsList.has-investments.has-expand .account-row {
+                  grid-template-columns: 1.5rem minmax(0, 1fr) 2rem 4.75rem 7.75rem;
+                }
+                #assetsList.has-investments.has-groups .account-row {
+                  grid-template-columns: 1.5rem minmax(0, 1fr) 2rem 2rem 4.75rem 7.75rem;
+                }
                 #assetsList .row-archive,
                 #liabilitiesList .row-archive {
                   display: flex;
@@ -123,7 +132,8 @@ public final class AssetViews {
                 }
                 .account-row .name { min-width: 0; }
                 .row-expand,
-                .row-group {
+                .row-group,
+                .row-invest {
                   display: flex;
                   justify-content: center;
                   align-items: center;
@@ -168,9 +178,23 @@ public final class AssetViews {
                   background: #475569;
                   color: var(--text);
                 }
-                .group-btn.assigned {
+                .group-btn.assigned,
+                .invest-btn.assigned {
                   background: var(--accent);
                   color: #0f172a;
+                }
+                .invest-btn {
+                  width: 1.55rem;
+                  height: 1.55rem;
+                  padding: 0;
+                  margin: 0;
+                  border-radius: 999px;
+                  font-size: 0.7rem;
+                  font-weight: 700;
+                  letter-spacing: 0;
+                  line-height: 1;
+                  background: #475569;
+                  color: var(--text);
                 }
                 .group-btn[aria-expanded="true"] {
                   filter: brightness(1.08);

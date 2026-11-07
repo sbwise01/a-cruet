@@ -147,6 +147,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           id: rawSnapshot.id,
           asOfDate: rawSnapshot.asOfDate,
           cents: Number(payload.cents ?? payload.totalCents ?? 0),
+          flowCents: Number(payload.flowCents || 0),
           createdAt: rawSnapshot.createdAt,
         });
       }
@@ -157,6 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         name: namePayload.name,
         groupId: raw.groupId || null,
         groupName: raw.groupId ? (groupNameById.get(raw.groupId) || null) : null,
+        investment: Boolean(raw.investment),
         createdAt: raw.createdAt,
         archivedAt: raw.archivedAt || null,
         snapshots,
@@ -301,15 +303,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       requireUnlocked();
       const data = await loadLedgerData();
-      const rows = [['Kind', 'Name', 'Group', 'Status', 'As of', 'Amount', 'Recorded at']];
+      const rows = [['Kind', 'Name', 'Group', 'Investment', 'Status', 'As of', 'Amount', 'Net contribution', 'Recorded at']];
       data.positions.forEach((position) => {
         const groupName = position.groupName || '';
+        const investment = position.investment ? 'yes' : '';
         if (!position.snapshots.length) {
           rows.push([
             position.kind,
             position.name,
             groupName,
+            investment,
             position.status,
+            '',
             '',
             '',
             '',
@@ -321,9 +326,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             position.kind,
             position.name,
             groupName,
+            investment,
             position.status,
             snapshot.asOfDate,
             formatCents(snapshot.cents),
+            snapshot.flowCents ? formatCents(snapshot.flowCents) : '',
             snapshot.createdAt || '',
           ]);
         });

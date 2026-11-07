@@ -18,7 +18,7 @@ With a-cruet you can:
 - **Sign in** securely and manage your own envelopes
 - **Record deposits**, **withdrawals**, and **transfers** between envelopes
 - **Group envelopes into bundles** — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle
-- **View reports** — a spreadsheet-style history and a chart of balances over time for the bundle you have selected, plus **value over time** for a snapshot asset, group, liability, or liability group
+- **View reports** — a spreadsheet-style history and a chart of balances over time for the bundle you have selected, **value over time** for a snapshot item or group, **investment performance**, household **investment gain over time**, and an optional 5-year sketch on net worth
 - **Track other assets and liabilities** — cars, investment totals, loans, and similar items as dated snapshot values, separate from envelope transactions
 - **Group snapshot items** — optional household labels such as Investments or Autos so related assets and debts sit together. Envelope cash is its own Envelopes / Savings row
 - **Save a net worth history** — stamp today’s live Assets Net, or add past year-end totals you already wrote down. The Assets Net line is today only; the register is the history you keep
@@ -62,16 +62,14 @@ Technical requirements, architecture decisions, and rollout phases live in:
 - [`DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](docs/NET_WORTH.md) — net worth register (complete)
 - [`VALUE_OVER_TIME.md`](docs/VALUE_OVER_TIME.md) — snapshot value-over-time report (shipped)
-- [`INVESTMENTS.md`](docs/INVESTMENTS.md) — investment flag, monthly contribution, performance report (planned)
-- [`NET_WORTH_PROJECTION.md`](docs/NET_WORTH_PROJECTION.md) — net-worth piggyback stamp, quarterly chart, 5-year sketch (planned)
-- [`INVESTMENT_GAIN.md`](docs/INVESTMENT_GAIN.md) — household investment gain over time + sketch (planned)
+- [`INVESTMENTS.md`](docs/INVESTMENTS.md) — investment flag, monthly contribution, performance report (shipped)
+- [`NET_WORTH_PROJECTION.md`](docs/NET_WORTH_PROJECTION.md) — net-worth piggyback stamp, quarterly chart, 5-year sketch (shipped)
+- [`INVESTMENT_GAIN.md`](docs/INVESTMENT_GAIN.md) — household investment gain over time + sketch (shipped)
+- [`REPORTING_QUEUE.md`](docs/REPORTING_QUEUE.md) — one schema / UI / docs train for §14–§16 (shipped)
 - [`OPERATIONS.md`](docs/OPERATIONS.md) — Keycloak admin console steps (including after operator CR re-apply)
 
 ## To Do list
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
 2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
-3. **Investment performance** — opt-in snapshot assets; monthly value + net contribution; return report ([`INVESTMENTS.md`](docs/INVESTMENTS.md); PRODUCT §14)
-4. **Credit cards / revolving credit** — Decide the product stance before net-worth projection (or any dedicated card feature) ships. Paying a card in full each month is envelope spending, not a snapshot liability; carrying a balance is a liability like any other loan. The brand question is whether a-cruet **meets people where they are** (let a card stay on `/assets` and let a growing balance be part of the picture) or treats revolving debt as out of scope so the product only fits households that already live like the verse. Not locked.
-5. **Net worth piggyback + projection** — today-as-of snapshot may append COMPUTED; chart latest per quarter; optional 5-year sketch ([`NET_WORTH_PROJECTION.md`](docs/NET_WORTH_PROJECTION.md); PRODUCT §15). Do not start until asked. Piggyback may ship before investments; the dashed line waits on the investment flag.
-6. **Investment gain over time** — household cumulative dollar gain of flagged assets, then optional 5-year sketch ([`INVESTMENT_GAIN.md`](docs/INVESTMENT_GAIN.md); PRODUCT §16). After To Do **#3**.
+3. **Credit cards / revolving credit** — Decide the product stance before treating a growing card as a projected liability (or any dedicated card feature). Paying a card in full each month is envelope spending, not a snapshot liability; carrying a balance is a liability like any other loan. The brand question is whether a-cruet **meets people where they are** (let a card stay on `/assets` and let a growing balance be part of the picture) or treats revolving debt as out of scope so the product only fits households that already live like the verse. Not locked.

@@ -1,6 +1,6 @@
 # Net worth register follow-on (piggyback + projection)
 
-**Status:** Planned (2026-11-07). Locked in [`PRODUCT.md`](PRODUCT.md) §15. Do **not** start until Brad says so. Piggyback (release 1) does not wait on investments. The dashed line (release 2) waits on the investment flag and `flowCents` ([`INVESTMENTS.md`](INVESTMENTS.md) R1–R2).
+**Status:** Shipped (2026-11-07). Locked in [`PRODUCT.md`](PRODUCT.md) §15. One train with §14 and §16: [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md).
 
 This file is the decided plan for two follow-ons to the shipped net-worth register ([`NET_WORTH.md`](NET_WORTH.md) / PRODUCT §11):
 
@@ -74,14 +74,9 @@ Shared investment run-rate with [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md): same
 
 ## Releases
 
-Brad owns commit/PR unless asked that turn. `docker build --target build` each release. Do **not** close Flyway-strategy or bootstrap-admin To Dos.
+One train with investments and gain: [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md).
 
-1. **Piggyback + quarterly chart** — today-only COMPUTED append on position snapshots; `/reports/net-worth` chart = latest per quarter; table unchanged; PRODUCT §11 opportunistic-write / chart bullets amended by §15; cache-bust. **No** investment flag required.
-2. **Projection overlay** — after investments R2 (flag + `flowCents` on Update value). Toggle, gate, hint, dashed 5-year line from live Net. README / marketing only if the public landing should mention a sketch (default: wait until shipped).
-
-**Verify R1:** update a 401k with as-of today and a stale register → one new COMPUTED row; second asset the same day → another row; chart still one point for that quarter; backfill as-of last March → **no** new net-worth row; unlock does not write; package succeeds.
-
-**Verify R2:** four quarterly investment snapshots unlock the toggle; three do not (hint lists the missing quarter); house-only marks do not unlock; turning the toggle on does not POST `/net-worth`; losing quarter on a loan projects paydown to $0 then flat; package succeeds.
+No new tables. **Piggyback + quarterly chart + dashed line** ship in release 2 (UI). **Landing copy** in release 3. The dashed line still needs release 1’s `investment` column.
 
 ## Out of scope
 

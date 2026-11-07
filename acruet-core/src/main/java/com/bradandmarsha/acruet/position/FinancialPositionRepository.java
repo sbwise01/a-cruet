@@ -19,7 +19,7 @@ import java.util.UUID;
 public final class FinancialPositionRepository {
 
     private static final String POSITION_SELECT = """
-            SELECT p.id, p.household_id, p.kind, p.status, p.group_id, p.encrypted_name,
+            SELECT p.id, p.household_id, p.kind, p.status, p.group_id, p.investment, p.encrypted_name,
                    p.created_at, p.updated_at, p.archived_at,
                    s.id AS snapshot_id, s.as_of_date, s.encrypted_payload, s.created_at AS snapshot_created_at
             FROM financial_position p
@@ -38,10 +38,11 @@ public final class FinancialPositionRepository {
             UUID householdId,
             PositionKind kind,
             UUID groupId,
+            boolean investment,
             byte[] encryptedName) throws SQLException {
         String sql = """
-                INSERT INTO financial_position (id, household_id, kind, status, group_id, encrypted_name)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO financial_position (id, household_id, kind, status, group_id, investment, encrypted_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
@@ -53,7 +54,8 @@ public final class FinancialPositionRepository {
             } else {
                 statement.setObject(5, groupId);
             }
-            statement.setBytes(6, encryptedName);
+            statement.setBoolean(6, investment);
+            statement.setBytes(7, encryptedName);
             statement.executeUpdate();
         }
     }
@@ -175,6 +177,26 @@ public final class FinancialPositionRepository {
         }
     }
 
+    public void updateInvestment(
+            Connection connection,
+            UUID householdId,
+            UUID positionId,
+            boolean investment) throws SQLException {
+        String sql = """
+                UPDATE financial_position
+                SET investment = ?, updated_at = NOW()
+                WHERE id = ? AND household_id = ? AND status = 'ACTIVE'
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setBoolean(1, investment);
+            statement.setObject(2, positionId);
+            statement.setObject(3, householdId);
+            if (statement.executeUpdate() == 0) {
+                throw new SQLException("Active position not found");
+            }
+        }
+    }
+
     public void touch(Connection connection, UUID householdId, UUID positionId) throws SQLException {
         String sql = """
                 UPDATE financial_position
@@ -248,6 +270,7 @@ public final class FinancialPositionRepository {
                 PositionKind.fromDb(resultSet.getString("kind")),
                 PositionStatus.fromDb(resultSet.getString("status")),
                 resultSet.getObject("group_id", UUID.class),
+                resultSet.getBoolean("investment"),
                 resultSet.getBytes("encrypted_name"),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant(),

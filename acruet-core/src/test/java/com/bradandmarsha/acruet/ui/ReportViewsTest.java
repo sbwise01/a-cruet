@@ -16,10 +16,14 @@ class ReportViewsTest {
         assertTrue(html.contains("href=\"/reports/envelope-balance\""));
         assertTrue(html.contains("href=\"/reports/net-worth\""));
         assertTrue(html.contains("href=\"/reports/value-over-time\""));
+        assertTrue(html.contains("href=\"/reports/investment-performance\""));
+        assertTrue(html.contains("href=\"/reports/investment-gain\""));
         assertTrue(html.contains("Envelope transactions"));
         assertTrue(html.contains("Envelope balance chart"));
         assertTrue(html.contains("Net worth"));
         assertTrue(html.contains("Value over time"));
+        assertTrue(html.contains("Investment performance"));
+        assertTrue(html.contains("Investment gain over time"));
         assertFalse(html.contains("id=\"bundlePanel\""));
         assertFalse(html.contains("id=\"bundleSelect\""));
         assertFalse(html.contains("Add historical total"));
@@ -66,7 +70,9 @@ class ReportViewsTest {
                 "/assets.png");
         assertTrue(html.contains("data-report=\"net-worth\""));
         assertTrue(html.contains("id=\"reportNetWorthPanel\""));
+        assertTrue(html.contains("id=\"netWorthProjectToggle\""));
         assertTrue(html.contains("acruet-net-worth.js"));
+        assertTrue(html.contains("acruet-projection.js"));
         assertTrue(html.contains("href=\"/reports\""));
         assertFalse(html.contains("id=\"bundlePanel\""));
         assertFalse(html.contains("id=\"bundleSelect\""));
@@ -93,5 +99,33 @@ class ReportViewsTest {
         assertFalse(html.contains("id=\"bundleSelect\""));
         assertFalse(html.contains("acruet-reports.js"));
         assertFalse(html.contains("acruet-net-worth.js"));
+    }
+
+    @Test
+    void investmentPagesHaveNoBundlePicker() {
+        String performance = ReportViews.reportsPageHtml(
+                "",
+                "/lock.png",
+                ReportViews.ReportPage.INVESTMENT_PERFORMANCE,
+                "/tx.png",
+                "/chart.png",
+                "/assets.png");
+        assertTrue(performance.contains("data-report=\"investment-performance\""));
+        assertTrue(performance.contains("id=\"investmentPerformanceSelect\""));
+        assertTrue(performance.contains("acruet-investment-performance.js"));
+        assertFalse(performance.contains("id=\"bundlePanel\""));
+
+        String gain = ReportViews.reportsPageHtml(
+                "",
+                "/lock.png",
+                ReportViews.ReportPage.INVESTMENT_GAIN,
+                "/tx.png",
+                "/chart.png",
+                "/assets.png");
+        assertTrue(gain.contains("data-report=\"investment-gain\""));
+        assertTrue(gain.contains("id=\"investmentGainProjectToggle\""));
+        assertTrue(gain.contains("acruet-investment-gain.js"));
+        assertTrue(gain.contains("acruet-projection.js"));
+        assertFalse(gain.contains("id=\"bundleSelect\""));
     }
 }

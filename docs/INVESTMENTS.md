@@ -1,6 +1,6 @@
 # Investment tracking and performance
 
-**Status:** Product decisions locked (2026-11-07). [`PRODUCT.md`](PRODUCT.md) §14. Planned.
+**Status:** Shipped (2026-11-07). [`PRODUCT.md`](PRODUCT.md) §14. Same train as §15–§16: [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md).
 
 This file is the decided implementation plan. It is **not** envelope transactions and **not** holdings/tickers. It adds a monthly **net contribution** on opted-in snapshot **assets**, then a return report.
 
@@ -91,22 +91,9 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 
 ## Releases
 
-1. **Schema + API** — V16, `investment` on positions, reject on liabilities. `/assets` UI unchanged (all items remain unflagged).
-2. **`/assets` UI** — add checkbox, row **I** toggle, contribution field on Update value when flagged. Cache-bust. Value over time unchanged (still plots `cents` only).
-3. **Report + export + docs** — `/reports/investment-performance`, hub tile, offboard flag + `flowCents`, README / marketing, PRODUCT §14 shipped. Do **not** close Flyway-strategy or bootstrap-admin To Dos. Do **not** start [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md) in this release.
+One train with piggyback, net-worth sketch, and investment gain: [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md).
 
-**Verify R1:** unit tests for default false, liability rejected, PUT toggle without snapshot; `GET /positions` includes `investment`; package succeeds (`docker build --target build`).
-
-**Verify R2:** flag a 401k; Update value shows contribution; unflagged car does not; Net line still ignores flows; package succeeds.
-
-**Verify R3:** monthly value + flow produces a non-zero return when value rose beyond the contribution; a contribution-only month with flat market is ~0%; group dropdown includes Investments only if a member is flagged; offboard JSON has `investment` and `flowCents`; package succeeds.
-
-Brad owns commit/PR unless asked that turn.
-
-## Follow-on
-
-- Household **investment gain over time** (cumulative dollars of `EMV − BMV − C`, optional 5-year sketch) — [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md) / PRODUCT §16, **after** this R3
-- Net-worth 5-year sketch uses this flag and `flowCents` — [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) / PRODUCT §15
+This feature’s **schema** is release 1. Its **assets UI + performance page** are release 2. **Offboard / marketing** is release 3.
 
 ## Out of scope
 

@@ -62,6 +62,20 @@ public class ReportsResource {
         return page(request, ReportPage.VALUE_OVER_TIME);
     }
 
+    @GET
+    @Path("investment-performance")
+    @Produces(MediaType.TEXT_HTML)
+    public Response investmentPerformance(@Context HttpServletRequest request) {
+        return page(request, ReportPage.INVESTMENT_PERFORMANCE);
+    }
+
+    @GET
+    @Path("investment-gain")
+    @Produces(MediaType.TEXT_HTML)
+    public Response investmentGain(@Context HttpServletRequest request) {
+        return page(request, ReportPage.INVESTMENT_GAIN);
+    }
+
     private Response page(HttpServletRequest request, ReportPage reportPage) {
         Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
         Optional<AcruetUser> user = UserSession.acruetUser(request);

@@ -1,6 +1,6 @@
 # A Cruet
 
-**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking, a household **net worth** history (live Assets Net plus saved observations, including past year-end totals), **value over time** for snapshot items and groups, **investment performance** on opted-in assets (monthly value plus net contribution — not envelope transactions), a planned **5-year net-worth sketch**, and a planned household **investment gain over time** report (dollar gain, optional sketch).
+**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking, a household **net worth** history (live Assets Net plus saved observations, including past year-end totals, optional 5-year sketch), **value over time** for snapshot items and groups, **investment performance** on opted-in assets (monthly value plus net contribution — not envelope transactions), and a household **investment gain over time** report (dollar gain, optional sketch).
 
 The vision is unchanged and is the footer verse: *The wise store up choice food and olive oil, but fools gulp theirs down.* (Proverbs 21:20)
 
@@ -502,7 +502,7 @@ The server still never sees amounts. **Envelopes / Savings** is not on this drop
 | Investment gain over time (dollar gain) | Section 16 |
 | Implementation plan | [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md) |
 
-### 14. Investment tracking and performance ✅ locked (2026-11-07)
+### 14. Investment tracking and performance ✅ shipped (2026-11-07)
 
 Monthly **performance** for snapshot **assets** the household opts in. Not envelope transactions (too much precision). Not holdings or tickers. Implementation plan: [`INVESTMENTS.md`](INVESTMENTS.md).
 
@@ -533,7 +533,7 @@ Value over time (Section 13) stays the dollar path. This feature adds a **net co
 | Investment gain over time | Section 16 |
 | Net-worth sketch (uses `flowCents`) | Section 15 |
 
-### 15. Net worth piggyback + projection ✅ locked (2026-11-07)
+### 15. Net worth piggyback + projection ✅ shipped (2026-11-07)
 
 Follow-on to the shipped register (Section 11). Planned. Implementation: [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md).
 
@@ -550,7 +550,7 @@ Follow-on to the shipped register (Section 11). Planned. Implementation: [`NET_W
 | Horizon | 5 years, 20 quarter-end steps. Join = live Net (gap after last stamp is OK). No register write to join |
 | Overlay | Chart only, toggle off by default |
 | Gate | 4 consecutive quarters in the trailing 12 months on a moving item. Year-end net-worth totals and frozen assets do not count |
-| Sequence | Piggyback first; dashed line after investments R1–R2 |
+| Sequence | One train with §14 and §16: [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) — schema, then all UI (including piggyback and both sketches), then export/docs |
 
 #### Cross-references
 
@@ -561,7 +561,7 @@ Follow-on to the shipped register (Section 11). Planned. Implementation: [`NET_W
 | Investment gain sketch (sum-first cousin) | Section 16 |
 | Implementation plan | [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) |
 
-### 16. Investment gain over time ✅ locked (2026-11-07)
+### 16. Investment gain over time ✅ shipped (2026-11-07)
 
 Household **dollar gain** of opted-in investments, after performance (Section 14) ships. Planned. Implementation: [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md).
 
@@ -569,7 +569,7 @@ Not percent (that is Section 14). Not account level (that is Section 13). **Sum 
 
 | Item | Decision |
 |------|----------|
-| Path | `/reports/investment-gain`. Hub tile. After Section 14 R3 |
+| Path | `/reports/investment-gain`. Hub tile. Same UI release as Section 14 ([`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) R2) |
 | Series | All flagged assets, sum first. No groups, no per-asset zoom |
 | Chart | Cumulative dollar line, monthly axis, January year labels |
 | Table | Month, gain, running total; skip empty $0 months |
