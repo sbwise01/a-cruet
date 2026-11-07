@@ -8,6 +8,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AssetViewsTest {
 
     @Test
+    void assetsPageHasAddGroupAction() {
+        String html = AssetViews.assetsMainHtml("", "/lock.png");
+        assertTrue(html.contains("data-action=\"create-group\""));
+        assertTrue(html.contains("Add group"));
+        assertTrue(html.contains("acruet-assets.js"));
+    }
+
+    @Test
     void historicalPageIsAStandaloneForm() {
         String html = AssetViews.historicalNetWorthHtml("", "/lock.png");
         assertTrue(html.contains("id=\"historicalNetWorthRoot\""));
