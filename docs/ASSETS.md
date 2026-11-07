@@ -71,7 +71,7 @@ Verify with `docker build --target build`. Brad owns commit/PR unless asked that
 
 ## Asset groups
 
-Household labels so snapshot items can be reported together later — **Investments**, **Autos**, and whatever else the household names. Prerequisite for investment performance reports (README To Do). Locked in [`PRODUCT.md`](PRODUCT.md) §12.
+Household labels so snapshot items can be reported together later — **Investments**, **Autos**, and whatever else the household names. Prerequisite for the value-over-time report ([`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md) / PRODUCT §13). Locked in [`PRODUCT.md`](PRODUCT.md) §12.
 
 ### What this is (and is not)
 
@@ -93,7 +93,7 @@ This is **not**:
 
 - A plaintext enum the server understands (`INVESTMENT`, `AUTO`) — names are ciphertext
 - Nesting items under an envelope bundle
-- Holdings, tickers, or price feeds (still README investment-reports To Do)
+- Holdings, tickers, or price feeds (value-over-time is [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md))
 - Required membership or a Flyway-created default group
 
 ### Data model
@@ -149,8 +149,7 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 ## Out of scope
 
 - Linking a loan payment to an envelope withdrawal
-- Investment holdings, tickers, or price feeds
-- Investment performance reports (README To Do; groups are the prerequisite)
+- Investment holdings, tickers, or price feeds (value-over-time report is [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md))
 - Per-user private assets
 - Nesting snapshot items under a bundle
 - Net-worth **history** (shipped separately — PRODUCT §11 / [`NET_WORTH.md`](NET_WORTH.md))

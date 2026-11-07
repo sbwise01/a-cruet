@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.AcruetReports) {
       window.AcruetReports.closeAll();
     }
+    if (window.AcruetValueOverTime && window.AcruetValueOverTime.onKeyLocked) {
+      window.AcruetValueOverTime.onKeyLocked();
+    }
   }
 
   function showInlineUnlockForm() {
@@ -142,6 +145,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (reportKind === 'net-worth') {
         initReports();
+        return;
+      }
+      if (reportKind === 'value-over-time') {
+        if (window.AcruetValueOverTime) {
+          window.AcruetValueOverTime.show();
+        }
         return;
       }
       await loadBundles();

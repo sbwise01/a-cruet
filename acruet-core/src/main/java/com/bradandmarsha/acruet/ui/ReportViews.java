@@ -1,7 +1,7 @@
 package com.bradandmarsha.acruet.ui;
 
 /**
- * Reports hub and dedicated report pages (Phase 10 + PRODUCT.md §11).
+ * Reports hub and dedicated report pages (Phase 10 + PRODUCT.md §11 and §13).
  */
 public final class ReportViews {
 
@@ -9,7 +9,8 @@ public final class ReportViews {
         HUB("hub", "Reports"),
         ENVELOPE_TRANSACTIONS("transactions", "Envelope transactions"),
         ENVELOPE_BALANCE("chart", "Envelope balance chart"),
-        NET_WORTH("net-worth", "Net worth");
+        NET_WORTH("net-worth", "Net worth"),
+        VALUE_OVER_TIME("value-over-time", "Value over time");
 
         private final String dataReport;
         private final String title;
@@ -37,7 +38,7 @@ public final class ReportViews {
                   display: grid;
                   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
                   gap: 1.25rem;
-                  max-width: 34rem;
+                  max-width: 44rem;
                   margin: 1.5rem auto;
                 }
                 a.report-tile {
@@ -143,6 +144,12 @@ public final class ReportViews {
                   filter: none;
                 }
                 .report-amount-negative { color: #fbbf24; }
+                #reportValueOverTimePanel .bundle-bar { margin: 0.75rem 0 0; }
+                #valueSeriesSelect {
+                  flex: 1 1 16rem;
+                  width: auto;
+                  min-width: 12rem;
+                }
                 """;
     }
 
@@ -202,6 +209,7 @@ public final class ReportViews {
             case ENVELOPE_TRANSACTIONS -> envelopeTransactionsHtml();
             case ENVELOPE_BALANCE -> envelopeBalanceHtml();
             case NET_WORTH -> netWorthHtml();
+            case VALUE_OVER_TIME -> valueOverTimeHtml();
         };
     }
 
@@ -225,6 +233,10 @@ public final class ReportViews {
                         <img src="%s" alt="Net worth">
                         <span class="report-tile-label">Net worth</span>
                       </a>
+                      <a class="report-tile" href="/reports/value-over-time">
+                        <img src="%s" alt="Value over time">
+                        <span class="report-tile-label">Value over time</span>
+                      </a>
                     </div>
                   </div>
                 </section>
@@ -232,7 +244,8 @@ public final class ReportViews {
                 .formatted(
                         escapeAttr(transactionsImageUrl),
                         escapeAttr(chartImageUrl),
-                        escapeAttr(netWorthImageUrl));
+                        escapeAttr(netWorthImageUrl),
+                        escapeAttr(chartImageUrl));
     }
 
     private static String envelopeTransactionsHtml() {
@@ -309,6 +322,30 @@ public final class ReportViews {
                 """;
     }
 
+    private static String valueOverTimeHtml() {
+        return """
+                <section id="reportsPanel">
+                  <div id="reportValueOverTimePanel">
+                    <h2>Value over time</h2>
+                    <p class="hint">Snapshot amounts by month. Months without an update keep the last amount. Year labels mark January.</p>
+                    <label for="valueSeriesSelect">Item</label>
+                    <div class="bundle-bar">
+                      <select id="valueSeriesSelect" aria-label="Snapshot series"></select>
+                    </div>
+                    <p id="valueOverTimeMeta" class="hint"></p>
+                    <div class="report-chart-wrap" hidden>
+                      <canvas id="valueOverTimeChart"></canvas>
+                    </div>
+                    <div id="valueOverTimeTable" class="report-table-wrap"></div>
+                    <p class="report-panel-actions">
+                      <a href="/reports" class="secondary">Back to reports</a>
+                    </p>
+                  </div>
+                  <p id="reportError" class="error" hidden></p>
+                </section>
+                """;
+    }
+
     private static String pageScripts(ReportPage page) {
         return switch (page) {
             case HUB -> UserNav.keyPageScript("acruet-reports-page.js");
@@ -320,6 +357,9 @@ public final class ReportViews {
             case NET_WORTH -> UserNav.keyPageScript("chart.umd.min.js")
                     + UserNav.keyPageScript("acruet-net-worth.js")
                     + UserNav.keyPageScript("acruet-reports.js")
+                    + UserNav.keyPageScript("acruet-reports-page.js");
+            case VALUE_OVER_TIME -> UserNav.keyPageScript("chart.umd.min.js")
+                    + UserNav.keyPageScript("acruet-value-over-time.js")
                     + UserNav.keyPageScript("acruet-reports-page.js");
         };
     }
