@@ -13,7 +13,7 @@ Snapshot items stay a **register of totals**, not a ledger of trades. An investm
 ```text
 asset (investment flag) ── monthly snapshot { cents, flowCents }
         │
-        └── simple monthly return ── linked cumulative return
+        └── simple monthly return ── trailing 12-month annualized return
 ```
 
 This is **not**:
@@ -34,14 +34,14 @@ This is **not**:
 | Monthly update | Same Update-value form as today. If flagged: **Current value** + **Net contribution this month** (empty = 0). If not flagged: value only |
 | Payload | Ciphertext `{ cents, flowCents? }`. Missing `flowCents` = 0 (old snapshots) |
 | Several updates in one month | **Sum** `flowCents` whose `as_of_date` falls in that calendar month. Ending value = latest snapshot on or before month-end (same as value over time) |
-| Return | Simple monthly: `r = (EMV − BMV − C) / BMV` when BMV > 0. Else no % that month (new/funded account). Cumulative = linked `(1+r)… − 1` |
+| Return | Simple monthly: `r = (EMV − BMV − C) / BMV` when BMV > 0. Else no % that month (new/funded account). Chart = **trailing 12-month annualized** linked TWR `(1+TWR)^(12/k) − 1`. Not cumulative since inception |
 | Timing | No intra-month weighting (not Modified Dietz in v1). Contribution sits in the month of its `as_of_date` |
 | Report series | Flagged **assets**, plus **groups that contain at least one flagged asset**. Sum those members’ values and flows, then the same return math |
 | Mixed groups | Car in **Autos** is ignored for this report; a flagged brokerage in the same group is included |
 | Liabilities | Never flagged. Reject `investment: true` on a liability |
 | Envelopes | Out of this report (use Envelope balance / value over time as appropriate) |
 | Membership | Current flagged members (same rewrite-the-past rule as value over time) |
-| Chart / table | Monthly axis, year labels each January (same as value over time). Chart: **cumulative linked return**. Table: month-end, value, net contribution, monthly %, cumulative % |
+| Chart / table | Monthly axis, year labels each January (same as value over time). Chart: **trailing 12-month annualized %**. Table: month-end, value, net contribution, monthly %, annualized % |
 | Dollar path | Remains `/reports/value-over-time`. This page does not replace it |
 | Scope | Household-wide (same DEK). Unlocked to write flows or view the report |
 | Admin | No extra `/users` column in v1 (`position_count` is enough) |
@@ -84,7 +84,7 @@ Unlock chrome like other reports. No bundle picker.
 
 - Heading **Investment performance**
 - One dropdown: flagged assets; then groups with ≥1 flagged asset
-- Cumulative-return chart; table as in Decisions
+- Trailing 12-month annualized-return chart; table as in Decisions
 - Hub tile on `/reports` (reuse `/media/report-graphs.png` unless a new media file exists)
 
 Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
