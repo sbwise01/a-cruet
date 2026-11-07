@@ -604,7 +604,13 @@ window.AcruetReports = (() => {
         meta.textContent = `${result.count} of ${result.limit} observations`;
       }
       renderNetWorthTable(result.snapshots);
-      renderNetWorthChart(usable);
+      if (window.AcruetNetWorthProject) {
+        await window.AcruetNetWorthProject.show();
+      }
+      const overlay = window.AcruetNetWorthProject
+        ? await window.AcruetNetWorthProject.overlayPoints()
+        : [];
+      renderNetWorthChart(usable, overlay);
     } catch (error) {
       if (meta) {
         meta.textContent = '';
@@ -668,7 +674,7 @@ window.AcruetReports = (() => {
     return parts.join(' · ');
   }
 
-  function renderNetWorthChart(snapshots) {
+  function renderNetWorthChart(snapshots, overlay = []) {
     const canvas = document.getElementById('netWorthChart');
     if (!canvas) {
       return;
@@ -687,29 +693,44 @@ window.AcruetReports = (() => {
       showError('Chart library failed to load.');
       return;
     }
-    const charted = latestSnapshotPerAsOfDate(snapshots);
+    const charted = latestSnapshotPerQuarter(snapshots);
     const points = charted.map((snapshot) => ({
       x: asOfTimestamp(snapshot.asOfDate),
       y: snapshot.netCents / 100,
     }));
-    const xs = points.map((point) => point.x);
+    const overlayPoints = (overlay || []).map((point) => ({
+      x: asOfTimestamp(point.asOfDate),
+      y: point.netCents / 100,
+    }));
+    const xs = points.concat(overlayPoints).map((point) => point.x);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const pad = Math.max((maxX - minX) * 0.03, 15 * 24 * 60 * 60 * 1000);
+    const datasets = [{
+      label: 'Net worth',
+      data: points,
+      borderColor: '#38bdf8',
+      backgroundColor: 'rgba(56, 189, 248, 0.15)',
+      fill: false,
+      tension: 0,
+      pointRadius: 4,
+      spanGaps: false,
+    }];
+    if (overlayPoints.length) {
+      datasets.push({
+        label: 'If this pace continued',
+        data: overlayPoints,
+        borderColor: '#94a3b8',
+        borderDash: [6, 4],
+        fill: false,
+        tension: 0,
+        pointRadius: 3,
+        spanGaps: false,
+      });
+    }
     netWorthChartInstance = new Chart(canvas, {
       type: 'line',
-      data: {
-        datasets: [{
-          label: 'Net worth',
-          data: points,
-          borderColor: '#38bdf8',
-          backgroundColor: 'rgba(56, 189, 248, 0.15)',
-          fill: false,
-          tension: 0,
-          pointRadius: 4,
-          spanGaps: false,
-        }],
-      },
+      data: { datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -720,10 +741,17 @@ window.AcruetReports = (() => {
           tooltip: {
             callbacks: {
               title(items) {
+                if (items[0]?.datasetIndex === 1) {
+                  return overlay[items[0].dataIndex]?.asOfDate || '';
+                }
                 const snapshot = charted[items[0]?.dataIndex];
                 return snapshot ? snapshot.asOfDate : '';
               },
               label(context) {
+                if (context.datasetIndex === 1) {
+                  const point = overlay[context.dataIndex];
+                  return point ? AcruetNetWorth.formatCents(point.netCents) : '';
+                }
                 const snapshot = charted[context.dataIndex];
                 const amount = AcruetNetWorth.formatCents(snapshot.netCents);
                 const breakdown = netWorthBreakdownTitle(snapshot);
@@ -771,6 +799,23 @@ window.AcruetReports = (() => {
       }
     });
     return Array.from(byDate.values()).sort((left, right) =>
+      String(left.asOfDate).localeCompare(String(right.asOfDate)));
+  }
+
+  function latestSnapshotPerQuarter(snapshots) {
+    const byQuarter = new Map();
+    snapshots.forEach((snapshot) => {
+      const [year, month] = String(snapshot.asOfDate).split('-').map(Number);
+      const key = `${year}-Q${Math.floor((month - 1) / 3)}`;
+      const existing = byQuarter.get(key);
+      if (!existing
+          || snapshot.asOfDate > existing.asOfDate
+          || (snapshot.asOfDate === existing.asOfDate
+            && String(snapshot.createdAt || '') >= String(existing.createdAt || ''))) {
+        byQuarter.set(key, snapshot);
+      }
+    });
+    return Array.from(byQuarter.values()).sort((left, right) =>
       String(left.asOfDate).localeCompare(String(right.asOfDate)));
   }
 

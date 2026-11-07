@@ -10,7 +10,9 @@ public final class ReportViews {
         ENVELOPE_TRANSACTIONS("transactions", "Envelope transactions"),
         ENVELOPE_BALANCE("chart", "Envelope balance chart"),
         NET_WORTH("net-worth", "Net worth"),
-        VALUE_OVER_TIME("value-over-time", "Value over time");
+        VALUE_OVER_TIME("value-over-time", "Value over time"),
+        INVESTMENT_PERFORMANCE("investment-performance", "Investment performance"),
+        INVESTMENT_GAIN("investment-gain", "Investment gain over time");
 
         private final String dataReport;
         private final String title;
@@ -85,6 +87,17 @@ public final class ReportViews {
                   text-decoration: none;
                 }
                 a.secondary:hover { filter: brightness(1.05); }
+                .projection-toggle {
+                  margin: 0.85rem 0 0.35rem;
+                }
+                .projection-toggle label {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 0.45rem;
+                  font-weight: 600;
+                }
+                .projection-toggle input { width: auto; margin: 0; }
+                .projection-toggle:has(input:disabled) label { opacity: 0.7; }
                 .report-account-list {
                   margin: 0.75rem 0 1rem;
                   padding: 0.75rem 1rem;
@@ -210,6 +223,8 @@ public final class ReportViews {
             case ENVELOPE_BALANCE -> envelopeBalanceHtml();
             case NET_WORTH -> netWorthHtml();
             case VALUE_OVER_TIME -> valueOverTimeHtml();
+            case INVESTMENT_PERFORMANCE -> investmentPerformanceHtml();
+            case INVESTMENT_GAIN -> investmentGainHtml();
         };
     }
 
@@ -237,6 +252,14 @@ public final class ReportViews {
                         <img src="%s" alt="Value over time">
                         <span class="report-tile-label">Value over time</span>
                       </a>
+                      <a class="report-tile" href="/reports/investment-performance">
+                        <img src="%s" alt="Investment performance">
+                        <span class="report-tile-label">Investment performance</span>
+                      </a>
+                      <a class="report-tile" href="/reports/investment-gain">
+                        <img src="%s" alt="Investment gain over time">
+                        <span class="report-tile-label">Investment gain over time</span>
+                      </a>
                     </div>
                   </div>
                 </section>
@@ -245,6 +268,8 @@ public final class ReportViews {
                         escapeAttr(transactionsImageUrl),
                         escapeAttr(chartImageUrl),
                         escapeAttr(netWorthImageUrl),
+                        escapeAttr(chartImageUrl),
+                        escapeAttr(chartImageUrl),
                         escapeAttr(chartImageUrl));
     }
 
@@ -307,8 +332,14 @@ public final class ReportViews {
                 <section id="reportsPanel">
                   <div id="reportNetWorthPanel">
                     <h2>Net worth</h2>
-                    <p class="hint">Saved observations only. The chart plots the points you stored — months between yearly totals are not filled in.</p>
+                    <p class="hint">Saved observations. The chart shows the latest point in each calendar quarter. The table lists every row.</p>
                     <p id="netWorthMeta" class="hint"></p>
+                    <div class="projection-toggle">
+                      <span id="netWorthProjectControl" title="Needs 4 quarters of investment or loan history.">
+                        <label><input id="netWorthProjectToggle" type="checkbox" disabled> Project 5 years</label>
+                      </span>
+                    </div>
+                    <p id="netWorthProjectHint" class="hint"></p>
                     <div class="report-chart-wrap">
                       <canvas id="netWorthChart"></canvas>
                     </div>
@@ -346,6 +377,56 @@ public final class ReportViews {
                 """;
     }
 
+    private static String investmentPerformanceHtml() {
+        return """
+                <section id="reportsPanel">
+                  <div id="reportInvestmentPerformancePanel">
+                    <h2>Investment performance</h2>
+                    <p class="hint">Cumulative return after stripping net contributions. Flagged assets and groups with at least one flagged asset.</p>
+                    <label for="investmentPerformanceSelect">Item</label>
+                    <div class="bundle-bar">
+                      <select id="investmentPerformanceSelect" aria-label="Investment series"></select>
+                    </div>
+                    <p id="investmentPerformanceMeta" class="hint"></p>
+                    <div class="report-chart-wrap" hidden>
+                      <canvas id="investmentPerformanceChart"></canvas>
+                    </div>
+                    <div id="investmentPerformanceTable" class="report-table-wrap"></div>
+                    <p class="report-panel-actions">
+                      <a href="/reports" class="secondary">Back to reports</a>
+                    </p>
+                  </div>
+                  <p id="reportError" class="error" hidden></p>
+                </section>
+                """;
+    }
+
+    private static String investmentGainHtml() {
+        return """
+                <section id="reportsPanel">
+                  <div id="reportInvestmentGainPanel">
+                    <h2>Investment gain over time</h2>
+                    <p class="hint">Household dollar gain of every flagged investment (value change minus contributions). One line, no groups.</p>
+                    <p id="investmentGainMeta" class="hint"></p>
+                    <div class="projection-toggle">
+                      <span id="investmentGainProjectControl" title="Needs 4 quarters of investment or loan history.">
+                        <label><input id="investmentGainProjectToggle" type="checkbox" disabled> Project 5 years</label>
+                      </span>
+                    </div>
+                    <p id="investmentGainProjectHint" class="hint"></p>
+                    <div class="report-chart-wrap" hidden>
+                      <canvas id="investmentGainChart"></canvas>
+                    </div>
+                    <div id="investmentGainTable" class="report-table-wrap"></div>
+                    <p class="report-panel-actions">
+                      <a href="/reports" class="secondary">Back to reports</a>
+                    </p>
+                  </div>
+                  <p id="reportError" class="error" hidden></p>
+                </section>
+                """;
+    }
+
     private static String pageScripts(ReportPage page) {
         return switch (page) {
             case HUB -> UserNav.keyPageScript("acruet-reports-page.js");
@@ -356,10 +437,19 @@ public final class ReportViews {
                     + UserNav.keyPageScript("acruet-reports-page.js");
             case NET_WORTH -> UserNav.keyPageScript("chart.umd.min.js")
                     + UserNav.keyPageScript("acruet-net-worth.js")
+                    + UserNav.keyPageScript("acruet-projection.js")
+                    + UserNav.keyPageScript("acruet-net-worth-project.js")
                     + UserNav.keyPageScript("acruet-reports.js")
                     + UserNav.keyPageScript("acruet-reports-page.js");
             case VALUE_OVER_TIME -> UserNav.keyPageScript("chart.umd.min.js")
                     + UserNav.keyPageScript("acruet-value-over-time.js")
+                    + UserNav.keyPageScript("acruet-reports-page.js");
+            case INVESTMENT_PERFORMANCE -> UserNav.keyPageScript("chart.umd.min.js")
+                    + UserNav.keyPageScript("acruet-investment-performance.js")
+                    + UserNav.keyPageScript("acruet-reports-page.js");
+            case INVESTMENT_GAIN -> UserNav.keyPageScript("chart.umd.min.js")
+                    + UserNav.keyPageScript("acruet-projection.js")
+                    + UserNav.keyPageScript("acruet-investment-gain.js")
                     + UserNav.keyPageScript("acruet-reports-page.js");
         };
     }

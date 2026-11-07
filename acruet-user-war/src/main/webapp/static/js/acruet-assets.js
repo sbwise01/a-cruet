@@ -371,6 +371,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const hasUserGroups = state.groups.length > 0;
     els.assetsList.classList.toggle('has-expand', hasUserGroups || state.bundles.length > 0);
     els.assetsList.classList.toggle('has-groups', hasUserGroups);
+    els.assetsList.classList.toggle('has-investments', true);
     els.liabilitiesList.classList.toggle('has-expand', hasUserGroups);
     els.liabilitiesList.classList.toggle('has-groups', hasUserGroups);
     els.assetsList.innerHTML = renderAssetRows(snapshotAssets) || emptyHint('No snapshot assets yet.');
@@ -501,6 +502,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ${expandSlotHtml(withExpand)}
             <span class="name">${escapeHtml(bundle.name)}</span>
             ${groupSlotHtml(withGroupBtns)}
+            ${investSlotHtml(true)}
             <span class="row-archive"></span>
             <span class="balance${negativeClass}">${formatCents(bundle.totalCents)}</span>
           </a>`;
@@ -515,6 +517,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </span>
           <span class="name">${escapeHtml(ENVELOPES_GROUP_NAME)}</span>
           ${groupSlotHtml(withGroupBtns)}
+          ${investSlotHtml(true)}
           <span class="row-archive"></span>
           <span class="balance">${formatCents(cents)}</span>
         </div>`;
@@ -531,6 +534,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button type="button" class="envelope-name group-name" data-id="${group.id}" title="Click to rename">${escapeHtml(group.name)}</button>
           </span>
           ${groupSlotHtml(withGroupBtns)}
+          ${investSlotHtml(true)}
           <span class="row-archive">
             <button type="button" class="archive-btn secondary archive-group-btn" data-id="${group.id}">Archive</button>
           </span>
@@ -546,6 +550,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button type="button" class="envelope-name" data-id="${position.id}" title="Click to rename">${escapeHtml(position.name)}</button>
           </span>
           ${groupButtonHtml(position, withGroupBtns)}
+          ${investButtonHtml(position)}
           <span class="row-archive">
             <button type="button" class="archive-btn secondary" data-id="${position.id}">Archive</button>
           </span>
@@ -559,6 +564,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function groupSlotHtml(withGroupBtns) {
     return withGroupBtns ? '<span class="row-group"></span>' : '';
+  }
+
+  function investSlotHtml(onAssetsList) {
+    return onAssetsList ? '<span class="row-invest"></span>' : '';
+  }
+
+  function investButtonHtml(position) {
+    if (position.kind !== 'ASSET') {
+      return '';
+    }
+    const assigned = position.investment ? ' assigned' : '';
+    const label = position.investment ? 'Tracked as investment' : 'Not tracked as investment';
+    return `<span class="row-invest"><button type="button" class="invest-btn${assigned}" data-id="${position.id}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${position.investment ? 'true' : 'false'}">I</button></span>`;
   }
 
   function groupButtonHtml(position, withGroupBtns) {
@@ -604,6 +622,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         toggleGroupPicker(button);
       });
     });
+    list.querySelectorAll('.invest-btn').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        void toggleInvestment(button.dataset.id);
+      });
+    });
+  }
+
+  async function toggleInvestment(positionId) {
+    const position = state.positions.find((item) => item.id === positionId);
+    if (!position || position.kind !== 'ASSET') {
+      return;
+    }
+    hideError();
+    try {
+      const response = await fetch(`/positions/${positionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ investment: !position.investment }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to update investment flag.');
+      }
+      await refresh();
+    } catch (error) {
+      showError(error.message || 'Failed to update investment flag.');
+    }
   }
 
   function toggleGroupExpanded(groupId) {
@@ -950,7 +996,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <input id="positionAmount" type="text" inputmode="decimal" required placeholder="0.00">
         <label for="asOfDate">As of</label>
         <input id="asOfDate" type="date" required value="${todayIso()}">
-        ${liability ? '<p class="hint">Enter the balance owed as a positive amount.</p>' : ''}
+        ${liability ? '<p class="hint">Enter the balance owed as a positive amount.</p>' : `<label class="checkbox-row"><input id="trackInvestment" type="checkbox"> Track as investment</label>`}
       </form>`;
     document.getElementById('positionForm').addEventListener('submit', (event) => {
       event.preventDefault();
@@ -1009,6 +1055,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         <input id="positionAmount" type="text" inputmode="decimal" required value="${formatUsdInput(position.cents)}">
         <label for="asOfDate">As of</label>
         <input id="asOfDate" type="date" required value="${todayIso()}">
+        ${position.investment ? `<label for="flowAmount">Net contribution this month</label>
+        <input id="flowAmount" type="text" inputmode="decimal" placeholder="0.00">
+        <p class="hint">Money added (+) or withdrawn (−) since the last total; not a trade list. Empty is 0.</p>` : ''}
         <p class="hint">This adds a new valuation. Earlier values stay in history.</p>
       </form>`;
     document.getElementById('positionForm').addEventListener('submit', (event) => {
@@ -1026,15 +1075,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     hideError();
     hideFormError();
     try {
+      let piggyback = false;
       if (state.formMode === 'CREATE') {
-        await submitCreate();
+        piggyback = await submitCreate();
       } else if (state.formMode === 'UPDATE') {
-        await submitUpdate();
+        piggyback = await submitUpdate();
       } else if (state.formMode === 'CREATE_GROUP') {
         await submitCreateGroup();
       }
       closeForm();
       await refresh();
+      if (piggyback) {
+        await maybePiggybackNetWorth();
+      }
     } catch (error) {
       showFormError(error.message || 'Could not save.');
     }
@@ -1056,6 +1109,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (groupId) {
       payload.groupId = groupId;
     }
+    if (kind === 'ASSET') {
+      payload.investment = Boolean(document.getElementById('trackInvestment')?.checked);
+    }
     const response = await fetch('/positions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1065,6 +1121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || 'Failed to add item.');
     }
+    return isLocalToday(asOfDate);
   }
 
   async function submitCreateGroup() {
@@ -1085,8 +1142,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function submitUpdate() {
     const cents = requireUsd(document.getElementById('positionAmount').value);
     const asOfDate = requireDate(document.getElementById('asOfDate').value);
+    const position = state.positions.find((item) => item.id === state.editingPositionId);
     const dek = AcruetCrypto.session.getDek();
-    const encryptedPayload = await AcruetCrypto.encryptJson(dek, { cents });
+    const blob = { cents };
+    if (position && position.investment) {
+      blob.flowCents = requireFlowCents(document.getElementById('flowAmount')?.value);
+    }
+    const encryptedPayload = await AcruetCrypto.encryptJson(dek, blob);
     const response = await fetch(`/positions/${state.editingPositionId}/snapshots`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1096,6 +1158,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || 'Failed to update value.');
     }
+    return isLocalToday(asOfDate);
+  }
+
+  async function maybePiggybackNetWorth() {
+    if (!state.liveNet || !window.AcruetNetWorth) {
+      return;
+    }
+    try {
+      const latest = await AcruetNetWorth.latest();
+      const today = AcruetNetWorth.localIsoDate();
+      const asOf = latest.snapshot && latest.snapshot.asOfDate;
+      if (asOf && !AcruetNetWorth.isStale(asOf) && asOf !== today) {
+        return;
+      }
+      await AcruetNetWorth.create(today, AcruetNetWorth.computedPayload(state.liveNet));
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function isLocalToday(asOfDate) {
+    const today = window.AcruetNetWorth ? AcruetNetWorth.localIsoDate() : todayIso();
+    return asOfDate === today;
+  }
+
+  function requireFlowCents(value) {
+    if (value === null || value === undefined || String(value).trim() === '') {
+      return 0;
+    }
+    const dollars = Number.parseFloat(String(value).replace(/[$,\s]/g, ''));
+    if (Number.isNaN(dollars)) {
+      throw new Error('Enter a dollar amount for contribution.');
+    }
+    return Math.round(dollars * 100);
   }
 
   function requireUsd(value) {

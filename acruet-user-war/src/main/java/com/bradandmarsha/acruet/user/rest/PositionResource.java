@@ -75,8 +75,9 @@ public class PositionResource {
                 } catch (IllegalArgumentException exception) {
                     return badRequest("Invalid group.");
                 }
+                boolean investment = Boolean.TRUE.equals(body.investment);
                 FinancialPosition position = positionService.createPosition(
-                        user, kind, body.encryptedName, asOfDate, body.encryptedPayload, groupId);
+                        user, kind, body.encryptedName, asOfDate, body.encryptedPayload, groupId, investment);
                 return Response.status(Response.Status.CREATED).entity(positionJson(position)).build();
             } catch (IllegalArgumentException | NullPointerException exception) {
                 return badRequest("Invalid kind or valuation date.");
@@ -98,9 +99,17 @@ public class PositionResource {
             try {
                 String encryptedName = body == null ? null : body.encryptedName;
                 boolean groupSpecified = body != null && body.groupSpecified;
+                boolean investmentSpecified = body != null && body.investmentSpecified;
                 UUID groupId = body == null ? null : parseOptionalUuid(body.groupId);
+                boolean investment = body != null && Boolean.TRUE.equals(body.investment);
                 FinancialPosition position = positionService.updatePosition(
-                        user, positionId, encryptedName, groupSpecified, groupId);
+                        user,
+                        positionId,
+                        encryptedName,
+                        groupSpecified,
+                        groupId,
+                        investmentSpecified,
+                        investment);
                 return Response.ok(positionJson(position)).build();
             } catch (IllegalArgumentException exception) {
                 return badRequest("Invalid group.");
@@ -185,6 +194,7 @@ public class PositionResource {
         json.put("kind", position.kind().name());
         json.put("status", position.status().name());
         json.put("groupId", position.groupId() == null ? null : position.groupId().toString());
+        json.put("investment", position.investment());
         json.put("encryptedName", EncryptedBlob.encode(position.encryptedName()));
         json.put("createdAt", position.createdAt().toString());
         json.put("updatedAt", position.updatedAt().toString());
@@ -219,17 +229,26 @@ public class PositionResource {
         public String asOfDate;
         public String encryptedPayload;
         public String groupId;
+        public Boolean investment;
     }
 
     public static class UpdatePositionRequest {
         public String encryptedName;
         boolean groupSpecified;
         String groupId;
+        boolean investmentSpecified;
+        Boolean investment;
 
         @JsonProperty("groupId")
         public void setGroupId(String value) {
             this.groupSpecified = true;
             this.groupId = value;
+        }
+
+        @JsonProperty("investment")
+        public void setInvestment(Boolean value) {
+            this.investmentSpecified = true;
+            this.investment = value;
         }
     }
 

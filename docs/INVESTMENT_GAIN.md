@@ -1,6 +1,6 @@
 # Investment gain over time
 
-**Status:** Planned (2026-11-07). Locked in [`PRODUCT.md`](PRODUCT.md) §16. **After** investment performance ([`INVESTMENTS.md`](INVESTMENTS.md) R3). Do **not** start until Brad says so.
+**Status:** Shipped (2026-11-07). Locked in [`PRODUCT.md`](PRODUCT.md) §16. Same train as §14–§15: [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md).
 
 This file is the decided plan for a household **dollar-gain** report of opted-in investments, plus an optional 5-year sketch that reuses the **investment slice** of net-worth projection ([`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md)).
 
@@ -23,7 +23,7 @@ This is **not**:
 
 | Item | Decision |
 |------|----------|
-| When | After [`INVESTMENTS.md`](INVESTMENTS.md) R3. Reuses `investment` + `flowCents`. No new column |
+| When | Same UI release as performance ([`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) R2). Reuses `investment` + `flowCents`. No new column |
 | Series | **Household only** — every flagged asset, **sum first**. No dropdown. **No groups** |
 | Gain | Each month: `EMV − BMV − C` on the combined series (carry-forward like value over time). Missing `flowCents` = 0 |
 | First month | No BMV → no gain that month (same as performance’s “no %”) |
@@ -52,14 +52,9 @@ The two dashed lines **may disagree** with `/reports/net-worth`: this page sums 
 
 ## Releases
 
-Brad owns commit/PR unless asked that turn. `docker build --target build` each release. Do **not** close Flyway-strategy or bootstrap-admin To Dos.
+One train with investments and net-worth sketch: [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md).
 
-1. **History page** — `/reports/investment-gain`, hub tile, chart + sparse table, PRODUCT §16, README / marketing. Cache-bust.
-2. **Projection overlay** — toggle, 4-quarter gate, dashed 5 years from the last chart point.
-
-**Verify R1:** two flagged assets, quarterly statements → cumulative line moves by combined `EMV − BMV − C`; a contribution-only quarter with flat values is ~$0 that month; table omits empty middle months; no group dropdown; package succeeds.
-
-**Verify R2:** four household investment quarters unlock the toggle; three do not; turning it on does not write snapshots; a fat vest quarter does not become the forward `C`; package succeeds.
+No new tables. The **page, household line, and sketch** ship in release 2 (UI). **Landing copy** in release 3. Needs release 1’s `investment` column.
 
 ## Out of scope
 
