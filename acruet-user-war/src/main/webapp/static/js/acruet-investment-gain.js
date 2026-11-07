@@ -1,5 +1,5 @@
 /**
- * Household investment gain over time — cumulative EMV − BMV − C (PRODUCT.md §16).
+ * Household investment gain over time — trailing 12-month annualized EMV − BMV − C (PRODUCT.md §16).
  */
 document.addEventListener('DOMContentLoaded', () => {
   const panel = document.getElementById('reportInvestmentGainPanel');
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
       syncToggle();
       if (els.meta) {
         els.meta.textContent = state.items.length
-          ? 'All flagged investments, summed. Contributions are not gain.'
+          ? 'All flagged investments, summed. Trailing 12-month annualized dollar gain. Contributions are not gain.'
           : 'Track an asset as an investment on Assets to see household gain.';
       }
       renderTable(history);
@@ -115,7 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const months = monthEnds(earliest);
     const rows = [];
-    let cumulative = 0;
     months.forEach((monthEnd, index) => {
       const emv = sumOnOrBefore(lists, monthEnd) || 0;
       const prevEnd = index === 0 ? null : months[index - 1];
@@ -123,21 +122,34 @@ document.addEventListener('DOMContentLoaded', () => {
       const flow = sumFlowInMonth(lists, monthEnd);
       const hasSnapshot = items.some((item) =>
         item.snapshots.some((snapshot) => snapshot.asOfDate.slice(0, 7) === monthEnd.slice(0, 7)));
-      let period = 0;
-      if (bmv != null) {
-        period = emv - bmv - flow;
-        cumulative += period;
-      }
+      const period = bmv == null ? null : emv - bmv - flow;
       rows.push({
         asOfDate: monthEnd,
         periodGain: period,
-        cumulative,
         hasSnapshot,
-        nonzero: period !== 0,
+        nonzero: period != null && period !== 0,
         emv,
+        annualizedGain: null,
       });
     });
+    rows.forEach((row, index) => {
+      row.annualizedGain = trailingAnnualizedGain(rows, index);
+    });
     return rows;
+  }
+
+  function trailingAnnualizedGain(rows, index) {
+    const windowRows = [];
+    for (let cursor = index; cursor >= 0 && windowRows.length < 12; cursor -= 1) {
+      if (rows[cursor].periodGain != null) {
+        windowRows.unshift(rows[cursor]);
+      }
+    }
+    if (!windowRows.length) {
+      return null;
+    }
+    const sum = windowRows.reduce((total, row) => total + row.periodGain, 0);
+    return Math.round(sum * (12 / windowRows.length));
   }
 
   function sumOnOrBefore(lists, asOfDate) {
@@ -216,17 +228,22 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const body = rows.slice().reverse().map((point) => {
-      const cls = point.periodGain < 0 ? ' class="report-amount-negative"' : '';
+      const cls = point.periodGain != null && point.periodGain < 0 ? ' class="report-amount-negative"' : '';
+      const annualCls = point.annualizedGain != null && point.annualizedGain < 0
+        ? ' class="report-amount-negative"'
+        : '';
+      const period = point.periodGain == null ? '—' : formatCents(point.periodGain);
+      const annual = point.annualizedGain == null ? '—' : formatCents(point.annualizedGain);
       return `<tr>
         <td>${escapeHtml(point.asOfDate)}</td>
-        <td${cls}>${escapeHtml(formatCents(point.periodGain))}</td>
-        <td>${escapeHtml(formatCents(point.cumulative))}</td>
+        <td${cls}>${escapeHtml(period)}</td>
+        <td${annualCls}>${escapeHtml(annual)}</td>
       </tr>`;
     }).join('');
     els.table.innerHTML = `
       <table>
         <thead>
-          <tr><th>Month</th><th>Gain</th><th>Running total</th></tr>
+          <tr><th>Month</th><th>Gain</th><th>Annualized gain</th></tr>
         </thead>
         <tbody>${body}</tbody>
       </table>`;
@@ -241,13 +258,19 @@ document.addEventListener('DOMContentLoaded', () => {
       els.wrap.hidden = true;
       return;
     }
+    if (!history.some((point) => point.annualizedGain != null) && !(els.toggle && els.toggle.checked)) {
+      els.wrap.hidden = true;
+      return;
+    }
     els.wrap.hidden = false;
-    const historyPoints = history.map((point) => ({
-      x: Date.parse(`${point.asOfDate}T12:00:00Z`),
-      y: point.cumulative / 100,
-    }));
+    const historyPoints = history
+      .filter((point) => point.annualizedGain != null)
+      .map((point) => ({
+        x: Date.parse(`${point.asOfDate}T12:00:00Z`),
+        y: point.annualizedGain / 100,
+      }));
     const datasets = [{
-      label: 'Investment gain',
+      label: 'Annualized gain',
       data: historyPoints,
       borderColor: '#38bdf8',
       fill: false,
@@ -257,12 +280,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.toggle && els.toggle.checked && gate.ready && window.AcruetProjection) {
       const run = AcruetProjection.investmentRunRateFromLists(state.items.map((item) => item.snapshots));
       const last = history[history.length - 1];
-      const projected = AcruetProjection.projectGain(last.emv, last.cumulative, run.c, run.r);
+      const projected = AcruetProjection.projectInvestmentValue(last.emv, run.c, run.r);
+      const annualFactor = (1 + run.r) ** 4 - 1;
       datasets.push({
         label: 'If this pace continued',
         data: projected.map((point) => ({
           x: Date.parse(`${point.asOfDate}T12:00:00Z`),
-          y: point.cents / 100,
+          y: (point.cents * annualFactor) / 100,
         })),
         borderColor: '#94a3b8',
         borderDash: [6, 4],

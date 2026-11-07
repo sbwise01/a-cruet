@@ -113,6 +113,7 @@ class ReportViewsTest {
         assertTrue(performance.contains("data-report=\"investment-performance\""));
         assertTrue(performance.contains("id=\"investmentPerformanceSelect\""));
         assertTrue(performance.contains("acruet-investment-performance.js"));
+        assertTrue(performance.contains("Trailing 12-month annualized return"));
         assertFalse(performance.contains("id=\"bundlePanel\""));
 
         String gain = ReportViews.reportsPageHtml(
@@ -126,6 +127,7 @@ class ReportViewsTest {
         assertTrue(gain.contains("id=\"investmentGainProjectToggle\""));
         assertTrue(gain.contains("acruet-investment-gain.js"));
         assertTrue(gain.contains("acruet-projection.js"));
+        assertTrue(gain.contains("trailing 12-month annualized dollar gain"));
         assertFalse(gain.contains("id=\"bundleSelect\""));
     }
 }

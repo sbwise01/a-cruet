@@ -1,5 +1,5 @@
 /**
- * Investment performance — cumulative linked simple return (PRODUCT.md §14).
+ * Investment performance — trailing 12-month annualized simple return (PRODUCT.md §14).
  */
 document.addEventListener('DOMContentLoaded', () => {
   const panel = document.getElementById('reportInvestmentPerformancePanel');
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const label = els.select.selectedOptions[0] ? els.select.selectedOptions[0].textContent : 'Investment';
     if (els.meta) {
       els.meta.textContent = series.length
-        ? `${series.length} months · contributions stripped from return`
+        ? `${series.length} months · trailing 12-month annualized return, contributions stripped`
         : 'Need two month-ends so there is a beginning value.';
     }
     renderTable(series);
@@ -206,7 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const months = monthEnds(earliest);
     const rows = [];
-    let cumulative = 1;
     months.forEach((monthEnd, index) => {
       const emv = sumOnOrBefore(memberLists, monthEnd);
       const prevEnd = index === 0 ? null : months[index - 1];
@@ -215,17 +214,36 @@ document.addEventListener('DOMContentLoaded', () => {
       let monthly = null;
       if (bmv != null && bmv > 0 && emv != null) {
         monthly = (emv - bmv - flow) / bmv;
-        cumulative *= (1 + monthly);
       }
       rows.push({
         asOfDate: monthEnd,
         cents: emv || 0,
         flowCents: flow,
         monthlyPct: monthly,
-        cumulativePct: monthly == null && index === 0 ? null : cumulative - 1,
+        annualizedPct: null,
       });
     });
+    rows.forEach((row, index) => {
+      row.annualizedPct = trailingAnnualizedPct(rows, index);
+    });
     return rows;
+  }
+
+  function trailingAnnualizedPct(rows, index) {
+    const windowRows = [];
+    for (let cursor = index; cursor >= 0 && windowRows.length < 12; cursor -= 1) {
+      if (rows[cursor].monthlyPct != null) {
+        windowRows.unshift(rows[cursor]);
+      }
+    }
+    if (!windowRows.length) {
+      return null;
+    }
+    let linked = 1;
+    windowRows.forEach((row) => {
+      linked *= (1 + row.monthlyPct);
+    });
+    return linked ** (12 / windowRows.length) - 1;
   }
 
   function sumOnOrBefore(lists, asOfDate) {
@@ -288,19 +306,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const rows = series.slice().reverse().map((point) => {
       const monthly = point.monthlyPct == null ? '—' : formatPct(point.monthlyPct);
-      const cumulative = point.cumulativePct == null ? '—' : formatPct(point.cumulativePct);
+      const annualized = point.annualizedPct == null ? '—' : formatPct(point.annualizedPct);
       return `<tr>
         <td>${escapeHtml(point.asOfDate)}</td>
         <td>${escapeHtml(formatCents(point.cents))}</td>
         <td>${escapeHtml(formatCents(point.flowCents))}</td>
         <td>${escapeHtml(monthly)}</td>
-        <td>${escapeHtml(cumulative)}</td>
+        <td>${escapeHtml(annualized)}</td>
       </tr>`;
     }).join('');
     els.table.innerHTML = `
       <table>
         <thead>
-          <tr><th>Month</th><th>Value</th><th>Net contribution</th><th>Month %</th><th>Cumulative %</th></tr>
+          <tr><th>Month</th><th>Value</th><th>Net contribution</th><th>Month %</th><th>Annualized %</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>`;
@@ -310,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!els.canvas || !els.wrap) {
       return;
     }
-    const points = series.filter((point) => point.cumulativePct != null);
+    const points = series.filter((point) => point.annualizedPct != null);
     if (!points.length || typeof Chart === 'undefined') {
       els.wrap.hidden = true;
       return;
@@ -318,13 +336,13 @@ document.addEventListener('DOMContentLoaded', () => {
     els.wrap.hidden = false;
     const data = points.map((point) => ({
       x: Date.parse(`${point.asOfDate}T12:00:00Z`),
-      y: point.cumulativePct * 100,
+      y: point.annualizedPct * 100,
     }));
     chartInstance = new Chart(els.canvas, {
       type: 'line',
       data: {
         datasets: [{
-          label: `${label} cumulative return`,
+          label: `${label} annualized return`,
           data,
           borderColor: '#38bdf8',
           fill: false,
@@ -332,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
           pointRadius: 3,
         }],
       },
-      options: chartOptions(points, (point) => formatPct(point.cumulativePct)),
+      options: chartOptions(points, (point) => formatPct(point.annualizedPct)),
     });
   }
 
@@ -375,7 +393,12 @@ document.addEventListener('DOMContentLoaded', () => {
           grid: { color: 'rgba(148, 163, 184, 0.15)' },
         },
         y: {
-          ticks: { color: '#94a3b8' },
+          ticks: {
+            color: '#94a3b8',
+            callback(value) {
+              return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`;
+            },
+          },
           grid: { color: 'rgba(148, 163, 184, 0.15)' },
         },
       },
