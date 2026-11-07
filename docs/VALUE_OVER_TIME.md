@@ -1,6 +1,6 @@
 # Value over time (snapshot items and groups)
 
-**Status:** Shipped (2026-11-07). Locked in [`PRODUCT.md`](PRODUCT.md) §13. Former README To Do **#3** (“Investment performance reports”) is this report.
+**Status:** Shipped (2026-11-07). Locked in [`PRODUCT.md`](PRODUCT.md) §13. This is the snapshot dollar-path report. **Return** is [`INVESTMENTS.md`](INVESTMENTS.md); **dollar gain** is [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md).
 
 This file is the decided implementation plan for a household **value-over-time** report of snapshot assets, liabilities, and groups.
 
@@ -18,7 +18,7 @@ dropdown ── asset | liability ── that item's snapshots
 
 This is **not**:
 
-- Holdings, tickers, IRR, or price feeds
+- Holdings, tickers, or price feeds. **Return / contribution** is [`INVESTMENTS.md`](INVESTMENTS.md) / PRODUCT §14. **Dollar gain** is [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md) / PRODUCT §16
 - Reconstructing envelope cash (**Envelopes / Savings** is not on this dropdown; use Envelope balance chart)
 - Membership history — regrouping **rewrites** a group chart’s past (current members’ histories, as if they were always in the group)
 - Interpolating a slope between two values inside a month (carry-forward is hold-last)
@@ -79,7 +79,7 @@ Verify with `docker build --target build`. Brad owns commit/PR unless asked that
 
 - Envelope cash / Envelopes / Savings on this dropdown
 - Group membership history
-- Holdings, tickers, or investment performance metrics
+- Holdings, tickers, or return metrics (see [`INVESTMENTS.md`](INVESTMENTS.md); dollar gain is [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md))
 - Archived items
 - Date-range filters (series is first snapshot → current month)
 - Editing snapshot history

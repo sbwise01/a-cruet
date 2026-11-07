@@ -1409,6 +1409,9 @@ Optional cluster checks not required to call the v1/v2 rollout complete:
 | Net worth register | [`NET_WORTH.md`](NET_WORTH.md), PRODUCT §11 | **Complete** |
 | Asset groups | [`ASSETS.md`](ASSETS.md) releases 4–6, PRODUCT §12 | **Complete** |
 | Value over time | [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md), PRODUCT §13 | **Complete** |
+| Investment performance | [`INVESTMENTS.md`](INVESTMENTS.md), PRODUCT §14 | Planned |
+| Net worth piggyback + projection | [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md), PRODUCT §15 | Planned |
+| Investment gain over time | [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md), PRODUCT §16 | Planned (after performance) |
 
 Future product work (not rollout blockers) stays on the a-cruet README To Do and in [`PRODUCT.md`](PRODUCT.md) later-scope items — Flyway strategy, bootstrap admin as a-cruet user, CAPTCHA, social login, mobile app, multi-currency, etc.
 
@@ -1421,6 +1424,9 @@ Future product work (not rollout blockers) stays on the a-cruet README To Do and
 - [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](NET_WORTH.md) — net worth register (complete)
 - [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md) — snapshot value-over-time report (complete)
+- [`INVESTMENTS.md`](INVESTMENTS.md) — investment tracking and performance (planned)
+- [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) — piggyback + 5-year sketch (planned)
+- [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md) — household investment gain (planned)
 - [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) — IdP rollout, Phase 5 clients
 - [`wise-home-index`](../wise-home-index/) — Java 17 / Tomcat / Jersey reference
 - `wise-k8s/iac/kustomize/keycloak-cnpg/`, `plex-cnpg/` — CNPG patterns

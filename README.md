@@ -62,9 +62,16 @@ Technical requirements, architecture decisions, and rollout phases live in:
 - [`DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](docs/NET_WORTH.md) — net worth register (complete)
 - [`VALUE_OVER_TIME.md`](docs/VALUE_OVER_TIME.md) — snapshot value-over-time report (shipped)
+- [`INVESTMENTS.md`](docs/INVESTMENTS.md) — investment flag, monthly contribution, performance report (planned)
+- [`NET_WORTH_PROJECTION.md`](docs/NET_WORTH_PROJECTION.md) — net-worth piggyback stamp, quarterly chart, 5-year sketch (planned)
+- [`INVESTMENT_GAIN.md`](docs/INVESTMENT_GAIN.md) — household investment gain over time + sketch (planned)
 - [`OPERATIONS.md`](docs/OPERATIONS.md) — Keycloak admin console steps (including after operator CR re-apply)
 
 ## To Do list
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
 2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
+3. **Investment performance** — opt-in snapshot assets; monthly value + net contribution; return report ([`INVESTMENTS.md`](docs/INVESTMENTS.md); PRODUCT §14)
+4. **Credit cards / revolving credit** — Decide the product stance before net-worth projection (or any dedicated card feature) ships. Paying a card in full each month is envelope spending, not a snapshot liability; carrying a balance is a liability like any other loan. The brand question is whether a-cruet **meets people where they are** (let a card stay on `/assets` and let a growing balance be part of the picture) or treats revolving debt as out of scope so the product only fits households that already live like the verse. Not locked.
+5. **Net worth piggyback + projection** — today-as-of snapshot may append COMPUTED; chart latest per quarter; optional 5-year sketch ([`NET_WORTH_PROJECTION.md`](docs/NET_WORTH_PROJECTION.md); PRODUCT §15). Do not start until asked. Piggyback may ship before investments; the dashed line waits on the investment flag.
+6. **Investment gain over time** — household cumulative dollar gain of flagged assets, then optional 5-year sketch ([`INVESTMENT_GAIN.md`](docs/INVESTMENT_GAIN.md); PRODUCT §16). After To Do **#3**.

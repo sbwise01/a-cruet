@@ -93,7 +93,7 @@ This is **not**:
 
 - A plaintext enum the server understands (`INVESTMENT`, `AUTO`) — names are ciphertext
 - Nesting items under an envelope bundle
-- Holdings, tickers, or price feeds (value-over-time is [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md))
+- Holdings, tickers, or price feeds (dollar path is [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md); contribution + return is [`INVESTMENTS.md`](INVESTMENTS.md); household dollar gain is [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md))
 - Required membership or a Flyway-created default group
 
 ### Data model
@@ -149,7 +149,7 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 ## Out of scope
 
 - Linking a loan payment to an envelope withdrawal
-- Investment holdings, tickers, or price feeds (value-over-time report is [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md))
+- Investment holdings, tickers, or price feeds (dollar path is [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md); contribution + return is [`INVESTMENTS.md`](INVESTMENTS.md); household dollar gain is [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md))
 - Per-user private assets
 - Nesting snapshot items under a bundle
 - Net-worth **history** (shipped separately — PRODUCT §11 / [`NET_WORTH.md`](NET_WORTH.md))

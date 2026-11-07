@@ -1,6 +1,6 @@
 # A Cruet
 
-**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking, a household **net worth** history (live Assets Net plus saved observations, including past year-end totals), and **value over time** for snapshot items and groups.
+**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking, a household **net worth** history (live Assets Net plus saved observations, including past year-end totals), **value over time** for snapshot items and groups, **investment performance** on opted-in assets (monthly value plus net contribution — not envelope transactions), a planned **5-year net-worth sketch**, and a planned household **investment gain over time** report (dollar gain, optional sketch).
 
 The vision is unchanged and is the footer verse: *The wise store up choice food and olive oil, but fools gulp theirs down.* (Proverbs 21:20)
 
@@ -383,6 +383,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 | Abuse counts | Section 3, Section 6 (#52) |
 | Implementation plan | [`ASSETS.md`](ASSETS.md) |
 | Asset groups | Section 12 |
+| Investment tracking | Section 14 |
 
 ### 10. Quarterly asset reminders ✅ locked (2026-11-01)
 
@@ -426,8 +427,8 @@ The server **cannot** cron-sum ciphertext. No silent monthly write.
 | Reminder | On signed-in **home** (`/`) when the latest register **`as_of_date` is ≥ 1 calendar month old**, or there are **no rows**. Primary button **saves** a computed snapshot. **Not now** snoozes **7 local days** (`localStorage`). Preview `/?netWorthReminder=1` |
 | Staleness | Latest **`as_of_date`**, not `created_at` (backfilling 31 Dec 2025 today still leaves current net unstamped) |
 | Two dialogs | Quarterly assets reminder (§10) first; after it closes, show net-worth reminder if still stale |
-| Periodic job | **None**. No opportunistic silent write on unlock |
-| Chart | Plot **stored observations only**. No interpolated monthly points between yearly backfills |
+| Periodic job | **None**. No opportunistic silent write on unlock. Follow-on piggyback (Section 15) is a **today-as-of** snapshot side effect, still not unlock and still not a server job |
+| Chart | Plot **stored observations only**. No interpolated monthly points between yearly backfills. Follow-on (Section 15) collapses the **chart** to latest per calendar quarter; the table stays every row |
 | Cap | **600** observations per household |
 | Offboard | Client-side export includes all net-worth rows |
 | Reconstruct past | **Do not** derive old year-end totals from today’s position list |
@@ -440,6 +441,7 @@ The server **cannot** cron-sum ciphertext. No silent monthly write.
 | Quarterly line-item reminder | Section 10 |
 | Household DEK | Section 7 |
 | Shipped plan | [`NET_WORTH.md`](NET_WORTH.md) |
+| Piggyback + 5-year sketch | Section 15 |
 
 ### 12. Asset groups ✅ locked (2026-11-05)
 
@@ -459,7 +461,7 @@ Groups are **not** envelope bundles: they do not isolate a ledger and they do no
 | Active cap | **20** groups per household. Archived groups do not count |
 | Admin | Operational **`position_group_count`** (active) — never decrypted names |
 | Offboard | Export includes groups and each item’s group id |
-| Follow-on | Value-over-time report (Section 13) filters by group |
+| Follow-on | Value-over-time (Section 13) and investment performance (Section 14) filter by group. Investment gain over time (Section 16) does **not** |
 
 #### Cross-references
 
@@ -496,7 +498,92 @@ The server still never sees amounts. **Envelopes / Savings** is not on this drop
 | Snapshot register | Section 9 |
 | Asset groups | Section 12 |
 | Net worth report (different series) | Section 11 |
+| Investment performance (contribution + return) | Section 14 |
+| Investment gain over time (dollar gain) | Section 16 |
 | Implementation plan | [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md) |
+
+### 14. Investment tracking and performance ✅ locked (2026-11-07)
+
+Monthly **performance** for snapshot **assets** the household opts in. Not envelope transactions (too much precision). Not holdings or tickers. Implementation plan: [`INVESTMENTS.md`](INVESTMENTS.md).
+
+Value over time (Section 13) stays the dollar path. This feature adds a **net contribution** on each monthly update so the client can tell new money from gain or loss.
+
+| Item | Decision |
+|------|----------|
+| Flag | Plaintext `investment` on `financial_position`, default false, **assets only**. Same class as `kind`. Existing items stay off |
+| Set flag | Add-asset checkbox. Existing: row control, **not** the Update-value form |
+| Monthly fields | Flagged: current value + **net contribution** (empty = 0). Unflagged: value only |
+| Payload | Ciphertext `{ cents, flowCents? }`. Missing flow = 0 |
+| Return | Simple monthly `(EMV − BMV − C) / BMV` when BMV > 0; cumulative **linked** product of `(1+r)`. No Modified Dietz in v1 |
+| Several updates in a month | Sum flows in that calendar month; value from latest snapshot on or before month-end |
+| Report | `/reports/investment-performance`: flagged assets and groups with ≥1 flagged asset. Chart = cumulative return. Table = value, flow, monthly %, cumulative % |
+| Groups | Filter only. **Investments** is still a ciphertext label, not a server enum |
+| Liabilities / envelopes | Never flagged. Not on this report |
+| Storage | `V16` boolean column. No flow table. No envelope reuse |
+| Admin | No extra count in v1 |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Snapshot register (one total, no trades) | Section 9 |
+| Asset groups (filter, not type) | Section 12 |
+| Value over time (dollar path) | Section 13 |
+| Implementation plan | [`INVESTMENTS.md`](INVESTMENTS.md) |
+| Investment gain over time | Section 16 |
+| Net-worth sketch (uses `flowCents`) | Section 15 |
+
+### 15. Net worth piggyback + projection ✅ locked (2026-11-07)
+
+Follow-on to the shipped register (Section 11). Planned. Implementation: [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md).
+
+**Piggyback** (no investment flag): a position snapshot whose as-of is **today** appends a COMPUTED net-worth row from live Net when the latest register as-of is stale (≥ 1 calendar month, same clock as the home reminder) or is already today. Past statement dates do not stamp. Unlock and envelope txs do not stamp. **Append**, never replace. The **chart** shows the latest observation per **calendar quarter**; the **table** stays every row.
+
+**Projection**: optional dashed **5-year** overlay on `/reports/net-worth` (chart only). Engine **B** — today’s live ingredients item-by-item, not a fit through saved net-worth points. Toggle **visible but locked** until **4 consecutive trailing quarters** of snapshots on an **investment** or a **paying-down** liability. Short title + quarter-by-quarter hint. *If this pace continued — not a prediction.* Depends on Section 14’s flag and `flowCents`. Revolving-credit brand: README To Do **#4**.
+
+| Item | Decision |
+|------|----------|
+| Piggyback | Today-as-of asset **or** liability snapshot → append COMPUTED if register stale or already today |
+| Not piggyback | Unlock, envelope tx, past as-of, locked session |
+| Chart history | Latest observation per calendar quarter (Jan–Mar …). Table unchanged |
+| Engine | Item-by-item from live Net. Investments: median 4-quarter `C` and `r`. Non-investment assets and envelopes: freeze last. Liabilities: median 4-quarter dollar change; pay down if negative, freeze if not; floor $0 |
+| Horizon | 5 years, 20 quarter-end steps. Join = live Net (gap after last stamp is OK). No register write to join |
+| Overlay | Chart only, toggle off by default |
+| Gate | 4 consecutive quarters in the trailing 12 months on a moving item. Year-end net-worth totals and frozen assets do not count |
+| Sequence | Piggyback first; dashed line after investments R1–R2 |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Net worth register | Section 11 |
+| Investment flag / `flowCents` | Section 14 |
+| Investment gain sketch (sum-first cousin) | Section 16 |
+| Implementation plan | [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) |
+
+### 16. Investment gain over time ✅ locked (2026-11-07)
+
+Household **dollar gain** of opted-in investments, after performance (Section 14) ships. Planned. Implementation: [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md).
+
+Not percent (that is Section 14). Not account level (that is Section 13). **Sum first**, no dropdown, **no groups**. Each month `EMV − BMV − C`; chart is **cumulative dollars** (empty months flat). Table lists snapshot months or non-zero gain only. Optional 5-year dash uses the **same investment run-rate** as Section 15 (`C` grows the pile, not the plotted gain). Gate is 4 consecutive quarters on the **combined** flagged series. Drawdown / `incomeCents` later-scope.
+
+| Item | Decision |
+|------|----------|
+| Path | `/reports/investment-gain`. Hub tile. After Section 14 R3 |
+| Series | All flagged assets, sum first. No groups, no per-asset zoom |
+| Chart | Cumulative dollar line, monthly axis, January year labels |
+| Table | Month, gain, running total; skip empty $0 months |
+| Projection | Chart only, 5 years, toggle off; join = last chart point; 4-quarter gate (any flagged snapshot counts for the quarter) |
+| Name | **Investment gain over time** — not income |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Investment performance | Section 14 |
+| Net-worth sketch | Section 15 |
+| Value over time | Section 13 |
+| Implementation plan | [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md) |
 
 ## Product requirements
 
@@ -504,7 +591,7 @@ The server still never sees amounts. **Envelopes / Savings** is not on this drop
 - Application operates on both server side and client side
 - Client side consists of HTML and JavaScript delivered to a web browser which serves as the front end
 - Server side consists of REST based API resources running on the Tomcat server
-- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, a household net worth history (live Assets Net plus saved observations, including past year-end totals), and value-over-time charts of snapshot items and groups
+- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, a household net worth history (live Assets Net plus saved observations, including past year-end totals; planned piggyback stamp and optional 5-year sketch), value-over-time charts of snapshot items and groups, investment performance on opted-in assets (monthly value plus net contribution), and a household investment-gain report (cumulative dollars of `EMV − BMV − C`, optional sketch)
 - The application will be integrated with auth.home.bradandmarsha.com for authentication of users of the application
 - The application will store data in a cloud native postgres database instance
 - The data stored by the application will be encrypted using client side encryption.  The web server will only receive data in encrypted form and store it in the database encrypted.
@@ -556,9 +643,13 @@ The server still never sees amounts. **Envelopes / Savings** is not on this drop
     - page may show current Assets − Liabilities (live); net-worth **history** is a separate register (Section 11)
     - limit 50 active snapshot items per household
     - optional household **asset groups** (ciphertext names such as Investments or Autos; assets and/or liabilities; not envelope bundles)
+    - optional **investment** flag on a snapshot asset (plaintext; monthly net contribution in the snapshot ciphertext; not an envelope ledger)
   - quarterly reminder to update snapshot assets and liabilities (home modal on the last 7 days of Mar / Jun / Sep / Dec; Not now / Done)
   - net worth register (household; manual historical totals; save current from live Net; sign-in reminder when latest as-of is ≥ 1 month old)
   - value-over-time report for a snapshot asset, asset group, liability, or liability group (monthly axis; carry last value forward)
+  - investment performance for opted-in snapshot assets (monthly value + net contribution; linked simple return; not envelope transactions)
+  - net-worth piggyback: today-as-of position snapshot may append COMPUTED; net-worth chart latest-per-quarter; optional 5-year dashed sketch from live Net (4-quarter gate)
+  - investment gain over time (all flagged assets summed; cumulative `EMV − BMV − C`; optional 5-year sketch; after performance)
 - The application will support the following administrative workflows:
   - approve new user applications
   - assign administrators
