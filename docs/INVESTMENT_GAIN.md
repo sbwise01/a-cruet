@@ -7,7 +7,7 @@ This file is the decided plan for a household **dollar-gain** report of opted-in
 Performance answers **percent**. Value over time answers **level**. This report answers **how many dollars the market added or ate**, with contributions stripped out:
 
 ```text
-all flagged assets ── sum first ── monthly (EMV − BMV − C) ── trailing 12-month annualized $
+all flagged assets ── sum first ── monthly (EMV − BMV − C) ── trailing 12-month $ (unscaled)
                                               └── optional dash: 5 years of median r (C grows the pile, not the gain)
 ```
 
@@ -25,9 +25,9 @@ This is **not**:
 |------|----------|
 | When | Same UI release as performance ([`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) R2). Reuses `investment` + `flowCents`. No new column |
 | Series | **Household only** — every flagged asset, **sum first**. No dropdown. **No groups** |
-| Gain | Each month: `EMV − BMV − C` on the combined series (carry-forward like value over time). Missing `flowCents` = 0. Annualized = `sum(period) × (12/k)` for trailing `k ≤ 12` months with a beginning value |
+| Gain | Each month: `EMV − BMV − C` on the combined series (carry-forward like value over time). Missing `flowCents` = 0. Annualized = **sum** of those monthly gains over trailing `k ≤ 12` months. Do **not** multiply by `12/k` |
 | First month | No BMV → no gain that month (same as performance’s “no %”) |
-| Chart | **Trailing 12-month annualized dollar gain** through every month-end. Empty months are $0 in the window (line can go flat). January **year** labels. Not bars. Not a running total since inception |
+| Chart | **Trailing 12-month dollar gain** (sum, not scaled) through every month-end. Empty months are $0 in the window. January **year** labels. Not bars. Not a running total since inception. Not `sum × (12/k)` |
 | Table | Month, that month’s gain, annualized gain. Red when negative. **Only** months with a snapshot on the series **or** a non-zero gain |
 | Path | `/reports/investment-gain` (unlocked). Hub tile on `/reports` (reuse `/media/report-graphs.png` unless a new media file exists) |
 | Empty | Nothing flagged → hint to **Track as investment** on Assets. One snapshot → no line until a second month-end exists |
@@ -35,7 +35,7 @@ This is **not**:
 
 ### Projection
 
-Same investment run-rate as net worth, plotted as **annualized dollar gain** on this one series (`value × ((1+r)⁴ − 1)` on the dash).
+Same investment run-rate as net worth, plotted as **annualized dollar gain** on this one series (`value × r × 4` on the dash — simple, not compound).
 
 | Item | Decision |
 |------|----------|
