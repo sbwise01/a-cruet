@@ -1407,7 +1407,7 @@ Optional cluster checks not required to call the v1/v2 rollout complete:
 | Quarterly asset reminders | PRODUCT §10 | Shipped |
 | Device unlock | [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md), PRODUCT §3 | Shipped |
 | Net worth register | [`NET_WORTH.md`](NET_WORTH.md), PRODUCT §11 | **Complete** |
-| Asset groups | [`ASSETS.md`](ASSETS.md) releases 4–6, PRODUCT §12 | Planned |
+| Asset groups | [`ASSETS.md`](ASSETS.md) releases 4–6, PRODUCT §12 | **Complete** |
 
 Future product work (not rollout blockers) stays on the a-cruet README To Do and in [`PRODUCT.md`](PRODUCT.md) later-scope items — Flyway strategy, bootstrap admin as a-cruet user, investment performance reports, CAPTCHA, social login, mobile app, multi-currency, etc.
 
@@ -1416,7 +1416,7 @@ Future product work (not rollout blockers) stays on the a-cruet README To Do and
 ## References
 
 - [`PRODUCT.md`](PRODUCT.md) — locked decisions
-- [`ASSETS.md`](ASSETS.md) — snapshot assets and liabilities (shipped)
+- [`ASSETS.md`](ASSETS.md) — snapshot assets, liabilities, and asset groups (shipped)
 - [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](NET_WORTH.md) — net worth register (complete)
 - [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) — IdP rollout, Phase 5 clients

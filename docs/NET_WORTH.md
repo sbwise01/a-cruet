@@ -141,7 +141,7 @@ Three releases, all shipped. Verify each with `docker build --target build`. Bra
 - Interpolating months between yearly backfills
 - Editing or deleting an observation
 - Per-user private net worth (household series only)
-- Investment performance / holdings (README To Do **#4**; needs asset groups first)
+- Investment performance / holdings (README To Do **#3**; asset groups shipped)
 - Treating the Assets Net line as this feature
 
 This feature is **complete**. Next product work is on the a-cruet README To Do (Flyway strategy, bootstrap admin as a-cruet user, investment performance reports).

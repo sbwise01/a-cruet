@@ -752,9 +752,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       finished = true;
       renamingGroupId = null;
       if (save) {
-        const newName = input.value.trim();
-        if (!newName) {
-          showError('Name is required.');
+        let newName;
+        try {
+          newName = requireGroupName(input.value);
+        } catch (error) {
+          showError(error.message);
           render();
           return;
         }
@@ -1066,10 +1068,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function submitCreateGroup() {
-    const name = document.getElementById('groupName').value.trim();
-    if (!name) {
-      throw new Error('Name is required.');
-    }
+    const name = requireGroupName(document.getElementById('groupName').value);
     const dek = AcruetCrypto.session.getDek();
     const encryptedName = await AcruetCrypto.encryptJson(dek, { name });
     const response = await fetch('/position-groups', {
@@ -1150,6 +1149,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   function hideError() {
     els.error.hidden = true;
     els.error.textContent = '';
+  }
+
+  function requireGroupName(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) {
+      throw new Error('Name is required.');
+    }
+    if (isReservedGroupName(trimmed)) {
+      throw new Error(`${ENVELOPES_GROUP_NAME} is reserved for envelope cash.`);
+    }
+    return trimmed;
+  }
+
+  function isReservedGroupName(name) {
+    return normalizeGroupName(name) === normalizeGroupName(ENVELOPES_GROUP_NAME);
+  }
+
+  function normalizeGroupName(name) {
+    return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
   }
 
   function formatCents(cents) {

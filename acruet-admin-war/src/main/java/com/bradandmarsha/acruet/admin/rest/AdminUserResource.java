@@ -136,6 +136,7 @@ public class AdminUserResource {
                       <td>%d</td>
                       <td>%d</td>
                       <td>%d</td>
+                      <td>%d</td>
                       <td>%s</td>
                       <td>%s</td>
                       <td>%s</td>
@@ -151,6 +152,7 @@ public class AdminUserResource {
                                             row.householdMemberCount())),
                                     user.bundleCount(),
                                     user.positionCount(),
+                                    user.positionGroupCount(),
                                     user.netWorthSnapshotCount(),
                                     user.ledgerAccountCount(),
                                     user.transactionCount(),
@@ -172,6 +174,7 @@ public class AdminUserResource {
                       <th>Household</th>
                       <th>Bundles</th>
                       <th>Positions</th>
+                      <th>Groups</th>
                       <th>Net worth</th>
                       <th>Envelopes</th>
                       <th>Transactions</th>

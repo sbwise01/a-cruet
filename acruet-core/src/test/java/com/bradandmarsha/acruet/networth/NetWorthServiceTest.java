@@ -101,6 +101,7 @@ class NetWorthServiceTest {
                 1,
                 0,
                 0,
+                0,
                 keySetupComplete,
                 now,
                 now,

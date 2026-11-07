@@ -89,15 +89,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     bundles.sort((left, right) =>
       String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
+    const positionGroups = await loadPositionGroups();
     return {
       exportedAt: isoDate(new Date()),
       bundles,
-      positions: await loadPositions(),
+      positionGroups,
+      positions: await loadPositions(positionGroups),
       netWorth: await loadNetWorth(),
     };
   }
 
-  async function loadPositions() {
+  async function loadPositionGroups() {
+    const response = await fetch('/position-groups?includeArchived=true');
+    if (!response.ok) {
+      throw new Error('Failed to load asset groups for export.');
+    }
+    const body = await response.json();
+    const dek = AcruetCrypto.session.getDek();
+    const groups = [];
+    for (const raw of body.groups || []) {
+      const namePayload = await AcruetCrypto.decryptJson(dek, raw.encryptedName);
+      groups.push({
+        id: raw.id,
+        name: namePayload.name,
+        status: raw.status,
+        createdAt: raw.createdAt,
+        archivedAt: raw.archivedAt || null,
+      });
+    }
+    groups.sort((left, right) =>
+      String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
+    return groups;
+  }
+
+  async function loadPositions(positionGroups) {
+    const groupNameById = new Map(
+      (positionGroups || []).map((group) => [group.id, group.name]),
+    );
     const response = await fetch('/positions?includeArchived=true');
     if (!response.ok) {
       throw new Error('Failed to load snapshot items for export.');
@@ -127,6 +155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         kind: raw.kind,
         status: raw.status,
         name: namePayload.name,
+        groupId: raw.groupId || null,
+        groupName: raw.groupId ? (groupNameById.get(raw.groupId) || null) : null,
         createdAt: raw.createdAt,
         archivedAt: raw.archivedAt || null,
         snapshots,
@@ -271,12 +301,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       requireUnlocked();
       const data = await loadLedgerData();
-      const rows = [['Kind', 'Name', 'Status', 'As of', 'Amount', 'Recorded at']];
+      const rows = [['Kind', 'Name', 'Group', 'Status', 'As of', 'Amount', 'Recorded at']];
       data.positions.forEach((position) => {
+        const groupName = position.groupName || '';
         if (!position.snapshots.length) {
           rows.push([
             position.kind,
             position.name,
+            groupName,
             position.status,
             '',
             '',
@@ -288,6 +320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           rows.push([
             position.kind,
             position.name,
+            groupName,
             position.status,
             snapshot.asOfDate,
             formatCents(snapshot.cents),
