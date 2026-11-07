@@ -128,10 +128,10 @@ Reuse session + key-setup gates and per-user write rate limits. Reject when acti
 
 `/assets` while unlocked:
 
-- Snapshot assets and liabilities list **under group headings**, then **Ungrouped**
-- Group subtotal (sum of latest values in that section). Page Assets / Liabilities / Net totals unchanged
+- Default `/assets` view: each group is one **collapsed** row (name + sum); ungrouped items are individual rows; groups and ungrouped items sort together by amount. Envelope bundle totals are one group labeled **Envelopes / Savings** (expand to see each bundle). Expand/collapse via an arrow to the left of the group name. No Ungrouped heading or subtotal.
+- Group subtotal (sum of latest values in that section). Assets and Liabilities sums sit on the section headings, aligned with item amounts. The footer is a matching **Net** heading and sum (Save / historical actions under it)
 - Add / rename groups. Archive a group after its active items are moved or ungrouped
-- Add / edit item: group picker (including Ungrouped)
+- Add item: group picker on the create form (including Ungrouped). Existing items: compact **G** button between the name and Archive; click opens the group list. Update-value form does not change group
 - Envelope-bundle lines stay above snapshot groups, still read-only
 
 Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.

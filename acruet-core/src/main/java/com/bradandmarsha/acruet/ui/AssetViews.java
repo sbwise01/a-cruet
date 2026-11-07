@@ -18,17 +18,23 @@ public final class AssetViews {
                 }
                 a.account-row:hover { background: rgba(148, 163, 184, 0.08); }
                 #assetsList .account-row,
-                #liabilitiesList .account-row,
-                #registerTotals .account-row {
+                #liabilitiesList .account-row {
                   display: grid;
                   grid-template-columns: minmax(0, 1fr) 4.75rem 7.75rem;
                   column-gap: 0.5rem;
                   align-items: center;
                   justify-content: stretch;
                 }
+                #assetsList.has-expand .account-row,
+                #liabilitiesList.has-expand .account-row {
+                  grid-template-columns: 1.5rem minmax(0, 1fr) 4.75rem 7.75rem;
+                }
+                #assetsList.has-groups .account-row,
+                #liabilitiesList.has-groups .account-row {
+                  grid-template-columns: 1.5rem minmax(0, 1fr) 2rem 4.75rem 7.75rem;
+                }
                 #assetsList .row-archive,
-                #liabilitiesList .row-archive,
-                #registerTotals .row-archive {
+                #liabilitiesList .row-archive {
                   display: flex;
                   justify-content: center;
                 }
@@ -38,11 +44,27 @@ public final class AssetViews {
                   margin-top: 0;
                 }
                 #assetsList .balance,
-                #liabilitiesList .balance,
-                #registerTotals .balance {
+                #liabilitiesList .balance {
                   width: 100%;
                   text-align: right;
                   font-variant-numeric: tabular-nums;
+                }
+                .register-heading {
+                  display: grid;
+                  grid-template-columns: minmax(0, 1fr) 7.75rem;
+                  column-gap: 0.5rem;
+                  align-items: baseline;
+                  margin: 0;
+                  padding: 0 0 0.65rem;
+                  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+                }
+                .register-heading .name { min-width: 0; }
+                .register-heading .balance {
+                  width: 100%;
+                  text-align: right;
+                  font: inherit;
+                  font-variant-numeric: tabular-nums;
+                  white-space: nowrap;
                 }
                 .position-amount {
                   display: block;
@@ -61,15 +83,11 @@ public final class AssetViews {
                 .position-amount:hover { background: rgba(148, 163, 184, 0.15); }
                 .register-section { margin-bottom: 2rem; }
                 .register-meta { margin: 0 0 0.75rem; }
-                #registerTotals { margin-top: 0.5rem; }
-                #registerTotals .account-row.net-row {
-                  grid-template-columns: minmax(0, 1fr) auto 7.75rem;
-                }
                 #registerTotals .net-row-actions {
                   display: flex;
                   flex-wrap: wrap;
                   gap: 0.4rem;
-                  justify-content: center;
+                  margin-top: 0.75rem;
                 }
                 #registerTotals .net-row-actions .secondary {
                   margin: 0;
@@ -101,29 +119,95 @@ public final class AssetViews {
                   filter: none;
                 }
                 .account-row.group-heading {
-                  margin-top: 0.85rem;
-                  padding-top: 0.85rem;
-                  border-top: 1px solid rgba(148, 163, 184, 0.35);
                   font-size: 0.95rem;
                 }
-                .account-row.group-heading .name {
+                .account-row .name { min-width: 0; }
+                .row-expand,
+                .row-group {
                   display: flex;
-                  flex-direction: column;
-                  gap: 0.15rem;
-                  min-width: 0;
+                  justify-content: center;
+                  align-items: center;
                 }
-                .account-row .name {
-                  display: flex;
-                  flex-direction: column;
-                  align-items: flex-start;
-                  gap: 0.2rem;
-                  min-width: 0;
-                }
-                select.position-group {
-                  width: min(100%, 12rem);
+                .group-expand {
+                  width: 1.5rem;
+                  height: 1.5rem;
+                  padding: 0;
                   margin: 0;
-                  padding: 0.15rem 0.35rem;
-                  font-size: 0.8rem;
+                  background: transparent;
+                  color: inherit;
+                  border: none;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                }
+                .group-expand::before {
+                  content: "";
+                  width: 0;
+                  height: 0;
+                  border-style: solid;
+                  border-width: 0.28rem 0 0.28rem 0.42rem;
+                  border-color: transparent transparent transparent currentColor;
+                }
+                .group-expand[aria-expanded="true"]::before {
+                  border-width: 0.42rem 0.28rem 0 0.28rem;
+                  border-color: currentColor transparent transparent transparent;
+                }
+                .account-row.grouped-item .name {
+                  font-weight: 500;
+                }
+                .group-btn {
+                  width: 1.55rem;
+                  height: 1.55rem;
+                  padding: 0;
+                  margin: 0;
+                  border-radius: 999px;
+                  font-size: 0.7rem;
+                  font-weight: 700;
+                  letter-spacing: 0;
+                  line-height: 1;
+                  background: #475569;
+                  color: var(--text);
+                }
+                .group-btn.assigned {
+                  background: var(--accent);
+                  color: #0f172a;
+                }
+                .group-btn[aria-expanded="true"] {
+                  filter: brightness(1.08);
+                }
+                .group-picker {
+                  position: fixed;
+                  z-index: 40;
+                  min-width: 11rem;
+                  max-height: 16rem;
+                  overflow: auto;
+                  padding: 0.35rem 0;
+                  background: var(--bg-card);
+                  border: 1px solid rgba(148, 163, 184, 0.2);
+                  border-radius: 12px;
+                  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+                }
+                .group-picker button {
+                  display: block;
+                  width: 100%;
+                  margin: 0;
+                  padding: 0.45rem 0.9rem;
+                  text-align: left;
+                  background: transparent;
+                  color: var(--text);
+                  border: none;
+                  border-radius: 0;
+                  font: inherit;
+                  font-weight: 500;
+                  cursor: pointer;
+                }
+                .group-picker button:hover {
+                  background: rgba(56, 189, 248, 0.08);
+                  filter: none;
+                }
+                .group-picker button[aria-selected="true"] {
+                  color: var(--accent);
+                  font-weight: 600;
                 }
                 .group-heading .balance {
                   font-weight: 600;
@@ -155,14 +239,29 @@ public final class AssetViews {
                       <button type="button" class="ledger-action-btn" data-action="create-group">Add group</button>
                     </div>
                     <section id="assetsSection" class="register-section">
-                      <h2>Assets</h2>
+                      <h2 class="register-heading">
+                        <span class="name">Assets</span>
+                        <span class="balance" id="assetsTotal"></span>
+                      </h2>
                       <div id="assetsList"><p class="hint">Loading…</p></div>
                     </section>
                     <section id="liabilitiesSection" class="register-section">
-                      <h2>Liabilities</h2>
+                      <h2 class="register-heading">
+                        <span class="name">Liabilities</span>
+                        <span class="balance" id="liabilitiesTotal"></span>
+                      </h2>
                       <div id="liabilitiesList"><p class="hint">Loading…</p></div>
                     </section>
-                    <section id="registerTotals" hidden></section>
+                    <section id="registerTotals" class="register-section" hidden>
+                      <h2 class="register-heading">
+                        <span class="name">Net</span>
+                        <span class="balance" id="netTotal"></span>
+                      </h2>
+                      <div class="net-row-actions">
+                        <a href="/assets/historical-net-worth" class="secondary">Add historical total</a>
+                        <button type="button" id="btnSaveNetWorth" class="secondary">Save net worth</button>
+                      </div>
+                    </section>
                     <p id="saveNetWorthNotice" class="hint" hidden></p>
                   </div>
                   <section id="formPanel" hidden>
