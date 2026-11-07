@@ -13,8 +13,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const state = {
     bundles: [],
     positions: [],
+    groups: [],
     positionCount: 0,
     positionLimit: 50,
+    groupCount: 0,
+    groupLimit: 20,
     formMode: null,
     editingPositionId: null,
     liveNet: null,
@@ -41,10 +44,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     formBody: document.getElementById('formBody'),
     btnAddAsset: document.querySelector('[data-action="create-asset"]'),
     btnAddLiability: document.querySelector('[data-action="create-liability"]'),
+    btnAddGroup: document.querySelector('[data-action="create-group"]'),
   };
 
   let formErrorTimeout = null;
   let renamingPositionId = null;
+  let renamingGroupId = null;
 
   const deviceUnlockUi = AcruetDeviceUnlock.attachInline({
     form: els.inlineUnlockForm,
@@ -170,17 +175,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       showCreateForm('ASSET');
     } else if (action === 'create-liability') {
       showCreateForm('LIABILITY');
+    } else if (action === 'create-group') {
+      showCreateGroupForm();
     }
   }
 
   async function refresh() {
     hideError();
     try {
-      const [positionsBody, bundles] = await Promise.all([loadPositions(), loadBundles()]);
+      const [positionsBody, bundles, groupsBody] = await Promise.all([
+        loadPositions(),
+        loadBundles(),
+        loadGroups(),
+      ]);
       state.positions = positionsBody.positions;
       state.positionCount = positionsBody.positionCount;
       state.positionLimit = positionsBody.positionLimit;
       state.bundles = bundles;
+      state.groups = groupsBody.groups;
+      state.groupCount = groupsBody.groupCount;
+      state.groupLimit = groupsBody.groupLimit;
       render();
     } catch (error) {
       showError(error.message || 'Failed to load assets.');
@@ -247,6 +261,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
   }
 
+  async function loadGroups() {
+    const response = await fetch('/position-groups');
+    if (!response.ok) {
+      throw new Error('Failed to load groups.');
+    }
+    const body = await response.json();
+    const dek = AcruetCrypto.session.getDek();
+    const groups = [];
+    for (const group of body.groups || []) {
+      let name = 'Untitled';
+      try {
+        const payload = await AcruetCrypto.decryptJson(dek, group.encryptedName);
+        name = payload.name || name;
+      } catch (ignored) {
+        name = 'Untitled';
+      }
+      groups.push({
+        ...group,
+        name,
+      });
+    }
+    groups.sort((left, right) =>
+      String(left.name || '').localeCompare(String(right.name || ''), undefined, { sensitivity: 'base' }));
+    return {
+      groups,
+      groupCount: Number(body.groupCount || groups.length),
+      groupLimit: Number(body.groupLimit || 20),
+    };
+  }
+
   async function bundleTotalCents(bundleId, dek) {
     const query = `bundleId=${encodeURIComponent(bundleId)}`;
     const [accountsResponse, transactionsResponse] = await Promise.all([
@@ -292,7 +336,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const net = assetsTotal - liabilitiesTotal;
 
     els.registerMeta.hidden = false;
-    els.registerMeta.textContent = `${state.positionCount} of ${state.positionLimit} snapshot items`;
+    els.registerMeta.textContent =
+      `${state.positionCount} of ${state.positionLimit} snapshot items · ${state.groupCount} of ${state.groupLimit} groups`;
     const atLimit = state.positionCount >= state.positionLimit;
     if (els.btnAddAsset) {
       els.btnAddAsset.disabled = atLimit;
@@ -306,9 +351,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? `Snapshot item limit reached (${state.positionLimit}).`
         : 'Add a snapshot liability';
     }
+    const atGroupLimit = state.groupCount >= state.groupLimit;
+    if (els.btnAddGroup) {
+      els.btnAddGroup.disabled = atGroupLimit;
+      els.btnAddGroup.title = atGroupLimit
+        ? `Group limit reached (${state.groupLimit}).`
+        : 'Add a group';
+    }
 
     els.assetsList.innerHTML = renderAssetRows(snapshotAssets) || emptyHint('No snapshot assets yet.');
-    els.liabilitiesList.innerHTML = renderPositionRows(liabilities)
+    els.liabilitiesList.innerHTML = renderGroupedRows(liabilities, { includeEmptyGroups: false })
       || emptyHint('No liabilities yet. Add a loan or other amount owed.');
     bindRowEvents(els.assetsList);
     bindRowEvents(els.liabilitiesList);
@@ -380,22 +432,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderAssetRows(snapshotAssets) {
-    const rows = [
-      ...state.bundles.map((bundle) => ({
-        amount: bundle.totalCents,
-        html: renderBundleRow(bundle),
-      })),
-      ...snapshotAssets.map((position) => ({
-        amount: position.cents,
-        html: renderPositionRow(position),
-      })),
-    ];
-    rows.sort((left, right) => right.amount - left.amount);
-    return rows.map((row) => row.html).join('');
+    const envelopeRows = sortByAmountDesc(state.bundles, (bundle) => bundle.totalCents)
+      .map((bundle) => renderBundleRow(bundle))
+      .join('');
+    const grouped = renderGroupedRows(snapshotAssets, { includeEmptyGroups: true });
+    if (!envelopeRows && !grouped) {
+      return '';
+    }
+    return `${envelopeRows}${grouped}`;
   }
 
-  function renderPositionRows(positions) {
-    return positions.map((position) => renderPositionRow(position)).join('');
+  function renderGroupedRows(positions, { includeEmptyGroups }) {
+    if (!state.groups.length) {
+      return sortByAmountDesc(positions, (position) => position.cents)
+        .map((position) => renderPositionRow(position))
+        .join('');
+    }
+    const parts = [];
+    for (const group of state.groups) {
+      const items = sortByAmountDesc(
+        positions.filter((position) => position.groupId === group.id),
+        (position) => position.cents,
+      );
+      const hasAnyKind = state.positions.some((position) => position.groupId === group.id);
+      if (!items.length && (!includeEmptyGroups || hasAnyKind)) {
+        continue;
+      }
+      const subtotal = items.reduce((sum, position) => sum + position.cents, 0);
+      parts.push(renderGroupHeading(group, subtotal));
+      items.forEach((position) => parts.push(renderPositionRow(position)));
+    }
+    const ungrouped = sortByAmountDesc(
+      positions.filter((position) => !position.groupId),
+      (position) => position.cents,
+    );
+    if (ungrouped.length) {
+      const subtotal = ungrouped.reduce((sum, position) => sum + position.cents, 0);
+      parts.push(renderGroupHeading(null, subtotal));
+      ungrouped.forEach((position) => parts.push(renderPositionRow(position)));
+    }
+    return parts.join('');
   }
 
   function renderBundleRow(bundle) {
@@ -408,17 +484,51 @@ document.addEventListener('DOMContentLoaded', async () => {
           </a>`;
   }
 
+  function renderGroupHeading(group, cents) {
+    if (!group) {
+      return `
+        <div class="account-row group-heading" data-ungrouped="true">
+          <span class="name">Ungrouped</span>
+          <span class="row-archive"></span>
+          <span class="balance">${formatCents(cents)}</span>
+        </div>`;
+    }
+    return `
+        <div class="account-row group-heading" data-group-id="${group.id}">
+          <span class="name">
+            <button type="button" class="envelope-name group-name" data-id="${group.id}" title="Click to rename">${escapeHtml(group.name)}</button>
+          </span>
+          <span class="row-archive">
+            <button type="button" class="archive-btn secondary archive-group-btn" data-id="${group.id}">Archive</button>
+          </span>
+          <span class="balance">${formatCents(cents)}</span>
+        </div>`;
+  }
+
   function renderPositionRow(position) {
     return `
         <div class="account-row" data-position-id="${position.id}">
           <span class="name">
             <button type="button" class="envelope-name" data-id="${position.id}" title="Click to rename">${escapeHtml(position.name)}</button>
+            ${groupSelectHtml(position)}
           </span>
           <span class="row-archive">
             <button type="button" class="archive-btn secondary" data-id="${position.id}">Archive</button>
           </span>
           <button type="button" class="position-amount" data-id="${position.id}" title="Click to update value">${formatCents(position.cents)}</button>
         </div>`;
+  }
+
+  function groupSelectHtml(position) {
+    if (!state.groups.length && !position.groupId) {
+      return '';
+    }
+    const options = [
+      `<option value=""${position.groupId ? '' : ' selected'}>Ungrouped</option>`,
+      ...state.groups.map((group) =>
+        `<option value="${group.id}"${position.groupId === group.id ? ' selected' : ''}>${escapeHtml(group.name)}</option>`),
+    ];
+    return `<select class="position-group" data-id="${position.id}" aria-label="Group">${options.join('')}</select>`;
   }
 
   function sortByAmountDesc(items, amountOf) {
@@ -430,14 +540,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function bindRowEvents(list) {
-    list.querySelectorAll('.envelope-name').forEach((button) => {
+    list.querySelectorAll('.envelope-name:not(.group-name)').forEach((button) => {
       button.addEventListener('click', () => startRename(button.dataset.id));
+    });
+    list.querySelectorAll('.group-name').forEach((button) => {
+      button.addEventListener('click', () => startRenameGroup(button.dataset.id));
     });
     list.querySelectorAll('.position-amount').forEach((button) => {
       button.addEventListener('click', () => showUpdateForm(button.dataset.id));
     });
-    list.querySelectorAll('.archive-btn').forEach((button) => {
+    list.querySelectorAll('.archive-group-btn').forEach((button) => {
+      button.addEventListener('click', () => archiveGroup(button.dataset.id));
+    });
+    list.querySelectorAll('.archive-btn:not(.archive-group-btn)').forEach((button) => {
       button.addEventListener('click', () => archivePosition(button.dataset.id));
+    });
+    list.querySelectorAll('select.position-group').forEach((select) => {
+      select.addEventListener('change', () => {
+        void assignGroup(select.dataset.id, select.value || null);
+      });
     });
   }
 
@@ -449,9 +570,123 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  async function assignGroup(positionId, groupId) {
+    hideError();
+    const response = await fetch(`/positions/${positionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      showError(body.error || 'Failed to assign group.');
+      await refresh();
+      return;
+    }
+    await refresh();
+  }
+
+  function startRenameGroup(groupId) {
+    const group = state.groups.find((item) => item.id === groupId);
+    if (!group || renamingGroupId || renamingPositionId) {
+      return;
+    }
+    renamingGroupId = groupId;
+    const row = document.querySelector(`[data-group-id="${groupId}"]`);
+    if (!row) {
+      renamingGroupId = null;
+      return;
+    }
+    const nameWrap = row.querySelector('.name');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'envelope-name-input';
+    input.value = group.name;
+    input.maxLength = 120;
+    input.setAttribute('aria-label', 'Group name');
+    nameWrap.innerHTML = '';
+    nameWrap.appendChild(input);
+    input.focus();
+    input.select();
+
+    let finished = false;
+    const finish = async (save) => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      renamingGroupId = null;
+      if (save) {
+        const newName = input.value.trim();
+        if (!newName) {
+          showError('Name is required.');
+          render();
+          return;
+        }
+        if (newName !== group.name) {
+          try {
+            await renameGroup(groupId, newName);
+          } catch (error) {
+            showError(error.message || 'Failed to rename group.');
+            render();
+            return;
+          }
+        }
+      }
+      await refresh();
+    };
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener('blur', () => {
+      finish(false);
+    });
+  }
+
+  async function renameGroup(groupId, name) {
+    const dek = AcruetCrypto.session.getDek();
+    const encryptedName = await AcruetCrypto.encryptJson(dek, { name });
+    const response = await fetch(`/position-groups/${groupId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ encryptedName }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || 'Failed to rename group.');
+    }
+  }
+
+  async function archiveGroup(groupId) {
+    const group = state.groups.find((item) => item.id === groupId);
+    const label = group ? group.name : 'this group';
+    const stillUsed = state.positions.some((position) => position.groupId === groupId);
+    if (stillUsed) {
+      showError('Move or ungroup active items before archiving this group.');
+      return;
+    }
+    if (!window.confirm(`Archive “${label}”?`)) {
+      return;
+    }
+    const response = await fetch(`/position-groups/${groupId}/archive`, { method: 'POST' });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      showError(body.error || 'Failed to archive group.');
+      return;
+    }
+    await refresh();
+  }
+
   function startRename(positionId) {
     const position = state.positions.find((item) => item.id === positionId);
-    if (!position || renamingPositionId) {
+    if (!position || renamingPositionId || renamingGroupId) {
       return;
     }
     renamingPositionId = positionId;
@@ -572,6 +807,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         <input type="hidden" id="positionKind" value="${kind}">
         <label for="positionName">Name</label>
         <input id="positionName" type="text" required maxlength="120">
+        <label for="positionGroup">Group</label>
+        <select id="positionGroup">${groupOptionsHtml('')}</select>
         <label for="positionAmount">${liability ? 'Amount owed' : 'Current value'}</label>
         <input id="positionAmount" type="text" inputmode="decimal" required placeholder="0.00">
         <label for="asOfDate">As of</label>
@@ -585,6 +822,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     hideFormError();
     openForm();
     document.getElementById('positionName').focus();
+  }
+
+  function showCreateGroupForm() {
+    if (state.groupCount >= state.groupLimit) {
+      showError(`Group limit reached (${state.groupLimit}).`);
+      return;
+    }
+    state.formMode = 'CREATE_GROUP';
+    state.editingPositionId = null;
+    els.formTitle.textContent = 'Add group';
+    els.formBody.innerHTML = `
+      <form id="positionForm">
+        <label for="groupName">Name</label>
+        <input id="groupName" type="text" required maxlength="120" placeholder="Investments, Autos, …">
+        <p class="hint">A label for snapshot items. Membership is optional.</p>
+      </form>`;
+    document.getElementById('positionForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitForm();
+    });
+    hideFormError();
+    openForm();
+    document.getElementById('groupName').focus();
+  }
+
+  function groupOptionsHtml(selectedId) {
+    const options = [`<option value=""${selectedId ? '' : ' selected'}>Ungrouped</option>`];
+    state.groups.forEach((group) => {
+      options.push(
+        `<option value="${group.id}"${selectedId === group.id ? ' selected' : ''}>${escapeHtml(group.name)}</option>`,
+      );
+    });
+    return options.join('');
   }
 
   function showUpdateForm(positionId) {
@@ -623,6 +893,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         await submitCreate();
       } else if (state.formMode === 'UPDATE') {
         await submitUpdate();
+      } else if (state.formMode === 'CREATE_GROUP') {
+        await submitCreateGroup();
       }
       closeForm();
       await refresh();
@@ -639,17 +911,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!name) {
       throw new Error('Name is required.');
     }
+    const groupId = document.getElementById('positionGroup').value || null;
     const dek = AcruetCrypto.session.getDek();
     const encryptedName = await AcruetCrypto.encryptJson(dek, { name });
     const encryptedPayload = await AcruetCrypto.encryptJson(dek, { cents });
+    const payload = { kind, encryptedName, asOfDate, encryptedPayload };
+    if (groupId) {
+      payload.groupId = groupId;
+    }
     const response = await fetch('/positions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind, encryptedName, asOfDate, encryptedPayload }),
+      body: JSON.stringify(payload),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || 'Failed to add item.');
+    }
+  }
+
+  async function submitCreateGroup() {
+    const name = document.getElementById('groupName').value.trim();
+    if (!name) {
+      throw new Error('Name is required.');
+    }
+    const dek = AcruetCrypto.session.getDek();
+    const encryptedName = await AcruetCrypto.encryptJson(dek, { name });
+    const response = await fetch('/position-groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ encryptedName }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || 'Failed to add group.');
     }
   }
 

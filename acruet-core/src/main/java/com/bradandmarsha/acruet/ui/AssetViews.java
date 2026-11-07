@@ -100,6 +100,34 @@ public final class AssetViews {
                   cursor: not-allowed;
                   filter: none;
                 }
+                .account-row.group-heading {
+                  margin-top: 0.85rem;
+                  padding-top: 0.85rem;
+                  border-top: 1px solid rgba(148, 163, 184, 0.35);
+                  font-size: 0.95rem;
+                }
+                .account-row.group-heading .name {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 0.15rem;
+                  min-width: 0;
+                }
+                .account-row .name {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: flex-start;
+                  gap: 0.2rem;
+                  min-width: 0;
+                }
+                select.position-group {
+                  width: min(100%, 12rem);
+                  margin: 0;
+                  padding: 0.15rem 0.35rem;
+                  font-size: 0.8rem;
+                }
+                .group-heading .balance {
+                  font-weight: 600;
+                }
                 """;
     }
 
@@ -124,6 +152,7 @@ public final class AssetViews {
                     <div class="ledger-actions">
                       <button type="button" class="ledger-action-btn" data-action="create-asset">Add asset</button>
                       <button type="button" class="ledger-action-btn" data-action="create-liability">Add liability</button>
+                      <button type="button" class="ledger-action-btn" data-action="create-group">Add group</button>
                     </div>
                     <section id="assetsSection" class="register-section">
                       <h2>Assets</h2>

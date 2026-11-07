@@ -139,7 +139,7 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 ### Releases
 
 4. **Schema + API** — V15, repositories, group resource, `groupId` on positions. `/assets` UI unchanged (items remain ungrouped). ✅ (2026-11-07; `docker build --target build`)
-5. **`/assets` UI** — headings, subtotals, create/rename/archive groups, assign on add/edit. Cache-bust.
+5. **`/assets` UI** — headings, subtotals, create/rename/archive groups, assign on add (and a row picker for existing items — not the amount form). Cache-bust. ✅ (2026-11-07; `docker build --target build`)
 6. **Export, admin, docs** — offboard includes groups + each item’s `groupId`; admin `/users` **Groups** count; README / marketing mention grouping. Do **not** mark investment performance reports done.
 
 **Verify R4:** unit tests for cap (20), archive blocked while active items remain, cascade on household delete; `GET /positions` includes `groupId` (null for existing items); package succeeds. ✅ (2026-11-07; `docker build --target build`)
