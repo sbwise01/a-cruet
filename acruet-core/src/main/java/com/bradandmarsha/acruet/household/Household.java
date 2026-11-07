@@ -13,6 +13,7 @@ public record Household(
         int ledgerAccountLimit,
         int bundleCount,
         int positionCount,
+        int positionGroupCount,
         int netWorthSnapshotCount,
         Instant createdAt,
         Instant updatedAt) {

@@ -46,7 +46,8 @@ public final class HouseholdRepository {
     public Optional<Household> findById(Connection connection, UUID householdId) throws SQLException {
         String sql = """
                 SELECT id, ledger_account_count, transaction_count, ledger_account_limit,
-                       bundle_count, position_count, net_worth_snapshot_count, created_at, updated_at
+                       bundle_count, position_count, position_group_count, net_worth_snapshot_count,
+                       created_at, updated_at
                 FROM household
                 WHERE id = ?
                 """;
@@ -134,6 +135,30 @@ public final class HouseholdRepository {
         }
     }
 
+    public void incrementPositionGroupCount(Connection connection, UUID householdId) throws SQLException {
+        String sql = """
+                UPDATE household
+                SET position_group_count = position_group_count + 1, updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, householdId);
+            statement.executeUpdate();
+        }
+    }
+
+    public void decrementPositionGroupCount(Connection connection, UUID householdId) throws SQLException {
+        String sql = """
+                UPDATE household
+                SET position_group_count = GREATEST(position_group_count - 1, 0), updated_at = NOW()
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, householdId);
+            statement.executeUpdate();
+        }
+    }
+
     public void incrementPositionCount(Connection connection, UUID householdId) throws SQLException {
         String sql = """
                 UPDATE household
@@ -211,6 +236,7 @@ public final class HouseholdRepository {
                 resultSet.getInt("ledger_account_limit"),
                 resultSet.getInt("bundle_count"),
                 resultSet.getInt("position_count"),
+                resultSet.getInt("position_group_count"),
                 resultSet.getInt("net_worth_snapshot_count"),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant());

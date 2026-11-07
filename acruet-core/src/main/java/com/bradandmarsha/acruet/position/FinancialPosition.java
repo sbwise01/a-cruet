@@ -11,6 +11,7 @@ public record FinancialPosition(
         UUID householdId,
         PositionKind kind,
         PositionStatus status,
+        UUID groupId,
         byte[] encryptedName,
         Instant createdAt,
         Instant updatedAt,

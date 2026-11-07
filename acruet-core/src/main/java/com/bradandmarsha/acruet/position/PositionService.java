@@ -24,6 +24,7 @@ public final class PositionService {
 
     private final HouseholdRepository householdRepository = new HouseholdRepository();
     private final FinancialPositionRepository positionRepository = new FinancialPositionRepository();
+    private final PositionGroupRepository groupRepository = new PositionGroupRepository();
     private final LedgerWriteRateLimiter rateLimiter =
             new LedgerWriteRateLimiter(new LedgerTransactionRepository());
 
@@ -56,6 +57,16 @@ public final class PositionService {
             String encryptedNameBase64,
             LocalDate asOfDate,
             String encryptedPayloadBase64) {
+        return createPosition(user, kind, encryptedNameBase64, asOfDate, encryptedPayloadBase64, null);
+    }
+
+    public FinancialPosition createPosition(
+            AcruetUser user,
+            PositionKind kind,
+            String encryptedNameBase64,
+            LocalDate asOfDate,
+            String encryptedPayloadBase64,
+            UUID groupId) {
         validateEncryptedBlob(encryptedNameBase64);
         validateEncryptedBlob(encryptedPayloadBase64);
         requireAsOfDate(asOfDate);
@@ -67,11 +78,13 @@ public final class PositionService {
                 if (positionRepository.countActive(connection, user.householdId()) >= MAX_ACTIVE_POSITIONS) {
                     throw new PositionException("Position limit reached (" + MAX_ACTIVE_POSITIONS + ").");
                 }
+                requireActiveGroup(connection, user.householdId(), groupId);
                 positionRepository.insert(
                         connection,
                         positionId,
                         user.householdId(),
                         kind,
+                        groupId,
                         EncryptedBlob.decode(encryptedNameBase64));
                 positionRepository.insertSnapshot(
                         connection,
@@ -92,16 +105,37 @@ public final class PositionService {
     }
 
     public FinancialPosition updateName(AcruetUser user, UUID positionId, String encryptedNameBase64) {
-        validateEncryptedBlob(encryptedNameBase64);
+        return updatePosition(user, positionId, encryptedNameBase64, false, null);
+    }
+
+    public FinancialPosition updatePosition(
+            AcruetUser user,
+            UUID positionId,
+            String encryptedNameBase64,
+            boolean groupSpecified,
+            UUID groupId) {
+        boolean rename = encryptedNameBase64 != null && !encryptedNameBase64.isBlank();
+        if (!rename && !groupSpecified) {
+            throw new PositionException("Name or group is required.");
+        }
+        if (rename) {
+            validateEncryptedBlob(encryptedNameBase64);
+        }
         try {
             return Database.inTransactionReturning(connection -> {
                 checkWriteRateLimit(connection, user.id());
                 requireActive(connection, user.householdId(), positionId);
-                positionRepository.updateEncryptedName(
-                        connection,
-                        user.householdId(),
-                        positionId,
-                        EncryptedBlob.decode(encryptedNameBase64));
+                if (rename) {
+                    positionRepository.updateEncryptedName(
+                            connection,
+                            user.householdId(),
+                            positionId,
+                            EncryptedBlob.decode(encryptedNameBase64));
+                }
+                if (groupSpecified) {
+                    requireActiveGroup(connection, user.householdId(), groupId);
+                    positionRepository.updateGroupId(connection, user.householdId(), positionId, groupId);
+                }
                 rateLimiter.record(connection, user.id());
                 return positionRepository.findById(connection, user.householdId(), positionId)
                         .orElseThrow(() -> new PositionException("Position not found"));
@@ -109,7 +143,7 @@ public final class PositionService {
         } catch (PositionException exception) {
             throw exception;
         } catch (SQLException exception) {
-            throw new PositionException("Failed to rename position", exception);
+            throw new PositionException("Failed to update position", exception);
         }
     }
 
@@ -157,6 +191,17 @@ public final class PositionService {
             throw exception;
         } catch (SQLException exception) {
             throw new PositionException("Failed to archive position", exception);
+        }
+    }
+
+    private void requireActiveGroup(Connection connection, UUID householdId, UUID groupId) throws SQLException {
+        if (groupId == null) {
+            return;
+        }
+        PositionGroup group = groupRepository.findById(connection, householdId, groupId)
+                .orElseThrow(() -> new PositionException("Group not found"));
+        if (group.status() != PositionStatus.ACTIVE) {
+            throw new PositionException("Group is archived.");
         }
     }
 
