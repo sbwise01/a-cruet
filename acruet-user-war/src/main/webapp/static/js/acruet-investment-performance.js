@@ -239,11 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!windowRows.length) {
       return null;
     }
-    let linked = 1;
-    windowRows.forEach((row) => {
-      linked *= (1 + row.monthlyPct);
-    });
-    return linked ** (12 / windowRows.length) - 1;
+    const sum = windowRows.reduce((total, row) => total + row.monthlyPct, 0);
+    return sum * (12 / windowRows.length);
   }
 
   function sumOnOrBefore(lists, asOfDate) {

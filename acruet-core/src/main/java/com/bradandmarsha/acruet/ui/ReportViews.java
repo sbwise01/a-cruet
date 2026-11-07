@@ -406,7 +406,7 @@ public final class ReportViews {
                 <section id="reportsPanel">
                   <div id="reportInvestmentGainPanel">
                     <h2>Investment gain over time</h2>
-                    <p class="hint">Household trailing 12-month annualized dollar gain of every flagged investment (value change minus contributions). One line, no groups.</p>
+                    <p class="hint">Household trailing 12-month dollar gain of every flagged investment (value change minus contributions). One line, no groups. Short history is not scaled up to a full year.</p>
                     <p id="investmentGainMeta" class="hint"></p>
                     <div class="projection-toggle">
                       <span id="investmentGainProjectControl" title="Needs 4 quarters of investment or loan history.">

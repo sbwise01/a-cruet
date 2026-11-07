@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
       syncToggle();
       if (els.meta) {
         els.meta.textContent = state.items.length
-          ? 'All flagged investments, summed. Trailing 12-month annualized dollar gain. Contributions are not gain.'
+          ? 'All flagged investments, summed. Trailing 12-month dollar gain. Contributions are not gain.'
           : 'Track an asset as an investment on Assets to see household gain.';
       }
       renderTable(history);
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return null;
     }
     const sum = windowRows.reduce((total, row) => total + row.periodGain, 0);
-    return Math.round(sum * (12 / windowRows.length));
+    return Math.round(sum);
   }
 
   function sumOnOrBefore(lists, asOfDate) {
@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const run = AcruetProjection.investmentRunRateFromLists(state.items.map((item) => item.snapshots));
       const last = history[history.length - 1];
       const projected = AcruetProjection.projectInvestmentValue(last.emv, run.c, run.r);
-      const annualFactor = (1 + run.r) ** 4 - 1;
+      const annualFactor = run.r * 4;
       datasets.push({
         label: 'If this pace continued',
         data: projected.map((point) => ({

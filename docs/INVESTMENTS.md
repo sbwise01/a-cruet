@@ -34,7 +34,7 @@ This is **not**:
 | Monthly update | Same Update-value form as today. If flagged: **Current value** + **Net contribution this month** (empty = 0). If not flagged: value only |
 | Payload | Ciphertext `{ cents, flowCents? }`. Missing `flowCents` = 0 (old snapshots) |
 | Several updates in one month | **Sum** `flowCents` whose `as_of_date` falls in that calendar month. Ending value = latest snapshot on or before month-end (same as value over time) |
-| Return | Simple monthly: `r = (EMV − BMV − C) / BMV` when BMV > 0. Else no % that month (new/funded account). Chart = **trailing 12-month annualized** linked TWR `(1+TWR)^(12/k) − 1`. Not cumulative since inception |
+| Return | Simple monthly: `r = (EMV − BMV − C) / BMV` when BMV > 0. Else no % that month (new/funded account). Chart = **trailing 12-month annualized** as `mean(r) × 12` (same as `sum(r) × (12/k)`). Not compound `(1+r)^12 − 1`. Not cumulative since inception |
 | Timing | No intra-month weighting (not Modified Dietz in v1). Contribution sits in the month of its `as_of_date` |
 | Report series | Flagged **assets**, plus **groups that contain at least one flagged asset**. Sum those members’ values and flows, then the same return math |
 | Mixed groups | Car in **Autos** is ignored for this report; a flagged brokerage in the same group is included |
