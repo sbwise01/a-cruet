@@ -57,7 +57,7 @@ Technical requirements, architecture decisions, and rollout phases live in:
 
 - [`PRODUCT.md`](docs/PRODUCT.md) — locked product and engineering decisions
 - [`ROLLOUT.md`](docs/ROLLOUT.md) — phased implementation plan for wise-k8s
-- [`ASSETS.md`](docs/ASSETS.md) — snapshot assets/liabilities plan (shipped)
+- [`ASSETS.md`](docs/ASSETS.md) — snapshot assets/liabilities (shipped) and asset groups (planned)
 - [`DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](docs/NET_WORTH.md) — net worth register (complete)
 - [`OPERATIONS.md`](docs/OPERATIONS.md) — Keycloak admin console steps (including after operator CR re-apply)
@@ -66,4 +66,5 @@ Technical requirements, architecture decisions, and rollout phases live in:
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
 2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
-3. Investment performance reports
+3. **Asset groups** — household labels (Investments, Autos, …) on snapshot items so later reports can scope a set ([`ASSETS.md`](docs/ASSETS.md) releases 4–6; PRODUCT §12)
+4. Investment performance reports

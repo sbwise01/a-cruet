@@ -382,6 +382,7 @@ Envelopes remain a **transaction ledger**. This feature is a **snapshot register
 | Offboard export window | Section 6 (#48a) |
 | Abuse counts | Section 3, Section 6 (#52) |
 | Implementation plan | [`ASSETS.md`](ASSETS.md) |
+| Asset groups | Section 12 |
 
 ### 10. Quarterly asset reminders ✅ locked (2026-11-01)
 
@@ -440,6 +441,35 @@ The server **cannot** cron-sum ciphertext. No silent monthly write.
 | Household DEK | Section 7 |
 | Shipped plan | [`NET_WORTH.md`](NET_WORTH.md) |
 
+### 12. Asset groups ✅ locked (2026-11-05)
+
+Household **labels** on snapshot items so later reports can scope **Investments**, **Autos**, and similar sets. Prerequisite for investment performance reports. Implementation plan: [`ASSETS.md`](ASSETS.md) releases 4–6.
+
+Groups are **not** envelope bundles: they do not isolate a ledger and they do not change live Assets Net. Names are ciphertext. Membership is optional.
+
+| Item | Decision |
+|------|----------|
+| Model | Separate `financial_position_group` table. `financial_position.group_id` nullable |
+| Scope | **Household-wide** (same DEK). A group may contain assets and/or liabilities |
+| Naming | Ciphertext. Household picks the words (Investments, Autos). **No** server enum |
+| Membership | **Optional**. Existing items stay ungrouped. No Flyway default group |
+| Move | Change `group_id` only — does not append a valuation |
+| Envelope lines | Read-only bundle totals **do not** join a group |
+| Archive | Archive a group only after no **active** item still uses it |
+| Active cap | **20** groups per household. Archived groups do not count |
+| Admin | Operational **`position_group_count`** (active) — never decrypted names |
+| Offboard | Export includes groups and each item’s group id |
+| Follow-on | Investment performance reports stay a later To Do; they will filter by group |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Snapshot register | Section 9 |
+| Envelope bundles (different: isolated ledgers) | Section 8 |
+| Household DEK | Section 7 |
+| Implementation plan | [`ASSETS.md`](ASSETS.md) |
+
 ## Product requirements
 
 - Application running in Apache Tomcat written in the Java programming language
@@ -497,6 +527,7 @@ The server **cannot** cron-sum ciphertext. No silent monthly write.
     - liabilities are positive amounts owed
     - page may show current Assets − Liabilities (live); net-worth **history** is a separate register (Section 11)
     - limit 50 active snapshot items per household
+    - optional household **asset groups** (ciphertext names such as Investments or Autos; assets and/or liabilities; not envelope bundles)
   - quarterly reminder to update snapshot assets and liabilities (home modal on the last 7 days of Mar / Jun / Sep / Dec; Not now / Done)
   - net worth register (household; manual historical totals; save current from live Net; sign-in reminder when latest as-of is ≥ 1 month old)
 - The application will support the following administrative workflows:

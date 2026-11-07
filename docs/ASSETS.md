@@ -1,8 +1,8 @@
 # Assets and liabilities (snapshot register)
 
-**Status:** Product decisions locked (2026-10-18). Snapshot register shipped. Quarterly reminders: [`PRODUCT.md`](PRODUCT.md) §10 (shipped). Net worth history: [`NET_WORTH.md`](NET_WORTH.md) / PRODUCT §11 (shipped).
+**Status:** Product decisions locked (2026-10-18). Snapshot register shipped. Quarterly reminders: [`PRODUCT.md`](PRODUCT.md) §10 (shipped). Net worth history: [`NET_WORTH.md`](NET_WORTH.md) / PRODUCT §11 (shipped). **Asset groups** planned (PRODUCT §12; releases 4–6 below).
 
-Locked register rules live in [`PRODUCT.md`](PRODUCT.md) §9. This file is the decided implementation plan.
+Locked register rules live in [`PRODUCT.md`](PRODUCT.md) §9. Group rules live in §12. This file is the decided implementation plan.
 
 ## What this is (and is not)
 
@@ -69,11 +69,88 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 
 Verify with `docker build --target build`. Brad owns commit/PR unless asked that turn.
 
+## Asset groups (planned)
+
+Household labels so snapshot items can be reported together later — **Investments**, **Autos**, and whatever else the household names. Prerequisite for investment performance reports (README To Do). Locked in [`PRODUCT.md`](PRODUCT.md) §12.
+
+### What this is (and is not)
+
+Groups are **display and report labels**, not a second ledger. They do **not** isolate items the way envelope bundles isolate transactions. There is no transfer between groups. Live Assets **Net** does not change.
+
+- Household-defined names (ciphertext), same DEK as the rest of the register
+- Optional: existing items stay **ungrouped** after migration; new items may be created ungrouped
+- A group may hold **assets and/or liabilities** (cars and auto loans can share **Autos**)
+- Envelope-bundle cash lines stay their own read-only rows — they are not snapshot items and do not join a group
+- Moving an item to another group (or to ungrouped) updates membership only. It does not write a valuation snapshot
+
+```text
+group (optional) ── financial_position ── valuation snapshots
+        │
+        └── Investments / Autos / …
+```
+
+This is **not**:
+
+- A plaintext enum the server understands (`INVESTMENT`, `AUTO`) — names are ciphertext
+- Nesting items under an envelope bundle
+- Holdings, tickers, or price feeds (still README investment-reports To Do)
+- Required membership or a Flyway-created default group
+
+### Data model
+
+New Flyway migration **`V15__position_groups.sql`**, household-scoped. Schema version **1.5.0**.
+
+- `financial_position_group` — `id`, `household_id`, `encrypted_name`, `status` (`ACTIVE`|`ARCHIVED`), timestamps, `archived_at`
+- `financial_position.group_id` — nullable FK to `financial_position_group` (`ON DELETE SET NULL`)
+- Index `(household_id, group_id)` on `financial_position`
+- `household.position_group_count` — active groups
+
+Do **not** store group names or report-type codes in plaintext. Do **not** reuse `envelope_bundle`.
+
+### API (user WAR)
+
+Path `/position-groups` (signed-in + key-setup complete):
+
+- `GET /position-groups` — active groups (optional `includeArchived`)
+- `POST /position-groups` — `{ encryptedName }`
+- `PUT /position-groups/{id}` — rename only
+- `POST /position-groups/{id}/archive` — only when no **active** items still use the group
+
+`/positions`:
+
+- `GET` includes `groupId` (nullable)
+- `POST` accepts optional `groupId`
+- `PUT /positions/{id}` also assigns or clears `groupId` (rename-or-regroup; still no valuation change)
+
+Reuse session + key-setup gates and per-user write rate limits. Reject when active group count ≥ **20**. Reject archive while active items remain in the group (move or ungroup first). Archived groups do not count toward the cap. Archived items may keep a `group_id` for export.
+
+### UI
+
+`/assets` while unlocked:
+
+- Snapshot assets and liabilities list **under group headings**, then **Ungrouped**
+- Group subtotal (sum of latest values in that section). Page Assets / Liabilities / Net totals unchanged
+- Add / rename groups. Archive a group after its active items are moved or ungrouped
+- Add / edit item: group picker (including Ungrouped)
+- Envelope-bundle lines stay above snapshot groups, still read-only
+
+Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
+
+### Releases
+
+4. **Schema + API** — V15, repositories, group resource, `groupId` on positions. `/assets` UI unchanged (items remain ungrouped).
+5. **`/assets` UI** — headings, subtotals, create/rename/archive groups, assign on add/edit. Cache-bust.
+6. **Export, admin, docs** — offboard includes groups + each item’s `groupId`; admin `/users` **Groups** count; README / marketing mention grouping. Do **not** mark investment performance reports done.
+
+**Verify:** create Investments and Autos; assign items; ungrouped still allowed; live Net unchanged; archive blocked until the group is empty of active items; package succeeds (`docker build --target build`). Brad owns commit/PR unless asked that turn. Do not start these releases until asked.
+
 ## Out of scope
 
 - Linking a loan payment to an envelope withdrawal
 - Investment holdings, tickers, or price feeds
+- Investment performance reports (README To Do; groups are the prerequisite)
 - Per-user private assets
 - Nesting snapshot items under a bundle
 - Net-worth **history** (shipped separately — PRODUCT §11 / [`NET_WORTH.md`](NET_WORTH.md))
 - Editing or deleting historical snapshots
+- Server-known group types or a required default group
