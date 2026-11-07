@@ -14,6 +14,7 @@ class UserPageLayoutTest {
         assertTrue(html.contains("Personal financial management application"));
         assertTrue(html.contains("personal financial management"));
         assertTrue(html.contains("Envelope budgeting"));
+        assertTrue(html.contains("Group snapshot items"));
         assertTrue(html.contains("Save a net worth history"));
         assertTrue(html.contains("year-end totals"));
         assertTrue(html.contains("keep a net worth history"));

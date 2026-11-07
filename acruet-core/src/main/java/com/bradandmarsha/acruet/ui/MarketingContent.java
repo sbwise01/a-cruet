@@ -25,6 +25,7 @@ public final class MarketingContent {
                     <li><strong>Group envelopes into bundles</strong> — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle</li>
                     <li><strong>View transaction reports</strong> — a spreadsheet-style history and a chart of balances over time for the bundle you have selected</li>
                     <li><strong>Track other assets and liabilities</strong> — cars, investment totals, loans, and similar items as dated snapshot values, separate from envelope transactions</li>
+                    <li><strong>Group snapshot items</strong> — optional household labels such as Investments or Autos so related assets and debts sit together. Envelope cash is its own Envelopes / Savings row</li>
                     <li><strong>Save a net worth history</strong> — stamp today’s live Assets Net, or add past year-end totals you already wrote down. The Assets Net line is today only; the register is the history you keep</li>
                     <li><strong>Share a household ledger</strong> — an existing member can invite family by email so you use the same bundles, envelopes, and assets together (each person has their own sign-in and encryption passphrase; up to five members per household)</li>
                     <li><strong>Protect your data</strong> with a personal encryption passphrase that only you know</li>

@@ -451,7 +451,7 @@ Groups are **not** envelope bundles: they do not isolate a ledger and they do no
 |------|----------|
 | Model | Separate `financial_position_group` table. `financial_position.group_id` nullable |
 | Scope | **Household-wide** (same DEK). A group may contain assets and/or liabilities |
-| Naming | Ciphertext. Household picks the words (Investments, Autos). **No** server enum |
+| Naming | Ciphertext. Household picks the words (Investments, Autos). **No** server enum. `/assets` client reserves **Envelopes / Savings** for envelope cash |
 | Membership | **Optional**. Existing items stay ungrouped. No Flyway default group |
 | Move | Change `group_id` only — does not append a valuation |
 | Envelope lines | Read-only bundle totals **do not** join a group |

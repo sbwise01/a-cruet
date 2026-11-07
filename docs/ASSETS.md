@@ -1,6 +1,6 @@
 # Assets and liabilities (snapshot register)
 
-**Status:** Product decisions locked (2026-10-18). Snapshot register shipped. Quarterly reminders: [`PRODUCT.md`](PRODUCT.md) §10 (shipped). Net worth history: [`NET_WORTH.md`](NET_WORTH.md) / PRODUCT §11 (shipped). **Asset groups** planned (PRODUCT §12; releases 4–6 below).
+**Status:** Product decisions locked (2026-10-18). Snapshot register shipped. Quarterly reminders: [`PRODUCT.md`](PRODUCT.md) §10 (shipped). Net worth history: [`NET_WORTH.md`](NET_WORTH.md) / PRODUCT §11 (shipped). **Asset groups** shipped (PRODUCT §12; releases 4–6).
 
 Locked register rules live in [`PRODUCT.md`](PRODUCT.md) §9. Group rules live in §12. This file is the decided implementation plan.
 
@@ -69,7 +69,7 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 
 Verify with `docker build --target build`. Brad owns commit/PR unless asked that turn.
 
-## Asset groups (planned)
+## Asset groups
 
 Household labels so snapshot items can be reported together later — **Investments**, **Autos**, and whatever else the household names. Prerequisite for investment performance reports (README To Do). Locked in [`PRODUCT.md`](PRODUCT.md) §12.
 
@@ -130,7 +130,7 @@ Reuse session + key-setup gates and per-user write rate limits. Reject when acti
 
 - Default `/assets` view: each group is one **collapsed** row (name + sum); ungrouped items are individual rows; groups and ungrouped items sort together by amount. Envelope bundle totals are one group labeled **Envelopes / Savings** (expand to see each bundle). Expand/collapse via an arrow to the left of the group name. No Ungrouped heading or subtotal.
 - Group subtotal (sum of latest values in that section). Assets and Liabilities sums sit on the section headings, aligned with item amounts. The footer is a matching **Net** heading and sum (Save / historical actions under it)
-- Add / rename groups. Archive a group after its active items are moved or ungrouped
+- Add / rename groups. Archive a group after its active items are moved or ungrouped. Client-side reserved name: **Envelopes / Savings** (envelope cash row; server cannot enforce — names are ciphertext)
 - Add item: group picker on the create form (including Ungrouped). Existing items: compact **G** button between the name and Archive; click opens the group list. Update-value form does not change group
 - Envelope-bundle lines stay above snapshot groups, still read-only
 
@@ -140,11 +140,11 @@ Bump `UserNav.STATIC_ASSET_VERSION` when JS ships.
 
 4. **Schema + API** — V15, repositories, group resource, `groupId` on positions. `/assets` UI unchanged (items remain ungrouped). ✅ (2026-11-07; `docker build --target build`)
 5. **`/assets` UI** — headings, subtotals, create/rename/archive groups, assign on add (and a row picker for existing items — not the amount form). Cache-bust. ✅ (2026-11-07; `docker build --target build`)
-6. **Export, admin, docs** — offboard includes groups + each item’s `groupId`; admin `/users` **Groups** count; README / marketing mention grouping. Do **not** mark investment performance reports done.
+6. **Export, admin, docs** — offboard includes groups + each item’s `groupId`; admin `/users` **Groups** count; README / marketing mention grouping. Do **not** mark investment performance reports done. ✅ (2026-11-07; `docker build --target build`)
 
 **Verify R4:** unit tests for cap (20), archive blocked while active items remain, cascade on household delete; `GET /positions` includes `groupId` (null for existing items); package succeeds. ✅ (2026-11-07; `docker build --target build`)
 
-**Verify R5–R6:** create Investments and Autos; assign items; ungrouped still allowed; live Net unchanged; archive blocked until the group is empty of active items; package succeeds (`docker build --target build`). Brad owns commit/PR unless asked that turn.
+**Verify R5–R6:** create Investments and Autos; assign items; ungrouped still allowed; live Net unchanged; archive blocked until the group is empty of active items; offboard JSON has `positionGroups` and each position’s `groupId`; admin `/users` shows **Groups**; package succeeds (`docker build --target build`). Brad owns commit/PR unless asked that turn.
 
 ## Out of scope
 

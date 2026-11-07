@@ -105,7 +105,7 @@ public class OffboardResource {
                 PageStyles.formCss() + offboardCss(),
                 """
                 <h2>Export your a-cruet data</h2>
-                <p class="hint">Your account is being offboarded. Download a decrypted copy of your envelopes, snapshot items, and net-worth history before <strong>%s</strong>.</p>
+                <p class="hint">Your account is being offboarded. Download a decrypted copy of your envelopes, snapshot items (including groups), and net-worth history before <strong>%s</strong>.</p>
                 %s
                 <div id="offboardLocked">
                   <p>Unlock your ledger to decrypt export files.</p>

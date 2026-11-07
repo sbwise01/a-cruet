@@ -20,6 +20,7 @@ With a-cruet you can:
 - **Group envelopes into bundles** — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle
 - **View reports** — a spreadsheet-style history and a chart of balances over time for the bundle you have selected
 - **Track other assets and liabilities** — cars, investment totals, loans, and similar items as dated snapshot values, separate from envelope transactions
+- **Group snapshot items** — optional household labels such as Investments or Autos so related assets and debts sit together. Envelope cash is its own Envelopes / Savings row
 - **Save a net worth history** — stamp today’s live Assets Net, or add past year-end totals you already wrote down. The Assets Net line is today only; the register is the history you keep
 - **Share a household ledger** — an existing member can invite family by email so you use the same bundles and envelopes together (each person has their own sign-in and encryption passphrase; up to five members per household)
 - **Protect your data** with a personal encryption passphrase that only you know
@@ -57,7 +58,7 @@ Technical requirements, architecture decisions, and rollout phases live in:
 
 - [`PRODUCT.md`](docs/PRODUCT.md) — locked product and engineering decisions
 - [`ROLLOUT.md`](docs/ROLLOUT.md) — phased implementation plan for wise-k8s
-- [`ASSETS.md`](docs/ASSETS.md) — snapshot assets/liabilities (shipped) and asset groups (planned)
+- [`ASSETS.md`](docs/ASSETS.md) — snapshot assets/liabilities and asset groups (shipped)
 - [`DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](docs/NET_WORTH.md) — net worth register (complete)
 - [`OPERATIONS.md`](docs/OPERATIONS.md) — Keycloak admin console steps (including after operator CR re-apply)
@@ -66,5 +67,4 @@ Technical requirements, architecture decisions, and rollout phases live in:
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
 2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
-3. **Asset groups** — household labels (Investments, Autos, …) on snapshot items so later reports can scope a set ([`ASSETS.md`](docs/ASSETS.md) releases 4–6; PRODUCT §12)
-4. Investment performance reports
+3. Investment performance reports
