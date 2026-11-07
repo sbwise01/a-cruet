@@ -23,6 +23,8 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -67,8 +69,14 @@ public class PositionResource {
             try {
                 PositionKind kind = PositionKind.valueOf(body.kind);
                 LocalDate asOfDate = LocalDate.parse(body.asOfDate);
+                UUID groupId;
+                try {
+                    groupId = parseOptionalUuid(body.groupId);
+                } catch (IllegalArgumentException exception) {
+                    return badRequest("Invalid group.");
+                }
                 FinancialPosition position = positionService.createPosition(
-                        user, kind, body.encryptedName, asOfDate, body.encryptedPayload);
+                        user, kind, body.encryptedName, asOfDate, body.encryptedPayload, groupId);
                 return Response.status(Response.Status.CREATED).entity(positionJson(position)).build();
             } catch (IllegalArgumentException | NullPointerException exception) {
                 return badRequest("Invalid kind or valuation date.");
@@ -88,8 +96,14 @@ public class PositionResource {
             @Context HttpServletRequest request) {
         return withUser(request, user -> {
             try {
-                FinancialPosition position = positionService.updateName(user, positionId, body.encryptedName);
+                String encryptedName = body == null ? null : body.encryptedName;
+                boolean groupSpecified = body != null && body.groupSpecified;
+                UUID groupId = body == null ? null : parseOptionalUuid(body.groupId);
+                FinancialPosition position = positionService.updatePosition(
+                        user, positionId, encryptedName, groupSpecified, groupId);
                 return Response.ok(positionJson(position)).build();
+            } catch (IllegalArgumentException exception) {
+                return badRequest("Invalid group.");
             } catch (PositionException exception) {
                 return badRequest(exception.getMessage());
             }
@@ -170,6 +184,7 @@ public class PositionResource {
         json.put("id", position.id().toString());
         json.put("kind", position.kind().name());
         json.put("status", position.status().name());
+        json.put("groupId", position.groupId() == null ? null : position.groupId().toString());
         json.put("encryptedName", EncryptedBlob.encode(position.encryptedName()));
         json.put("createdAt", position.createdAt().toString());
         json.put("updatedAt", position.updatedAt().toString());
@@ -191,15 +206,31 @@ public class PositionResource {
         return json;
     }
 
+    private static UUID parseOptionalUuid(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return UUID.fromString(value);
+    }
+
     public static class CreatePositionRequest {
         public String kind;
         public String encryptedName;
         public String asOfDate;
         public String encryptedPayload;
+        public String groupId;
     }
 
     public static class UpdatePositionRequest {
         public String encryptedName;
+        boolean groupSpecified;
+        String groupId;
+
+        @JsonProperty("groupId")
+        public void setGroupId(String value) {
+            this.groupSpecified = true;
+            this.groupId = value;
+        }
     }
 
     public static class CreateSnapshotRequest {
