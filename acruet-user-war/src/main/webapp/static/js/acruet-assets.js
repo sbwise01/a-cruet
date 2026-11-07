@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const SELECTED_BUNDLE_STORAGE_KEY = 'acruet.selectedBundleId';
   const DEFAULT_BUNDLE_NAME = 'Default';
+  const ENVELOPES_GROUP_ID = '__envelopes__';
+  const ENVELOPES_GROUP_NAME = 'Envelopes / Savings';
 
   const state = {
     bundles: [],
@@ -21,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     formMode: null,
     editingPositionId: null,
     liveNet: null,
+    expandedGroupIds: new Set(),
   };
 
   const els = {
@@ -36,6 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerMeta: document.getElementById('registerMeta'),
     assetsList: document.getElementById('assetsList'),
     liabilitiesList: document.getElementById('liabilitiesList'),
+    assetsTotal: document.getElementById('assetsTotal'),
+    liabilitiesTotal: document.getElementById('liabilitiesTotal'),
+    netTotal: document.getElementById('netTotal'),
     registerTotals: document.getElementById('registerTotals'),
     saveNotice: document.getElementById('saveNetWorthNotice'),
     formPanel: document.getElementById('formPanel'),
@@ -50,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let formErrorTimeout = null;
   let renamingPositionId = null;
   let renamingGroupId = null;
+  let groupPicker = null;
 
   const deviceUnlockUi = AcruetDeviceUnlock.attachInline({
     form: els.inlineUnlockForm,
@@ -104,6 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     els.assetsLocked.hidden = false;
     els.assetsBrowse.hidden = true;
+    closeGroupPicker();
     state.liveNet = null;
     if (els.saveNotice) {
       els.saveNotice.hidden = true;
@@ -359,6 +367,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         : 'Add a group';
     }
 
+    closeGroupPicker();
+    const hasUserGroups = state.groups.length > 0;
+    els.assetsList.classList.toggle('has-expand', hasUserGroups || state.bundles.length > 0);
+    els.assetsList.classList.toggle('has-groups', hasUserGroups);
+    els.liabilitiesList.classList.toggle('has-expand', hasUserGroups);
+    els.liabilitiesList.classList.toggle('has-groups', hasUserGroups);
     els.assetsList.innerHTML = renderAssetRows(snapshotAssets) || emptyHint('No snapshot assets yet.');
     els.liabilitiesList.innerHTML = renderGroupedRows(liabilities, { includeEmptyGroups: false })
       || emptyHint('No liabilities yet. Add a loan or other amount owed.');
@@ -366,33 +380,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindRowEvents(els.liabilitiesList);
     bindBundleLinks();
 
-    const netClass = net < 0 ? ' balance-negative' : '';
     state.liveNet = {
       netCents: net,
       envelopeCents: envelopeTotal,
       assetCents: snapshotAssetTotal,
       liabilityCents: liabilitiesTotal,
     };
+    if (els.assetsTotal) {
+      els.assetsTotal.textContent = formatCents(assetsTotal);
+    }
+    if (els.liabilitiesTotal) {
+      els.liabilitiesTotal.textContent = formatCents(liabilitiesTotal);
+    }
+    if (els.netTotal) {
+      els.netTotal.textContent = formatCents(net);
+      els.netTotal.classList.toggle('balance-negative', net < 0);
+    }
     els.registerTotals.hidden = false;
-    els.registerTotals.innerHTML = `
-      <div class="account-row total-row">
-        <span class="name">Assets</span>
-        <span class="row-archive"></span>
-        <span class="balance">${formatCents(assetsTotal)}</span>
-      </div>
-      <div class="account-row">
-        <span class="name">Liabilities</span>
-        <span class="row-archive"></span>
-        <span class="balance">${formatCents(liabilitiesTotal)}</span>
-      </div>
-      <div class="account-row total-row net-row">
-        <span class="name">Net</span>
-        <span class="row-archive net-row-actions">
-          <a href="/assets/historical-net-worth" class="secondary">Add historical total</a>
-          <button type="button" id="btnSaveNetWorth" class="secondary">Save net worth</button>
-        </span>
-        <span class="balance${netClass}">${formatCents(net)}</span>
-      </div>`;
   }
 
   async function saveCurrentNetWorth() {
@@ -432,23 +436,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderAssetRows(snapshotAssets) {
-    const envelopeRows = sortByAmountDesc(state.bundles, (bundle) => bundle.totalCents)
-      .map((bundle) => renderBundleRow(bundle))
-      .join('');
-    const grouped = renderGroupedRows(snapshotAssets, { includeEmptyGroups: true });
-    if (!envelopeRows && !grouped) {
-      return '';
-    }
-    return `${envelopeRows}${grouped}`;
+    return renderGroupedRows(snapshotAssets, { includeEmptyGroups: true, includeEnvelopes: true });
   }
 
-  function renderGroupedRows(positions, { includeEmptyGroups }) {
-    if (!state.groups.length) {
+  function renderGroupedRows(positions, { includeEmptyGroups, includeEnvelopes = false }) {
+    const withExpand = state.groups.length > 0 || includeEnvelopes;
+    const withGroupBtns = state.groups.length > 0;
+    if (!withExpand) {
       return sortByAmountDesc(positions, (position) => position.cents)
-        .map((position) => renderPositionRow(position))
+        .map((position) => renderPositionRow(position, false, false, false))
         .join('');
     }
-    const parts = [];
+    const blocks = [];
+    if (includeEnvelopes && state.bundles.length) {
+      blocks.push({
+        amount: state.bundles.reduce((sum, bundle) => sum + bundle.totalCents, 0),
+        type: 'envelopes',
+        items: sortByAmountDesc(state.bundles, (bundle) => bundle.totalCents),
+      });
+    }
     for (const group of state.groups) {
       const items = sortByAmountDesc(
         positions.filter((position) => position.groupId === group.id),
@@ -459,45 +465,72 @@ document.addEventListener('DOMContentLoaded', async () => {
         continue;
       }
       const subtotal = items.reduce((sum, position) => sum + position.cents, 0);
-      parts.push(renderGroupHeading(group, subtotal));
-      items.forEach((position) => parts.push(renderPositionRow(position)));
+      blocks.push({ amount: subtotal, type: 'group', group, items });
     }
-    const ungrouped = sortByAmountDesc(
-      positions.filter((position) => !position.groupId),
-      (position) => position.cents,
-    );
-    if (ungrouped.length) {
-      const subtotal = ungrouped.reduce((sum, position) => sum + position.cents, 0);
-      parts.push(renderGroupHeading(null, subtotal));
-      ungrouped.forEach((position) => parts.push(renderPositionRow(position)));
-    }
+    positions.filter((position) => !position.groupId).forEach((position) => {
+      blocks.push({ amount: position.cents, type: 'item', position });
+    });
+    blocks.sort((left, right) => right.amount - left.amount);
+    const parts = [];
+    blocks.forEach((block) => {
+      if (block.type === 'item') {
+        parts.push(renderPositionRow(block.position, false, withExpand, withGroupBtns));
+        return;
+      }
+      if (block.type === 'envelopes') {
+        const expanded = state.expandedGroupIds.has(ENVELOPES_GROUP_ID);
+        parts.push(renderEnvelopeGroupHeading(block.amount, expanded, withGroupBtns));
+        if (expanded) {
+          block.items.forEach((bundle) => parts.push(renderBundleRow(bundle, withExpand, withGroupBtns)));
+        }
+        return;
+      }
+      const expanded = state.expandedGroupIds.has(block.group.id);
+      parts.push(renderGroupHeading(block.group, block.amount, expanded, withGroupBtns));
+      if (expanded) {
+        block.items.forEach((position) => parts.push(renderPositionRow(position, true, withExpand, withGroupBtns)));
+      }
+    });
     return parts.join('');
   }
 
-  function renderBundleRow(bundle) {
+  function renderBundleRow(bundle, withExpand, withGroupBtns) {
     const negativeClass = bundle.totalCents < 0 ? ' balance-negative' : '';
     return `
-          <a class="account-row bundle-row" href="/envelopes" data-bundle-id="${bundle.id}">
-            <span class="name">${escapeHtml(bundle.name)} · envelopes</span>
+          <a class="account-row bundle-row grouped-item" href="/envelopes" data-bundle-id="${bundle.id}">
+            ${expandSlotHtml(withExpand)}
+            <span class="name">${escapeHtml(bundle.name)}</span>
+            ${groupSlotHtml(withGroupBtns)}
             <span class="row-archive"></span>
             <span class="balance${negativeClass}">${formatCents(bundle.totalCents)}</span>
           </a>`;
   }
 
-  function renderGroupHeading(group, cents) {
-    if (!group) {
-      return `
-        <div class="account-row group-heading" data-ungrouped="true">
-          <span class="name">Ungrouped</span>
+  function renderEnvelopeGroupHeading(cents, expanded, withGroupBtns) {
+    const label = expanded ? `Collapse ${ENVELOPES_GROUP_NAME}` : `Expand ${ENVELOPES_GROUP_NAME}`;
+    return `
+        <div class="account-row group-heading" data-group-id="${ENVELOPES_GROUP_ID}">
+          <span class="row-expand">
+            <button type="button" class="group-expand" data-id="${ENVELOPES_GROUP_ID}" aria-expanded="${expanded ? 'true' : 'false'}" aria-label="${escapeHtml(label)}"></button>
+          </span>
+          <span class="name">${escapeHtml(ENVELOPES_GROUP_NAME)}</span>
+          ${groupSlotHtml(withGroupBtns)}
           <span class="row-archive"></span>
           <span class="balance">${formatCents(cents)}</span>
         </div>`;
-    }
+  }
+
+  function renderGroupHeading(group, cents, expanded, withGroupBtns) {
+    const label = expanded ? `Collapse ${group.name}` : `Expand ${group.name}`;
     return `
         <div class="account-row group-heading" data-group-id="${group.id}">
+          <span class="row-expand">
+            <button type="button" class="group-expand" data-id="${group.id}" aria-expanded="${expanded ? 'true' : 'false'}" aria-label="${escapeHtml(label)}"></button>
+          </span>
           <span class="name">
             <button type="button" class="envelope-name group-name" data-id="${group.id}" title="Click to rename">${escapeHtml(group.name)}</button>
           </span>
+          ${groupSlotHtml(withGroupBtns)}
           <span class="row-archive">
             <button type="button" class="archive-btn secondary archive-group-btn" data-id="${group.id}">Archive</button>
           </span>
@@ -505,13 +538,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>`;
   }
 
-  function renderPositionRow(position) {
+  function renderPositionRow(position, nested, withExpand, withGroupBtns) {
     return `
-        <div class="account-row" data-position-id="${position.id}">
+        <div class="account-row${nested ? ' grouped-item' : ''}" data-position-id="${position.id}">
+          ${expandSlotHtml(withExpand)}
           <span class="name">
             <button type="button" class="envelope-name" data-id="${position.id}" title="Click to rename">${escapeHtml(position.name)}</button>
-            ${groupSelectHtml(position)}
           </span>
+          ${groupButtonHtml(position, withGroupBtns)}
           <span class="row-archive">
             <button type="button" class="archive-btn secondary" data-id="${position.id}">Archive</button>
           </span>
@@ -519,16 +553,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>`;
   }
 
-  function groupSelectHtml(position) {
-    if (!state.groups.length && !position.groupId) {
+  function expandSlotHtml(withExpand) {
+    return withExpand ? '<span class="row-expand"></span>' : '';
+  }
+
+  function groupSlotHtml(withGroupBtns) {
+    return withGroupBtns ? '<span class="row-group"></span>' : '';
+  }
+
+  function groupButtonHtml(position, withGroupBtns) {
+    if (!withGroupBtns) {
       return '';
     }
-    const options = [
-      `<option value=""${position.groupId ? '' : ' selected'}>Ungrouped</option>`,
-      ...state.groups.map((group) =>
-        `<option value="${group.id}"${position.groupId === group.id ? ' selected' : ''}>${escapeHtml(group.name)}</option>`),
-    ];
-    return `<select class="position-group" data-id="${position.id}" aria-label="Group">${options.join('')}</select>`;
+    const group = state.groups.find((item) => item.id === position.groupId);
+    const label = group ? group.name : 'Ungrouped';
+    const assigned = group ? ' assigned' : '';
+    return `<span class="row-group"><button type="button" class="group-btn${assigned}" data-id="${position.id}" title="Group: ${escapeHtml(label)}" aria-label="Set group, currently ${escapeHtml(label)}" aria-haspopup="listbox" aria-expanded="false">G</button></span>`;
   }
 
   function sortByAmountDesc(items, amountOf) {
@@ -546,6 +586,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     list.querySelectorAll('.group-name').forEach((button) => {
       button.addEventListener('click', () => startRenameGroup(button.dataset.id));
     });
+    list.querySelectorAll('.group-expand').forEach((button) => {
+      button.addEventListener('click', () => toggleGroupExpanded(button.dataset.id));
+    });
     list.querySelectorAll('.position-amount').forEach((button) => {
       button.addEventListener('click', () => showUpdateForm(button.dataset.id));
     });
@@ -555,11 +598,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     list.querySelectorAll('.archive-btn:not(.archive-group-btn)').forEach((button) => {
       button.addEventListener('click', () => archivePosition(button.dataset.id));
     });
-    list.querySelectorAll('select.position-group').forEach((select) => {
-      select.addEventListener('change', () => {
-        void assignGroup(select.dataset.id, select.value || null);
+    list.querySelectorAll('.group-btn').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleGroupPicker(button);
       });
     });
+  }
+
+  function toggleGroupExpanded(groupId) {
+    if (state.expandedGroupIds.has(groupId)) {
+      state.expandedGroupIds.delete(groupId);
+    } else {
+      state.expandedGroupIds.add(groupId);
+    }
+    render();
   }
 
   function bindBundleLinks() {
@@ -569,6 +622,88 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   }
+
+  function toggleGroupPicker(button) {
+    const positionId = button.dataset.id;
+    if (groupPicker && groupPicker.dataset.positionId === positionId) {
+      closeGroupPicker();
+      return;
+    }
+    closeGroupPicker();
+    const position = state.positions.find((item) => item.id === positionId);
+    if (!position) {
+      return;
+    }
+    button.setAttribute('aria-expanded', 'true');
+    groupPicker = document.createElement('div');
+    groupPicker.id = 'groupPicker';
+    groupPicker.className = 'group-picker';
+    groupPicker.dataset.positionId = positionId;
+    groupPicker.setAttribute('role', 'listbox');
+    groupPicker.innerHTML = [
+      pickerOptionHtml('', 'Ungrouped', !position.groupId),
+      ...state.groups.map((group) => pickerOptionHtml(group.id, group.name, position.groupId === group.id)),
+    ].join('');
+    document.body.appendChild(groupPicker);
+    placeGroupPicker(button);
+    groupPicker.querySelectorAll('button').forEach((option) => {
+      option.addEventListener('click', () => {
+        const nextId = option.dataset.groupId || null;
+        closeGroupPicker();
+        if ((position.groupId || null) === nextId) {
+          return;
+        }
+        void assignGroup(positionId, nextId);
+      });
+    });
+  }
+
+  function pickerOptionHtml(groupId, label, selected) {
+    return `<button type="button" role="option" data-group-id="${groupId}" aria-selected="${selected ? 'true' : 'false'}">${escapeHtml(label)}</button>`;
+  }
+
+  function placeGroupPicker(button) {
+    const rect = button.getBoundingClientRect();
+    const menuWidth = groupPicker.offsetWidth;
+    const menuHeight = groupPicker.offsetHeight;
+    let left = rect.left;
+    let top = rect.bottom + 4;
+    if (left + menuWidth > window.innerWidth - 8) {
+      left = Math.max(8, rect.right - menuWidth);
+    }
+    if (top + menuHeight > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - menuHeight - 4);
+    }
+    groupPicker.style.left = `${left}px`;
+    groupPicker.style.top = `${top}px`;
+  }
+
+  function closeGroupPicker() {
+    if (groupPicker) {
+      groupPicker.remove();
+      groupPicker = null;
+    }
+    document.querySelectorAll('.group-btn[aria-expanded="true"]').forEach((button) => {
+      button.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  document.addEventListener('mousedown', (event) => {
+    if (!groupPicker) {
+      return;
+    }
+    if (event.target.closest('.group-picker') || event.target.closest('.group-btn')) {
+      return;
+    }
+    closeGroupPicker();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && groupPicker) {
+      event.preventDefault();
+      closeGroupPicker();
+    }
+  });
+  window.addEventListener('resize', closeGroupPicker);
 
   async function assignGroup(positionId, groupId) {
     hideError();

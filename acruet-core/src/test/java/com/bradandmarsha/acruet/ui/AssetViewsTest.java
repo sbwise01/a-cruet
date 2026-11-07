@@ -12,6 +12,10 @@ class AssetViewsTest {
         String html = AssetViews.assetsMainHtml("", "/lock.png");
         assertTrue(html.contains("data-action=\"create-group\""));
         assertTrue(html.contains("Add group"));
+        assertTrue(html.contains("id=\"assetsTotal\""));
+        assertTrue(html.contains("id=\"liabilitiesTotal\""));
+        assertTrue(html.contains("id=\"netTotal\""));
+        assertTrue(html.contains("id=\"btnSaveNetWorth\""));
         assertTrue(html.contains("acruet-assets.js"));
     }
 
