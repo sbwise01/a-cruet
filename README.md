@@ -18,7 +18,7 @@ With a-cruet you can:
 - **Sign in** securely and manage your own envelopes
 - **Record deposits**, **withdrawals**, and **transfers** between envelopes
 - **Group envelopes into bundles** — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle
-- **View reports** — a spreadsheet-style history and a chart of balances over time for the bundle you have selected
+- **View reports** — a spreadsheet-style history and a chart of balances over time for the bundle you have selected, plus **value over time** for a snapshot asset, group, liability, or liability group
 - **Track other assets and liabilities** — cars, investment totals, loans, and similar items as dated snapshot values, separate from envelope transactions
 - **Group snapshot items** — optional household labels such as Investments or Autos so related assets and debts sit together. Envelope cash is its own Envelopes / Savings row
 - **Save a net worth history** — stamp today’s live Assets Net, or add past year-end totals you already wrote down. The Assets Net line is today only; the register is the history you keep
@@ -61,10 +61,10 @@ Technical requirements, architecture decisions, and rollout phases live in:
 - [`ASSETS.md`](docs/ASSETS.md) — snapshot assets/liabilities and asset groups (shipped)
 - [`DEVICE_UNLOCK.md`](docs/DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](docs/NET_WORTH.md) — net worth register (complete)
+- [`VALUE_OVER_TIME.md`](docs/VALUE_OVER_TIME.md) — snapshot value-over-time report (shipped)
 - [`OPERATIONS.md`](docs/OPERATIONS.md) — Keycloak admin console steps (including after operator CR re-apply)
 
 ## To Do list
 
 1. **Database migration strategy** — Today Flyway runs inline on Tomcat startup; decide how to handle long-running migrations and backfills (dedicated Job vs startup-time Flyway, idempotent batch steps, online/offline cutover).
 2. **Bootstrap admin is an a-cruet user** — First admin today is a Keycloak console role plus a separate SQL backfill. Treat bootstrap as auto-approved: creating `acruet_user` (and household + default bundle) is part of bootstrapping so they always appear on `/users`. Do not reuse the Approve/provision-Keycloak path (that email already exists).
-3. Investment performance reports

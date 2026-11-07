@@ -23,7 +23,7 @@ public final class MarketingContent {
                     <li><strong>Sign in</strong> securely and manage household finances</li>
                     <li><strong>Record deposits</strong>, <strong>withdrawals</strong>, and <strong>transfers</strong> between envelopes</li>
                     <li><strong>Group envelopes into bundles</strong> — each bundle is its own closed set of envelopes (for example a year or a vacation plan); transfers stay inside the bundle</li>
-                    <li><strong>View transaction reports</strong> — a spreadsheet-style history and a chart of balances over time for the bundle you have selected</li>
+                    <li><strong>View reports</strong> — envelope transaction history and balance charts, a saved net worth series, and <strong>value over time</strong> for a snapshot asset, group, liability, or liability group</li>
                     <li><strong>Track other assets and liabilities</strong> — cars, investment totals, loans, and similar items as dated snapshot values, separate from envelope transactions</li>
                     <li><strong>Group snapshot items</strong> — optional household labels such as Investments or Autos so related assets and debts sit together. Envelope cash is its own Envelopes / Savings row</li>
                     <li><strong>Save a net worth history</strong> — stamp today’s live Assets Net, or add past year-end totals you already wrote down. The Assets Net line is today only; the register is the history you keep</li>

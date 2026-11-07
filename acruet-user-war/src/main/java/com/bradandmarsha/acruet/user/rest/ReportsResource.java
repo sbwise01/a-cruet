@@ -55,6 +55,13 @@ public class ReportsResource {
         return page(request, ReportPage.NET_WORTH);
     }
 
+    @GET
+    @Path("value-over-time")
+    @Produces(MediaType.TEXT_HTML)
+    public Response valueOverTime(@Context HttpServletRequest request) {
+        return page(request, ReportPage.VALUE_OVER_TIME);
+    }
+
     private Response page(HttpServletRequest request, ReportPage reportPage) {
         Optional<OidcUser> oidcUser = UserSession.oidcUser(request);
         Optional<AcruetUser> user = UserSession.acruetUser(request);

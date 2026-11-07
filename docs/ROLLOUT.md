@@ -4,7 +4,7 @@ Deploy **a-cruet** on **wise-k8s** as an envelope-budgeting web application with
 
 Product decisions are locked in [`PRODUCT.md`](PRODUCT.md). Keycloak integration is documented in [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) **Phase 5**.
 
-**Rollout status:** ✅ **Complete** *(2026-07-19)* — Phases 0–14 done on cluster. Later product work that shipped after this plan: snapshot assets, quarterly reminders, device unlock, and the **net worth register** (complete — [`NET_WORTH.md`](NET_WORTH.md)). Remaining work is **deferred verification** (see [Deferred verification](#deferred-verification)) and the a-cruet README To Do (Flyway strategy, bootstrap admin as a-cruet user, investment performance reports).
+**Rollout status:** ✅ **Complete** *(2026-07-19)* — Phases 0–14 done on cluster. Later product work that shipped after this plan: snapshot assets, quarterly reminders, device unlock, the **net worth register** (complete — [`NET_WORTH.md`](NET_WORTH.md)), **asset groups**, and **value over time** ([`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md)). Remaining work is **deferred verification** (see [Deferred verification](#deferred-verification)) and the a-cruet README To Do (Flyway strategy, bootstrap admin as a-cruet user).
 
 ---
 
@@ -1408,8 +1408,9 @@ Optional cluster checks not required to call the v1/v2 rollout complete:
 | Device unlock | [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md), PRODUCT §3 | Shipped |
 | Net worth register | [`NET_WORTH.md`](NET_WORTH.md), PRODUCT §11 | **Complete** |
 | Asset groups | [`ASSETS.md`](ASSETS.md) releases 4–6, PRODUCT §12 | **Complete** |
+| Value over time | [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md), PRODUCT §13 | **Complete** |
 
-Future product work (not rollout blockers) stays on the a-cruet README To Do and in [`PRODUCT.md`](PRODUCT.md) later-scope items — Flyway strategy, bootstrap admin as a-cruet user, investment performance reports, CAPTCHA, social login, mobile app, multi-currency, etc.
+Future product work (not rollout blockers) stays on the a-cruet README To Do and in [`PRODUCT.md`](PRODUCT.md) later-scope items — Flyway strategy, bootstrap admin as a-cruet user, CAPTCHA, social login, mobile app, multi-currency, etc.
 
 ---
 
@@ -1419,6 +1420,7 @@ Future product work (not rollout blockers) stays on the a-cruet README To Do and
 - [`ASSETS.md`](ASSETS.md) — snapshot assets, liabilities, and asset groups (shipped)
 - [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](NET_WORTH.md) — net worth register (complete)
+- [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md) — snapshot value-over-time report (complete)
 - [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) — IdP rollout, Phase 5 clients
 - [`wise-home-index`](../wise-home-index/) — Java 17 / Tomcat / Jersey reference
 - `wise-k8s/iac/kustomize/keycloak-cnpg/`, `plex-cnpg/` — CNPG patterns

@@ -1,6 +1,6 @@
 # A Cruet
 
-**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking and a household **net worth** history (live Assets Net plus saved observations, including past year-end totals).
+**a-cruet** is a **personal financial management** application for a household. Envelope budgeting is still the transaction core — savings set aside by purpose, with deposits, withdrawals, transfers, and reports. The product also covers snapshot **asset and liability** tracking, a household **net worth** history (live Assets Net plus saved observations, including past year-end totals), and **value over time** for snapshot items and groups.
 
 The vision is unchanged and is the footer verse: *The wise store up choice food and olive oil, but fools gulp theirs down.* (Proverbs 21:20)
 
@@ -443,7 +443,7 @@ The server **cannot** cron-sum ciphertext. No silent monthly write.
 
 ### 12. Asset groups ✅ locked (2026-11-05)
 
-Household **labels** on snapshot items so later reports can scope **Investments**, **Autos**, and similar sets. Prerequisite for investment performance reports. Implementation plan: [`ASSETS.md`](ASSETS.md) releases 4–6.
+Household **labels** on snapshot items so later reports can scope **Investments**, **Autos**, and similar sets. Prerequisite for the value-over-time report (Section 13). Implementation plan: [`ASSETS.md`](ASSETS.md) releases 4–6.
 
 Groups are **not** envelope bundles: they do not isolate a ledger and they do not change live Assets Net. Names are ciphertext. Membership is optional.
 
@@ -459,7 +459,7 @@ Groups are **not** envelope bundles: they do not isolate a ledger and they do no
 | Active cap | **20** groups per household. Archived groups do not count |
 | Admin | Operational **`position_group_count`** (active) — never decrypted names |
 | Offboard | Export includes groups and each item’s group id |
-| Follow-on | Investment performance reports stay a later To Do; they will filter by group |
+| Follow-on | Value-over-time report (Section 13) filters by group |
 
 #### Cross-references
 
@@ -470,13 +470,41 @@ Groups are **not** envelope bundles: they do not isolate a ledger and they do no
 | Household DEK | Section 7 |
 | Implementation plan | [`ASSETS.md`](ASSETS.md) |
 
+### 13. Value over time ✅ locked (2026-11-07)
+
+Client-side **value-over-time** chart of snapshot register history for one series: an **asset**, **asset group**, **liability**, or **liability group**. Not holdings, tickers, or investment performance. Shipped plan: [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md).
+
+The net-worth report stays the household observation series (yearly axis, stored points only). This report resamples **item snapshots** to **month-end** and carries the last known value forward.
+
+The server still never sees amounts. **Envelopes / Savings** is not on this dropdown.
+
+| Item | Decision |
+|------|----------|
+| Series | One dropdown, four optgroups: asset, asset group, liability, liability group |
+| Membership | **Current** members of that kind (regrouping rewrites the group chart’s past) |
+| Mixed groups | Two entries when a group has both kinds |
+| Chart | Month-end points from first snapshot through the current local month; carry last value forward; no $0 before the first snapshot |
+| X axis | Monthly ticks; **year** label each January |
+| Table | Same monthly series |
+| Storage | Existing `financial_position_snapshot` only — no new table |
+| Path | `/reports/value-over-time` (unlocked). Hub tile on `/reports` |
+
+#### Cross-references
+
+| Topic | Section |
+|-------|---------|
+| Snapshot register | Section 9 |
+| Asset groups | Section 12 |
+| Net worth report (different series) | Section 11 |
+| Implementation plan | [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md) |
+
 ## Product requirements
 
 - Application running in Apache Tomcat written in the Java programming language
 - Application operates on both server side and client side
 - Client side consists of HTML and JavaScript delivered to a web browser which serves as the front end
 - Server side consists of REST based API resources running on the Tomcat server
-- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, and a household net worth history (live Assets Net plus saved observations, including past year-end totals)
+- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, a household net worth history (live Assets Net plus saved observations, including past year-end totals), and value-over-time charts of snapshot items and groups
 - The application will be integrated with auth.home.bradandmarsha.com for authentication of users of the application
 - The application will store data in a cloud native postgres database instance
 - The data stored by the application will be encrypted using client side encryption.  The web server will only receive data in encrypted form and store it in the database encrypted.
@@ -530,6 +558,7 @@ Groups are **not** envelope bundles: they do not isolate a ledger and they do no
     - optional household **asset groups** (ciphertext names such as Investments or Autos; assets and/or liabilities; not envelope bundles)
   - quarterly reminder to update snapshot assets and liabilities (home modal on the last 7 days of Mar / Jun / Sep / Dec; Not now / Done)
   - net worth register (household; manual historical totals; save current from live Net; sign-in reminder when latest as-of is ≥ 1 month old)
+  - value-over-time report for a snapshot asset, asset group, liability, or liability group (monthly axis; carry last value forward)
 - The application will support the following administrative workflows:
   - approve new user applications
   - assign administrators

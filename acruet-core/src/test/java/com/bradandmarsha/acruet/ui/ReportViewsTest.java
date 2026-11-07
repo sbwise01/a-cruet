@@ -15,13 +15,16 @@ class ReportViewsTest {
         assertTrue(html.contains("href=\"/reports/envelope-transactions\""));
         assertTrue(html.contains("href=\"/reports/envelope-balance\""));
         assertTrue(html.contains("href=\"/reports/net-worth\""));
+        assertTrue(html.contains("href=\"/reports/value-over-time\""));
         assertTrue(html.contains("Envelope transactions"));
         assertTrue(html.contains("Envelope balance chart"));
         assertTrue(html.contains("Net worth"));
+        assertTrue(html.contains("Value over time"));
         assertFalse(html.contains("id=\"bundlePanel\""));
         assertFalse(html.contains("id=\"bundleSelect\""));
         assertFalse(html.contains("Add historical total"));
         assertFalse(html.contains("acruet-net-worth.js"));
+        assertFalse(html.contains("acruet-value-over-time.js"));
     }
 
     @Test
@@ -69,5 +72,26 @@ class ReportViewsTest {
         assertFalse(html.contains("id=\"bundleSelect\""));
         assertFalse(html.contains("Add historical total"));
         assertFalse(html.contains("Save net worth"));
+    }
+
+    @Test
+    void valueOverTimePageHasSeriesPickerWithoutBundlePicker() {
+        String html = ReportViews.reportsPageHtml(
+                "",
+                "/lock.png",
+                ReportViews.ReportPage.VALUE_OVER_TIME,
+                "/tx.png",
+                "/chart.png",
+                "/assets.png");
+        assertTrue(html.contains("data-report=\"value-over-time\""));
+        assertTrue(html.contains("id=\"reportValueOverTimePanel\""));
+        assertTrue(html.contains("id=\"valueSeriesSelect\""));
+        assertTrue(html.contains("acruet-value-over-time.js"));
+        assertTrue(html.contains("chart.umd.min.js"));
+        assertTrue(html.contains("href=\"/reports\""));
+        assertFalse(html.contains("id=\"bundlePanel\""));
+        assertFalse(html.contains("id=\"bundleSelect\""));
+        assertFalse(html.contains("acruet-reports.js"));
+        assertFalse(html.contains("acruet-net-worth.js"));
     }
 }
