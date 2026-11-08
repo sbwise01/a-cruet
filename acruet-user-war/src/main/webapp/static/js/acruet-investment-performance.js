@@ -276,14 +276,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function monthEnds(earliest) {
     const [year0, month0] = earliest.split('-').map(Number);
-    const now = new Date();
+    const today = localIsoDate(new Date());
     const months = [];
     let year = year0;
     let month = month0;
-    const endYear = now.getFullYear();
-    const endMonth = now.getMonth() + 1;
-    while (year < endYear || (year === endYear && month <= endMonth)) {
-      months.push(localIsoDate(new Date(year, month, 0)));
+    while (true) {
+      const monthEnd = localIsoDate(new Date(year, month, 0));
+      if (monthEnd > today) {
+        break;
+      }
+      months.push(monthEnd);
       month += 1;
       if (month > 12) {
         month = 1;

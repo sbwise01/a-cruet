@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
       syncToggle();
       if (els.meta) {
         els.meta.textContent = state.items.length
-          ? 'All flagged investments, summed. Annualized gain is this pile × trailing return, as if you stopped contributing.'
+          ? 'All flagged investments, summed. A new account’s first value is principal, not gain. Annualized gain is this pile × trailing return, as if you stopped contributing.'
           : 'Track an asset as an investment on Assets to see household gain.';
       }
       renderTable(history);
@@ -116,14 +116,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const months = monthEnds(earliest);
     const rows = [];
     months.forEach((monthEnd, index) => {
-      const emv = sumOnOrBefore(lists, monthEnd) || 0;
       const prevEnd = index === 0 ? null : months[index - 1];
-      const bmv = prevEnd ? sumOnOrBefore(lists, prevEnd) : null;
-      const flow = sumFlowInMonth(lists, monthEnd);
+      const emv = sumOnOrBefore(lists, monthEnd) || 0;
       const hasSnapshot = items.some((item) =>
         item.snapshots.some((snapshot) => snapshot.asOfDate.slice(0, 7) === monthEnd.slice(0, 7)));
-      const period = bmv == null ? null : emv - bmv - flow;
-      const monthlyPct = bmv != null && bmv > 0 && period != null ? period / bmv : null;
+      let period = null;
+      let bmvForReturn = 0;
+      lists.forEach((list) => {
+        const begin = prevEnd ? latestCentsOnOrBefore(list, prevEnd) : null;
+        if (begin == null) {
+          return;
+        }
+        const end = latestCentsOnOrBefore(list, monthEnd);
+        const flow = flowInMonth(list, monthEnd);
+        period = (period || 0) + ((end != null ? end : 0) - begin - flow);
+        if (begin > 0) {
+          bmvForReturn += begin;
+        }
+      });
+      const monthlyPct = bmvForReturn > 0 ? period / bmvForReturn : null;
       rows.push({
         asOfDate: monthEnd,
         periodGain: period,
@@ -158,16 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return sum * (12 / windowRows.length);
   }
 
+  function latestCentsOnOrBefore(list, asOfDate) {
+    let cents = null;
+    list.forEach((snapshot) => {
+      if (snapshot.asOfDate <= asOfDate) {
+        cents = snapshot.cents;
+      }
+    });
+    return cents;
+  }
+
   function sumOnOrBefore(lists, asOfDate) {
     let sum = 0;
     let any = false;
     lists.forEach((list) => {
-      let cents = null;
-      list.forEach((snapshot) => {
-        if (snapshot.asOfDate <= asOfDate) {
-          cents = snapshot.cents;
-        }
-      });
+      const cents = latestCentsOnOrBefore(list, asOfDate);
       if (cents != null) {
         any = true;
         sum += cents;
@@ -176,27 +192,29 @@ document.addEventListener('DOMContentLoaded', () => {
     return any ? sum : null;
   }
 
-  function sumFlowInMonth(lists, monthEnd) {
+  function flowInMonth(list, monthEnd) {
     const start = `${monthEnd.slice(0, 7)}-01`;
     let sum = 0;
-    lists.forEach((list) => {
-      list.forEach((snapshot) => {
-        if (snapshot.asOfDate >= start && snapshot.asOfDate <= monthEnd) {
-          sum += snapshot.flowCents || 0;
-        }
-      });
+    list.forEach((snapshot) => {
+      if (snapshot.asOfDate >= start && snapshot.asOfDate <= monthEnd) {
+        sum += snapshot.flowCents || 0;
+      }
     });
     return sum;
   }
 
   function monthEnds(earliest) {
     const [year0, month0] = earliest.split('-').map(Number);
-    const now = new Date();
+    const today = localIsoDate(new Date());
     const months = [];
     let year = year0;
     let month = month0;
-    while (year < now.getFullYear() || (year === now.getFullYear() && month <= now.getMonth() + 1)) {
-      months.push(localIsoDate(new Date(year, month, 0)));
+    while (true) {
+      const monthEnd = localIsoDate(new Date(year, month, 0));
+      if (monthEnd > today) {
+        break;
+      }
+      months.push(monthEnd);
       month += 1;
       if (month > 12) {
         month = 1;
