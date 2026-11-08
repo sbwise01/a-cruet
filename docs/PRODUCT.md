@@ -565,15 +565,15 @@ Follow-on to the shipped register (Section 11). Planned. Implementation: [`NET_W
 
 Household **dollar gain** of opted-in investments, after performance (Section 14) ships. Planned. Implementation: [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md).
 
-Not percent (that is Section 14). Not account level (that is Section 13). **Sum first**, no dropdown, **no groups**. Each month `EMV − BMV − C`; chart is **trailing 12-month dollars** (sum of those months, not scaled up). Table lists snapshot months or non-zero gain only. Optional 5-year dash uses the **same investment run-rate** as Section 15 (`C` grows the pile; the line is `value × r × 4`, not a running total). Gate is 4 consecutive quarters on the **combined** flagged series. Drawdown / `incomeCents` later-scope.
+Not percent (that is Section 14). Not account level (that is Section 13). **Sum first**, no dropdown, **no groups**. Table still lists that month’s `EMV − BMV − C`. Chart is **current principal × trailing 12-month annualized return** — the annual dollar income on that pile if you stopped contributing. Contributions change the pile, they are not income, and the line does not reset in January. Optional 5-year dash uses the **same investment return** as Section 15 with **C = 0**. Gate is 4 consecutive quarters on the **combined** flagged series. Drawdown / `incomeCents` later-scope.
 
 | Item | Decision |
 |------|----------|
 | Path | `/reports/investment-gain`. Hub tile. Same UI release as Section 14 ([`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) R2) |
 | Series | All flagged assets, sum first. No groups, no per-asset zoom |
-| Chart | Trailing 12-month dollar gain (unscaled sum), monthly axis, January year labels |
+| Chart | Principal × trailing annualized return, monthly axis, January year labels |
 | Table | Month, gain, annualized gain; skip empty $0 months |
-| Projection | Chart only, 5 years, toggle off; join = last chart point; 4-quarter gate (any flagged snapshot counts for the quarter) |
+| Projection | Chart only, 5 years, C = 0, toggle off; join = last chart point; 4-quarter gate (any flagged snapshot counts for the quarter) |
 | Name | **Investment gain over time** — not income |
 
 #### Cross-references
@@ -591,7 +591,7 @@ Not percent (that is Section 14). Not account level (that is Section 13). **Sum 
 - Application operates on both server side and client side
 - Client side consists of HTML and JavaScript delivered to a web browser which serves as the front end
 - Server side consists of REST based API resources running on the Tomcat server
-- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, a household net worth history (live Assets Net plus saved observations, including past year-end totals; piggyback stamp and optional 5-year sketch), value-over-time charts of snapshot items and groups, investment performance on opted-in assets (monthly value plus net contribution; trailing 12-month annualized return), and a household investment-gain report (trailing 12-month dollars of `EMV − BMV − C`, optional sketch)
+- The application's primary purpose is **personal financial management**: envelope budgeting (ledger accounts as savings categories such as christmas fund, vacation fund, health fund), snapshot asset and liability tracking, transaction and balance reporting, a household net worth history (live Assets Net plus saved observations, including past year-end totals; piggyback stamp and optional 5-year sketch), value-over-time charts of snapshot items and groups, investment performance on opted-in assets (monthly value plus net contribution; trailing 12-month annualized return), and a household investment-gain report (principal × trailing annualized return, optional sketch)
 - The application will be integrated with auth.home.bradandmarsha.com for authentication of users of the application
 - The application will store data in a cloud native postgres database instance
 - The data stored by the application will be encrypted using client side encryption.  The web server will only receive data in encrypted form and store it in the database encrypted.
@@ -649,7 +649,7 @@ Not percent (that is Section 14). Not account level (that is Section 13). **Sum 
   - value-over-time report for a snapshot asset, asset group, liability, or liability group (monthly axis; carry last value forward)
   - investment performance for opted-in snapshot assets (monthly value + net contribution; trailing 12-month annualized return; not envelope transactions)
   - net-worth piggyback: today-as-of position snapshot may append COMPUTED; net-worth chart latest-per-quarter; optional 5-year dashed sketch from live Net (4-quarter gate)
-  - investment gain over time (all flagged assets summed; trailing 12-month `EMV − BMV − C`, not scaled; optional 5-year sketch)
+  - investment gain over time (all flagged assets summed; principal × trailing annualized return; optional 5-year sketch with C = 0)
 - The application will support the following administrative workflows:
   - approve new user applications
   - assign administrators

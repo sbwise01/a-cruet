@@ -127,7 +127,7 @@ class ReportViewsTest {
         assertTrue(gain.contains("id=\"investmentGainProjectToggle\""));
         assertTrue(gain.contains("acruet-investment-gain.js"));
         assertTrue(gain.contains("acruet-projection.js"));
-        assertTrue(gain.contains("trailing 12-month dollar gain"));
+        assertTrue(gain.contains("current principal"));
         assertFalse(gain.contains("id=\"bundleSelect\""));
     }
 }
