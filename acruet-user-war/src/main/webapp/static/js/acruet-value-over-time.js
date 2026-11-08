@@ -327,7 +327,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function currentMonthEndIso() {
     const now = new Date();
-    return monthEndIso(now.getFullYear(), now.getMonth() + 1);
+    const today = localIsoDate(now);
+    const thisMonthEnd = monthEndIso(now.getFullYear(), now.getMonth() + 1);
+    if (thisMonthEnd <= today) {
+      return thisMonthEnd;
+    }
+    return localIsoDate(new Date(now.getFullYear(), now.getMonth(), 0));
   }
 
   function monthEndIso(year, month) {

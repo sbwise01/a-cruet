@@ -485,7 +485,7 @@ The server still never sees amounts. **Envelopes / Savings** is not on this drop
 | Series | One dropdown, four optgroups: asset, asset group, liability, liability group |
 | Membership | **Current** members of that kind (regrouping rewrites the group chart’s past) |
 | Mixed groups | Two entries when a group has both kinds |
-| Chart | Month-end points from first snapshot through the current local month; carry last value forward; no $0 before the first snapshot |
+| Chart | Month-end points from first snapshot through the last elapsed month-end (not a future date); carry last value forward; no $0 before the first snapshot |
 | X axis | Monthly ticks; **year** label each January |
 | Table | Same monthly series |
 | Storage | Existing `financial_position_snapshot` only — no new table |
@@ -565,7 +565,7 @@ Follow-on to the shipped register (Section 11). Planned. Implementation: [`NET_W
 
 Household **dollar gain** of opted-in investments, after performance (Section 14) ships. Planned. Implementation: [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md).
 
-Not percent (that is Section 14). Not account level (that is Section 13). **Sum first**, no dropdown, **no groups**. Table still lists that month’s `EMV − BMV − C`. Chart is **current principal × trailing 12-month annualized return** — the annual dollar income on that pile if you stopped contributing. Contributions change the pile, they are not income, and the line does not reset in January. Optional 5-year dash uses the **same investment return** as Section 15 with **C = 0**. Gate is 4 consecutive quarters on the **combined** flagged series. Drawdown / `incomeCents` later-scope.
+Not percent (that is Section 14). Not account level (that is Section 13). **Household only**, no dropdown, **no groups**. An asset’s **first snapshot is principal, not gain** — a late backfill must not spike household income. After that, each item is `EMV − BMV − C`; household gain is the sum. Chart is **current combined principal × trailing 12-month annualized return** — the annual dollar income on that pile if you stopped contributing. Contributions change the pile, they are not income, and the line does not reset in January. Optional 5-year dash uses the **same investment return** as Section 15 with **C = 0**. Gate is 4 consecutive quarters on the **combined** flagged series. Drawdown / `incomeCents` later-scope.
 
 | Item | Decision |
 |------|----------|

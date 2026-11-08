@@ -7,7 +7,7 @@ This file is the decided plan for a household **dollar-gain** report of opted-in
 Performance answers **percent**. Value over time answers **level**. This report answers **what annual dollar income this pile would produce at its trailing return if you stopped contributing**:
 
 ```text
-all flagged assets ── sum first ── monthly r ── annualized % ── EMV × that %
+all flagged assets ── per-asset first month is principal ── sum gains ── annualized % ── EMV × that %
                                               └── optional dash: 5 years, C = 0, pile grows from r only
 ```
 
@@ -24,9 +24,9 @@ This is **not**:
 | Item | Decision |
 |------|----------|
 | When | Same UI release as performance ([`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) R2). Reuses `investment` + `flowCents`. No new column |
-| Series | **Household only** — every flagged asset, **sum first**. No dropdown. **No groups** |
-| Gain | Each month’s **realized** gain is still `EMV − BMV − C` (table). **Annualized gain** is `EMV × mean(r) × 12` on the trailing window — current principal times the same simple annualized return as performance. Not a sum of past dollars. Not YTD. Not cumulative |
-| First month | No BMV → no % and no annualized $ (same as performance) |
+| Series | **Household only** — every flagged asset. No dropdown. **No groups** |
+| Gain | Each asset: `EMV − BMV − C` only after it has a beginning value. **First snapshot is principal, not gain** (a 401k that first appears in March does not count its whole balance as March income). Household gain = sum of those item gains. **Annualized gain** is combined `EMV × mean(r) × 12`. Not YTD. Not cumulative |
+| First month | Per asset, no BMV → that item contributes $0 that month. Household % starts when at least one item has a beginning value |
 | Chart | **Principal × trailing annualized return** through every month-end. January **year** labels. Not bars. Does not reset in January. Contributions change EMV (the pile), they are not income |
 | Table | Month, that month’s gain, annualized gain. Red when negative. **Only** months with a snapshot on the series **or** a non-zero gain |
 | Path | `/reports/investment-gain` (unlocked). Hub tile on `/reports` (reuse `/media/report-graphs.png` unless a new media file exists) |

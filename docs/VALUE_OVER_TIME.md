@@ -35,7 +35,7 @@ This is **not**:
 | Envelopes | **Not** on this dropdown |
 | Membership | **Current** members of that kind. No membership ledger |
 | Liabilities | Positive amounts owed (same as `/assets`) |
-| Chart | One point per **calendar month-end** from the first snapshot month through the **current local month** |
+| Chart | One point per **calendar month-end** from the first snapshot month through the **last elapsed month-end** (not a future date) |
 | Carry-forward | y = latest snapshot with `as_of_date` ≤ that month-end (tie-break `created_at`). Repeat last value through this month. No point before the first snapshot (do not start at $0) |
 | Group sum | Each month, sum members’ carried values; a member with no snapshot yet contributes 0 that month |
 | X axis | Monthly ticks; **year** label when the month is January; other months unlabeled |
@@ -81,5 +81,5 @@ Verify with `docker build --target build`. Brad owns commit/PR unless asked that
 - Group membership history
 - Holdings, tickers, or return metrics (see [`INVESTMENTS.md`](INVESTMENTS.md); dollar gain is [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md))
 - Archived items
-- Date-range filters (series is first snapshot → current month)
+- Date-range filters (series is first snapshot → last elapsed month-end)
 - Editing snapshot history
