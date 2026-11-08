@@ -1,5 +1,5 @@
 /**
- * Household investment gain over time — trailing 12-month annualized EMV − BMV − C (PRODUCT.md §16).
+ * Household investment gain over time — principal × trailing annualized return (PRODUCT.md §16).
  */
 document.addEventListener('DOMContentLoaded', () => {
   const panel = document.getElementById('reportInvestmentGainPanel');
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
       syncToggle();
       if (els.meta) {
         els.meta.textContent = state.items.length
-          ? 'All flagged investments, summed. Trailing 12-month dollar gain. Contributions are not gain.'
+          ? 'All flagged investments, summed. Annualized gain is this pile × trailing return, as if you stopped contributing.'
           : 'Track an asset as an investment on Assets to see household gain.';
       }
       renderTable(history);
@@ -123,33 +123,39 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasSnapshot = items.some((item) =>
         item.snapshots.some((snapshot) => snapshot.asOfDate.slice(0, 7) === monthEnd.slice(0, 7)));
       const period = bmv == null ? null : emv - bmv - flow;
+      const monthlyPct = bmv != null && bmv > 0 && period != null ? period / bmv : null;
       rows.push({
         asOfDate: monthEnd,
         periodGain: period,
+        monthlyPct,
         hasSnapshot,
         nonzero: period != null && period !== 0,
         emv,
+        annualizedPct: null,
         annualizedGain: null,
       });
     });
     rows.forEach((row, index) => {
-      row.annualizedGain = trailingAnnualizedGain(rows, index);
+      row.annualizedPct = trailingAnnualizedPct(rows, index);
+      row.annualizedGain = row.annualizedPct == null
+        ? null
+        : Math.round(row.emv * row.annualizedPct);
     });
     return rows;
   }
 
-  function trailingAnnualizedGain(rows, index) {
+  function trailingAnnualizedPct(rows, index) {
     const windowRows = [];
     for (let cursor = index; cursor >= 0 && windowRows.length < 12; cursor -= 1) {
-      if (rows[cursor].periodGain != null) {
+      if (rows[cursor].monthlyPct != null) {
         windowRows.unshift(rows[cursor]);
       }
     }
     if (!windowRows.length) {
       return null;
     }
-    const sum = windowRows.reduce((total, row) => total + row.periodGain, 0);
-    return Math.round(sum);
+    const sum = windowRows.reduce((total, row) => total + row.monthlyPct, 0);
+    return sum * (12 / windowRows.length);
   }
 
   function sumOnOrBefore(lists, asOfDate) {
@@ -208,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     els.control.title = gate.ready ? '' : AcruetProjection.TITLE_LOCKED;
     if (els.hint) {
       els.hint.textContent = gate.ready
-        ? 'If this pace continued — not a prediction.'
+        ? 'If you stopped contributing — income on this pile, not a prediction.'
         : AcruetProjection.scoreboardHtml(gate.quarters || [], gate.present || [], '');
     }
     if (!gate.ready) {
@@ -280,13 +286,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.toggle && els.toggle.checked && gate.ready && window.AcruetProjection) {
       const run = AcruetProjection.investmentRunRateFromLists(state.items.map((item) => item.snapshots));
       const last = history[history.length - 1];
-      const projected = AcruetProjection.projectInvestmentValue(last.emv, run.c, run.r);
-      const annualFactor = run.r * 4;
+      const rate = last.annualizedPct != null ? last.annualizedPct : run.r * 4;
+      const projected = AcruetProjection.projectInvestmentValue(last.emv, 0, run.r);
       datasets.push({
-        label: 'If this pace continued',
+        label: 'If you stopped contributing',
         data: projected.map((point) => ({
           x: Date.parse(`${point.asOfDate}T12:00:00Z`),
-          y: (point.cents * annualFactor) / 100,
+          y: (point.cents * rate) / 100,
         })),
         borderColor: '#94a3b8',
         borderDash: [6, 4],
