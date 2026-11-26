@@ -499,7 +499,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ### Bootstrap admin backfill (link existing Keycloak user to `acruet_user`)
 
-**When:** First admin(s) are created **manually in Keycloak** (`PRODUCT.md` #46): they have the **`a-cruet-admin`** realm role and can use the **admin hostname**, but **no `acruet_user` row** exists yet. The normal approve workflow cannot link them — `KeycloakAdminClient.provisionUser` rejects emails that already exist in Keycloak.
+**When:** First admin(s) are created **manually in Keycloak** (`PRODUCT.md` #46): they have the **`a-cruet-admin`** realm role and can use the **admin hostname**, but **no `acruet_user` row** exists yet. The normal approve workflow cannot link them — `KeycloakAdminClient.provisionUser` reuses only a **disabled** leftover Keycloak user (offboard purge); an **enabled** Keycloak user for that email still fails.
 
 **Symptom on user hostname:** Phase 9 item 10 unlinked-login UX (avatar + “administrators have been alerted”); **`/keys/setup` must not run** until this backfill is done. Admin hostname continues to work on Keycloak role alone.
 
@@ -1422,10 +1422,10 @@ Future product work (not rollout blockers) stays on the a-cruet README To Do and
 - [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md) — WebAuthn device unlock (shipped)
 - [`NET_WORTH.md`](NET_WORTH.md) — net worth register (complete)
 - [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md) — snapshot value-over-time report (complete)
-- [`INVESTMENTS.md`](INVESTMENTS.md) — investment tracking and performance (planned)
-- [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) — piggyback + 5-year sketch (planned)
-- [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md) — household investment gain (planned)
-- [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) — one three-release train for §14–§16
+- [`INVESTMENTS.md`](INVESTMENTS.md) — investment tracking and performance (shipped)
+- [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) — piggyback + 5-year sketch (shipped)
+- [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md) — household investment gain (shipped)
+- [`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) — one three-release train for §14–§16 (complete)
 - [`wise-k8s/KEYCLOAK.md`](../wise-k8s/KEYCLOAK.md) — IdP rollout, Phase 5 clients
 - [`wise-home-index`](../wise-home-index/) — Java 17 / Tomcat / Jersey reference
 - `wise-k8s/iac/kustomize/keycloak-cnpg/`, `plex-cnpg/` — CNPG patterns

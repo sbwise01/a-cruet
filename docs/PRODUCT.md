@@ -27,7 +27,7 @@ Product and technical decisions captured during requirements clarification. Each
 | Step | Decision |
 |------|----------|
 | 6 | Admin reviews queue on the **admin hostname** |
-| 7 | On approve, **a-cruet server**: calls **Keycloak Admin API** to create user in realm **`wise-k8s`**; sets **temporary password** via Admin API; creates initial **a-cruet data objects**; **emails** applicant a sign-in link |
+| 7 | On approve, **a-cruet server**: calls **Keycloak Admin API** to create user in realm **`wise-k8s`** (or **re-enable** a leftover disabled user for the same email after offboard purge); sets **temporary password** via Admin API; creates initial **a-cruet data objects**; **emails** applicant a sign-in link. Live `acruet_user` for that email still blocks approve. |
 
 #### Admin surface
 
@@ -215,7 +215,8 @@ Device unlock decisions live in [`DEVICE_UNLOCK.md`](DEVICE_UNLOCK.md). That fil
 |---|------|----------|
 | 48 | Offboarding flow | Admin initiates offboard → **email** to user with **7-day** data-export window |
 | 48a | Data export | User signs in during window → **client-side decrypted export** (CSV/JSON bundle) while key is unlocked |
-| 48b | Purge trigger | After **export complete** or **7-day expiration** (whichever first) → **disable Keycloak user** + **purge a-cruet data** automatically — **no** further admin confirmation required. **Household:** purge **shared ledger** only when **last member** is removed; single-member offboard leaves ledger intact for remaining members (Section 7) |
+| 48b | Purge trigger | After **export complete** or **7-day expiration** (whichever first) → **disable Keycloak user** + **purge a-cruet data** automatically — **no** further admin confirmation required. **Household:** purge **shared ledger** only when **last member** is removed; single-member offboard leaves ledger intact for remaining members (Section 7). The Keycloak account stays (disabled). A later approve for that email **re-enables** it and issues a new temporary password (Section 1 step 7). |
+| 48c | Force remove | Admin user list **Force remove** while offboarding (including export-complete, waiting for cron). Skips the remaining 7-day window. Same purge as 48b. Confirm in UI. Audited. Not available for own account. |
 
 #### Abuse prevention & monitoring
 
@@ -535,11 +536,11 @@ Value over time (Section 13) stays the dollar path. This feature adds a **net co
 
 ### 15. Net worth piggyback + projection ✅ shipped (2026-11-07)
 
-Follow-on to the shipped register (Section 11). Planned. Implementation: [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md).
+Follow-on to the shipped register (Section 11). Implementation: [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md).
 
 **Piggyback** (no investment flag): a position snapshot whose as-of is **today** appends a COMPUTED net-worth row from live Net when the latest register as-of is stale (≥ 1 calendar month, same clock as the home reminder) or is already today. Past statement dates do not stamp. Unlock and envelope txs do not stamp. **Append**, never replace. The **chart** shows the latest observation per **calendar quarter**; the **table** stays every row.
 
-**Projection**: optional dashed **5-year** overlay on `/reports/net-worth` (chart only). Engine **B** — today’s live ingredients item-by-item, not a fit through saved net-worth points. Toggle **visible but locked** until **4 consecutive trailing quarters** of snapshots on an **investment** or a **paying-down** liability. Short title + quarter-by-quarter hint. *If this pace continued — not a prediction.* Depends on Section 14’s flag and `flowCents`. Revolving-credit brand: README To Do **#4**.
+**Projection**: optional dashed **5-year** overlay on `/reports/net-worth` (chart only). Engine **B** — today’s live ingredients item-by-item, not a fit through saved net-worth points. Toggle **visible but locked** until **4 consecutive trailing quarters** of snapshots on an **investment** or a **paying-down** liability. Short title + quarter-by-quarter hint. *If this pace continued — not a prediction.* Depends on Section 14’s flag and `flowCents`. Revolving-credit brand: README To Do **#3**.
 
 | Item | Decision |
 |------|----------|
@@ -558,19 +559,19 @@ Follow-on to the shipped register (Section 11). Planned. Implementation: [`NET_W
 |-------|---------|
 | Net worth register | Section 11 |
 | Investment flag / `flowCents` | Section 14 |
-| Investment gain sketch (sum-first cousin) | Section 16 |
+| Investment gain sketch (household cousin) | Section 16 |
 | Implementation plan | [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) |
 
 ### 16. Investment gain over time ✅ shipped (2026-11-07)
 
-Household **dollar gain** of opted-in investments, after performance (Section 14) ships. Planned. Implementation: [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md).
+Household **dollar gain** of opted-in investments. Implementation: [`INVESTMENT_GAIN.md`](INVESTMENT_GAIN.md).
 
 Not percent (that is Section 14). Not account level (that is Section 13). **Household only**, no dropdown, **no groups**. An asset’s **first snapshot is principal, not gain** — a late backfill must not spike household income. After that, each item is `EMV − BMV − C`; household gain is the sum. Chart is **current combined principal × trailing 12-month annualized return** — the annual dollar income on that pile if you stopped contributing. Contributions change the pile, they are not income, and the line does not reset in January. Optional 5-year dash uses the **same investment return** as Section 15 with **C = 0**. Gate is 4 consecutive quarters on the **combined** flagged series. Drawdown / `incomeCents` later-scope.
 
 | Item | Decision |
 |------|----------|
 | Path | `/reports/investment-gain`. Hub tile. Same UI release as Section 14 ([`REPORTING_QUEUE.md`](REPORTING_QUEUE.md) R2) |
-| Series | All flagged assets, sum first. No groups, no per-asset zoom |
+| Series | All flagged assets. First snapshot is principal, not gain. No groups, no per-asset zoom |
 | Chart | Principal × trailing annualized return, monthly axis, January year labels |
 | Table | Month, gain, annualized gain; skip empty $0 months |
 | Projection | Chart only, 5 years, C = 0, toggle off; join = last chart point; 4-quarter gate (any flagged snapshot counts for the quarter) |

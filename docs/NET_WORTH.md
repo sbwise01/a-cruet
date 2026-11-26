@@ -144,4 +144,4 @@ Three releases, all shipped. Verify each with `docker build --target build`. Bra
 - Holdings / tickers (value-over-time of snapshot items and groups is [`VALUE_OVER_TIME.md`](VALUE_OVER_TIME.md))
 - Treating the Assets Net line as this feature
 
-This register is **complete**. Planned follow-on (piggyback COMPUTED stamp, quarterly chart collapse, optional 5-year sketch) is [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) / PRODUCT §15.
+This register is **complete**. Piggyback COMPUTED stamp, quarterly chart collapse, and the optional 5-year sketch shipped in [`NET_WORTH_PROJECTION.md`](NET_WORTH_PROJECTION.md) / PRODUCT §15.

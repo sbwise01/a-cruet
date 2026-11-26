@@ -96,7 +96,7 @@ Do **not** show Touch ID, Face ID, and Windows Hello as three buttons. A device 
 
 **This device is not registered**
 
-Today’s passphrase form. After a successful unlock, one offer: **Also unlock on this device next time.** Decline keeps passphrase-only here.
+Today’s passphrase form. After a successful unlock, one offer: **Also unlock on this device next time.** Decline keeps passphrase-only here. “Registered” means this browser has a credential in the user’s device list — passphrase unlock does **not** write that record. Do not hide the offer just because `localStorage` has a leftover device id.
 
 ### Manage devices (`/profile`)
 

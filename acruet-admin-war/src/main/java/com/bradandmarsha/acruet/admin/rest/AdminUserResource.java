@@ -101,6 +101,13 @@ public class AdminUserResource {
         return act(request, userId, admin -> adminOpsService.offboard(userId, admin));
     }
 
+    @POST
+    @Path("{id}/force-remove")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public Response forceRemove(@Context HttpServletRequest request, @PathParam("id") UUID userId) {
+        return act(request, userId, admin -> adminOpsService.forceRemove(userId, admin));
+    }
+
     private Response act(
             HttpServletRequest request,
             UUID userId,
@@ -213,7 +220,7 @@ public class AdminUserResource {
             boolean adminRoleKnown,
             UserRepository.OperationalUserRow row,
             Instant now) {
-        boolean offboarding = row.offboardDeadline() != null && row.offboardExportCompletedAt() == null;
+        boolean offboardInProgress = row.offboardDeadline() != null;
         boolean suspensionPending = row.suspendedUntil() != null;
         StringBuilder forms = new StringBuilder();
         if (!adminRoleKnown) {
@@ -260,11 +267,20 @@ public class AdminUserResource {
                 </form>
                 """
                         .formatted(userId));
-        if (!offboarding) {
+        if (!offboardInProgress) {
             forms.append(
                     """
                     <form method="post" action="/users/%s/offboard">
                       <button type="submit" class="reject">Offboard</button>
+                    </form>
+                    """
+                            .formatted(userId));
+        } else {
+            forms.append(
+                    """
+                    <form method="post" action="/users/%s/force-remove"
+                          onsubmit="return confirm('Skip the remaining export window and permanently delete this user from a-cruet? This cannot be undone.');">
+                      <button type="submit" class="reject">Force remove</button>
                     </form>
                     """
                             .formatted(userId));

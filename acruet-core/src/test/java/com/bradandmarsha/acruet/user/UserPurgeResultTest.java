@@ -28,4 +28,13 @@ class UserPurgeResultTest {
         assertTrue(detail.contains("ledger deleted (last member)"));
         assertFalse(result.sharedHouseholdRetained());
     }
+
+    @Test
+    void auditDetailAcceptsForcedTrigger() {
+        UUID householdId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        UserPurgeResult result = new UserPurgeResult(householdId, HouseholdMemberRole.OWNER, 1, true);
+        String detail = result.auditDetail("Forced remove by admin; skipped remaining export window");
+        assertTrue(detail.startsWith("Forced remove by admin"));
+        assertTrue(detail.contains("ledger deleted (last member)"));
+    }
 }

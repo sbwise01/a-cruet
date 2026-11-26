@@ -18,7 +18,7 @@ Product rules stay in:
 
 **Verify R1:** default `investment` false; liability rejected; PUT toggle without snapshot; `GET /positions` includes `investment`; `docker build --target build`. ✅ (2026-11-07)
 
-**Verify R2:** flag a 401k and enter quarterly value + contribution; unflagged car has no contribution field; Net ignores flows; today snapshot appends COMPUTED when register is stale or already today; past as-of does not; net-worth chart one point per quarter; performance chart is trailing 12-month annualized %, ~0 when only contribution changed; gain chart is household principal × trailing annualized return (not a sum of past dollars); four quarters unlock both sketches; house marks do not unlock net-worth sketch; package succeeds. ✅ package (2026-11-07; `docker build --target build`). Cluster UI still Brad.
+**Verify R2:** flag a 401k and enter quarterly value + contribution; unflagged car has no contribution field; Net ignores flows; today snapshot appends COMPUTED when register is stale or already today; past as-of does not; net-worth chart one point per quarter; performance chart is trailing 12-month annualized %, ~0 when only contribution changed; gain chart is household principal × trailing annualized return (first snapshot is principal; month-ends stop at today); four quarters unlock both sketches; house marks do not unlock net-worth sketch; package succeeds. ✅ package + cluster UI (2026-11-07). Brad signed the investment reporting queue **done**.
 
 **Verify R3:** offboard JSON has `investment` and `flowCents`; landing/README mention performance, gain, and the net-worth sketch; admin `/users` still has no Investments column; package succeeds. ✅ package (2026-11-07; `docker build --target build`).
 
