@@ -893,6 +893,39 @@ const AcruetCrypto = (() => {
     return me.subject || null;
   }
 
+  /**
+   * After passphrase unlock, offer "Add this device" unless this browser already
+   * has a matching row on the server. localStorage is not enough: a passphrase
+   * session must not count as registered, and a stale local id must not hide the offer.
+   */
+  async function shouldOfferRegister() {
+    if (!await supportsDeviceUnlock()) {
+      return false;
+    }
+    try {
+      const [subject, listResponse] = await Promise.all([
+        currentSubject(),
+        fetch('/keys/devices'),
+      ]);
+      if (!listResponse.ok) {
+        return !storedDevice();
+      }
+      const payload = await listResponse.json();
+      const devices = Array.isArray(payload.devices) ? payload.devices : [];
+      if (thisDeviceIsRegistered(devices, subject)) {
+        return false;
+      }
+      const stored = storedDevice();
+      if (stored) {
+        forgetDevice(stored.deviceId);
+      }
+      return true;
+    } catch (error) {
+      console.error(error);
+      return !storedDevice();
+    }
+  }
+
   async function registerThisDevice() {
     const dekKey = session.getDek();
     if (!dekKey) {
@@ -970,6 +1003,7 @@ const AcruetCrypto = (() => {
     getPlatformAssertion,
     platformUnlockLabel,
     registerThisDevice,
+    shouldOfferRegister,
     unlockWithThisDevice,
     wrapDekWithPrf,
     unwrapDekWithPrf,

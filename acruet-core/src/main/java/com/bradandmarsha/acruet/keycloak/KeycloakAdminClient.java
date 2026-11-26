@@ -48,13 +48,25 @@ public final class KeycloakAdminClient {
             throw new KeycloakAdminException("Keycloak Admin API is not configured");
         }
         String normalizedEmail = email.trim().toLowerCase();
-        if (findUserIdByEmail(normalizedEmail).isPresent()) {
-            throw new KeycloakAdminException("A Keycloak user already exists for this email.");
+        NameParts nameParts = splitName(fullName);
+        Optional<ExistingKeycloakUser> existing = findUserByEmail(normalizedEmail);
+        if (existing.isPresent()) {
+            return reuseOrReject(existing.get(), normalizedEmail, nameParts);
         }
 
         String temporaryPassword = newTemporaryPassword();
-        NameParts nameParts = splitName(fullName);
-        String userId = createUser(normalizedEmail, nameParts);
+        String userId;
+        try {
+            userId = createUser(normalizedEmail, nameParts);
+        } catch (KeycloakAdminException exception) {
+            if (exception.getMessage() != null
+                    && exception.getMessage().contains("already exists")) {
+                ExistingKeycloakUser leftover = findUserByEmail(normalizedEmail)
+                        .orElseThrow(() -> exception);
+                return reuseOrReject(leftover, normalizedEmail, nameParts);
+            }
+            throw exception;
+        }
         setTemporaryPassword(userId, temporaryPassword);
         return new ProvisionedUser(userId, temporaryPassword);
     }
@@ -69,6 +81,43 @@ public final class KeycloakAdminClient {
         String temporaryPassword = newTemporaryPassword();
         setTemporaryPassword(keycloakUserId, temporaryPassword);
         return temporaryPassword;
+    }
+
+    /**
+     * Re-enable a leftover Keycloak user (typical after offboard purge) and issue a new
+     * temporary password so approve can finish without creating a duplicate.
+     */
+    private ProvisionedUser reuseOrReject(
+            ExistingKeycloakUser existing, String email, NameParts nameParts) {
+        if (!shouldReactivateLeftover(existing.enabled())) {
+            throw new KeycloakAdminException("A Keycloak user already exists for this email.");
+        }
+        return reactivateUser(existing.id(), email, nameParts);
+    }
+
+    static boolean shouldReactivateLeftover(boolean enabled) {
+        return !enabled;
+    }
+
+    private ProvisionedUser reactivateUser(String userId, String email, NameParts nameParts) {
+        ObjectNode payload = JSON.createObjectNode();
+        payload.put("username", email);
+        payload.put("email", email);
+        payload.put("firstName", nameParts.firstName());
+        payload.put("lastName", nameParts.lastName());
+        payload.put("enabled", true);
+        payload.put("emailVerified", true);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(settings.adminApiBaseUrl() + "/users/" + userId))
+                .timeout(Duration.ofSeconds(20))
+                .header("Authorization", "Bearer " + accessToken())
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(payload.toString()))
+                .build();
+        sendExpectSuccess(request, "Keycloak user re-enable");
+        String temporaryPassword = newTemporaryPassword();
+        setTemporaryPassword(userId, temporaryPassword);
+        return new ProvisionedUser(userId, temporaryPassword);
     }
 
     public void setUserEnabled(String keycloakUserId, boolean enabled) {
@@ -264,7 +313,7 @@ public final class KeycloakAdminClient {
         }
     }
 
-    private Optional<String> findUserIdByEmail(String email) {
+    private Optional<ExistingKeycloakUser> findUserByEmail(String email) {
         String query = "email=" + encode(email) + "&exact=true";
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(settings.adminApiBaseUrl() + "/users?" + query))
@@ -287,7 +336,8 @@ public final class KeycloakAdminClient {
             if (id == null || id.asText().isBlank()) {
                 return Optional.empty();
             }
-            return Optional.of(id.asText());
+            boolean enabled = first.path("enabled").asBoolean(false);
+            return Optional.of(new ExistingKeycloakUser(id.asText(), enabled));
         } catch (KeycloakAdminException exception) {
             throw exception;
         } catch (InterruptedException interrupted) {
@@ -407,5 +457,8 @@ public final class KeycloakAdminClient {
     }
 
     record NameParts(String firstName, String lastName) {
+    }
+
+    record ExistingKeycloakUser(String id, boolean enabled) {
     }
 }

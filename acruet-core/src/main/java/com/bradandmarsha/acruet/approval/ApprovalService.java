@@ -90,6 +90,12 @@ public final class ApprovalService {
             if (application.status() != ApplicationStatus.PENDING_APPROVAL) {
                 return ActionResult.error("Application is not awaiting approval.");
             }
+            Optional<com.bradandmarsha.acruet.user.AcruetUser> existingUser =
+                    Database.inTransactionReturning(
+                            connection -> userRepository.findByEmail(connection, application.email()));
+            if (existingUser.isPresent()) {
+                return ActionResult.error("That email already belongs to an a-cruet user.");
+            }
 
             ProvisionedUser provisioned =
                     keycloakAdminClient.provisionUser(application.email(), application.fullName());
@@ -166,13 +172,13 @@ public final class ApprovalService {
                         application.email());
                 LOGGER.log(Level.FINE, "Approval mail failure detail", mailException);
                 return ActionResult.success(
-                        "Application approved and Keycloak user created, but the approval email could not be sent.");
+                        "Application approved and Keycloak user provisioned, but the approval email could not be sent.");
             }
 
             return ActionResult.success(
                     "Approved "
                             + application.email()
-                            + ". Keycloak user created and approval email sent.");
+                            + ". Keycloak user provisioned and approval email sent.");
         } catch (KeycloakAdminException exception) {
             LOGGER.log(Level.WARNING, "Keycloak provisioning failed", exception);
             return ActionResult.error(exception.getMessage());

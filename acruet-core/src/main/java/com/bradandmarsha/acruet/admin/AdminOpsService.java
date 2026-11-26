@@ -322,6 +322,48 @@ public final class AdminOpsService {
         }
     }
 
+    /**
+     * Skip the remaining export window and purge now. Only for an in-progress offboard.
+     */
+    public ApprovalService.ActionResult forceRemove(UUID userId, ApprovalService.AdminActor admin) {
+        try {
+            Optional<AcruetUser> userOptional = Database.inTransactionReturning(
+                    connection -> userRepository.findById(connection, userId));
+            if (userOptional.isEmpty()) {
+                return ApprovalService.ActionResult.error("User not found.");
+            }
+            AcruetUser user = userOptional.get();
+            if (isSelf(admin, user)) {
+                return ApprovalService.ActionResult.error("You cannot force-remove your own account.");
+            }
+            Optional<UserOffboard> offboardOptional = Database.inTransactionReturning(
+                    connection -> offboardRepository.findByUserId(connection, userId));
+            if (offboardOptional.isEmpty() || !offboardOptional.get().isActive()) {
+                return ApprovalService.ActionResult.error(
+                        "Force remove is only available while offboarding is in progress.");
+            }
+            UserOffboard offboard = offboardOptional.get();
+            UserPurgeResult result = purgeOffboardedUser(
+                    offboard,
+                    user,
+                    admin,
+                    "Forced remove by admin; skipped remaining export window");
+            String retentionNote = result.householdDeleted()
+                    ? " Household ledger deleted (last member)."
+                    : result.sharedHouseholdRetained()
+                            ? " Shared household ledger remains for other members."
+                            : "";
+            return ApprovalService.ActionResult.success(
+                    "Removed " + user.email() + " from a-cruet." + retentionNote);
+        } catch (KeycloakAdminException exception) {
+            LOGGER.log(Level.WARNING, "Force remove failed in Keycloak", exception);
+            return ApprovalService.ActionResult.error(exception.getMessage());
+        } catch (Exception exception) {
+            LOGGER.log(Level.WARNING, "Force remove failed", exception);
+            return ApprovalService.ActionResult.error("Force remove failed. Please try again.");
+        }
+    }
+
     public ApprovalService.ActionResult unblockSignup(UUID applicationId, ApprovalService.AdminActor admin) {
         try {
             Optional<SignupApplication> applicationOptional = signupRepository.findById(applicationId);
@@ -388,19 +430,13 @@ public final class AdminOpsService {
                     if (userOptional.isEmpty()) {
                         continue;
                     }
-                    AcruetUser user = userOptional.get();
-                    keycloakAdminClient.setUserEnabled(user.keycloakUserId(), false);
-                    Database.inTransaction(connection -> {
-                        UserPurgeResult result = userRepository.purgeProvisionedUser(connection, offboard.userId());
-                        auditRepository.insert(
-                                connection,
-                                CRON_ACTOR.keycloakUserId(),
-                                CRON_ACTOR.email(),
-                                ApprovalAction.PURGE_USER,
-                                TARGET_TYPE_USER,
-                                offboard.userId(),
-                                result.auditDetail(offboard.isExportComplete()));
-                    });
+                    purgeOffboardedUser(
+                            offboard,
+                            userOptional.get(),
+                            CRON_ACTOR,
+                            offboard.isExportComplete()
+                                    ? "Purged after export complete"
+                                    : "Purged after export deadline");
                     purged++;
                 } catch (Exception exception) {
                     LOGGER.log(
@@ -416,6 +452,27 @@ public final class AdminOpsService {
             errors.add(exception.getMessage());
             return new CronResult(purged, errors);
         }
+    }
+
+    private UserPurgeResult purgeOffboardedUser(
+            UserOffboard offboard,
+            AcruetUser user,
+            ApprovalService.AdminActor actor,
+            String trigger)
+            throws Exception {
+        keycloakAdminClient.setUserEnabled(user.keycloakUserId(), false);
+        return Database.inTransactionReturning(connection -> {
+            UserPurgeResult result = userRepository.purgeProvisionedUser(connection, offboard.userId());
+            auditRepository.insert(
+                    connection,
+                    actor.keycloakUserId(),
+                    actor.email(),
+                    ApprovalAction.PURGE_USER,
+                    TARGET_TYPE_USER,
+                    offboard.userId(),
+                    result.auditDetail(trigger));
+            return result;
+        });
     }
 
     public void alertLoginAnomaly(long anomalyId) {

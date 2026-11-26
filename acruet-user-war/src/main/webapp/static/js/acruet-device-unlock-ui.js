@@ -137,8 +137,7 @@ const AcruetDeviceUnlock = (() => {
         }
         const payload = await response.json();
         await AcruetCrypto.session.unlock(passphrase, payload);
-        const canOffer = await AcruetCrypto.deviceUnlock.supportsDeviceUnlock()
-          && !AcruetCrypto.deviceUnlock.storedDevice();
+        const canOffer = await AcruetCrypto.deviceUnlock.shouldOfferRegister();
         if (canOffer) {
           offerPending = true;
           showingPassphrase = false;

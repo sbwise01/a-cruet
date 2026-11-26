@@ -3,6 +3,8 @@ package com.bradandmarsha.acruet.keycloak;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KeycloakAdminClientTest {
 
@@ -24,5 +26,11 @@ class KeycloakAdminClientTest {
     void temporaryPasswordHasExpectedLength() {
         String password = KeycloakAdminClient.newTemporaryPassword();
         assertEquals(16, password.length());
+    }
+
+    @Test
+    void leftoverDisabledUserIsReusable() {
+        assertTrue(KeycloakAdminClient.shouldReactivateLeftover(false));
+        assertFalse(KeycloakAdminClient.shouldReactivateLeftover(true));
     }
 }

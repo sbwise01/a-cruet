@@ -15,7 +15,10 @@ public record UserPurgeResult(
         boolean householdDeleted) {
 
     public String auditDetail(boolean exportComplete) {
-        String trigger = exportComplete ? "Purged after export complete" : "Purged after export deadline";
+        return auditDetail(exportComplete ? "Purged after export complete" : "Purged after export deadline");
+    }
+
+    public String auditDetail(String trigger) {
         if (householdDeleted) {
             return trigger
                     + "; household "
